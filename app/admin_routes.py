@@ -82,9 +82,10 @@ def _clean_challenges():
     db.session.commit()
 
 def login_required(f):
+    """Allow local-network requests through unconditionally; remote requests require a session."""
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get("admin_authenticated"):
+        if not _is_local_request() and not session.get("admin_authenticated"):
             return redirect(url_for("admin.login_page"))
         return f(*args, **kwargs)
     return decorated
@@ -118,6 +119,9 @@ def index():
 @admin_bp.route("/login")
 @local_only
 def login_page():
+    # Local network: skip login entirely
+    if _is_local_request():
+        return redirect(url_for("admin.index"))
     if session.get("admin_authenticated"):
         return redirect(url_for("admin.index"))
     has_credentials = WebAuthnCredential.query.count() > 0
