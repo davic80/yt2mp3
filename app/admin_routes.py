@@ -1,18 +1,14 @@
 import base64
 import json
-import os
 import re
 import time
 import functools
 
 import webauthn
 from webauthn.helpers.structs import (
-    AuthenticatorSelectionCriteria,
-    ResidentKeyRequirement,
     UserVerificationRequirement,
     PublicKeyCredentialDescriptor,
 )
-from webauthn.helpers.cose import COSEAlgorithmIdentifier
 from flask import (
     Blueprint,
     current_app,
@@ -125,11 +121,9 @@ def login_page():
     if session.get("admin_authenticated"):
         return redirect(url_for("admin.index"))
     has_credentials = WebAuthnCredential.query.count() > 0
-    is_local = _is_local_request()
     return render_template(
         "admin/login.html",
         has_credentials=has_credentials,
-        is_local=is_local,
     )
 
 
@@ -140,110 +134,7 @@ def logout():
     return redirect(url_for("admin.login_page"))
 
 
-# ── WebAuthn: Registration (LOCAL ONLY) ───────────────────────────────────────
-
-@admin_bp.route("/webauthn/register/begin", methods=["POST"])
-@local_only
-def register_begin():
-    """Registration is always restricted to local network.
-    Requires auth if credentials already exist (adding a new passkey)."""
-    has_creds = WebAuthnCredential.query.count() > 0
-    if has_creds and not session.get("admin_authenticated"):
-        abort(403)
-
-    _clean_challenges()
-
-    # Get or create admin user
-    user = AdminUser.query.filter_by(username="admin").first()
-    if not user:
-        user = AdminUser(
-            username="admin",
-            user_handle=_b64url(os.urandom(32)),
-        )
-        db.session.add(user)
-        db.session.commit()
-
-    existing = [
-        PublicKeyCredentialDescriptor(id=c.credential_id_bytes())
-        for c in user.credentials
-    ]
-
-    options = webauthn.generate_registration_options(
-        rp_id=_rp_id(),
-        rp_name=_rp_name(),
-        user_id=_b64url_decode(user.user_handle),
-        user_name="admin",
-        user_display_name="yt2mp3 Admin",
-        exclude_credentials=existing,
-        authenticator_selection=AuthenticatorSelectionCriteria(
-            resident_key=ResidentKeyRequirement.REQUIRED,
-            user_verification=UserVerificationRequirement.REQUIRED,
-        ),
-        supported_pub_key_algs=[
-            COSEAlgorithmIdentifier.ECDSA_SHA_256,
-            COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
-        ],
-    )
-
-    challenge_b64 = _b64url(options.challenge)
-    ch = WebAuthnChallenge(
-        ceremony="registration",
-        challenge=challenge_b64,
-        expires_at=time.time() + CHALLENGE_TTL,
-    )
-    db.session.add(ch)
-    db.session.commit()
-
-    return jsonify(json.loads(webauthn.options_to_json(options)))
-
-
-@admin_bp.route("/webauthn/register/complete", methods=["POST"])
-@local_only
-def register_complete():
-    has_creds = WebAuthnCredential.query.count() > 0
-    if has_creds and not session.get("admin_authenticated"):
-        abort(403)
-
-    _clean_challenges()
-    data = request.get_json()
-
-    ch = (
-        WebAuthnChallenge.query
-        .filter_by(ceremony="registration")
-        .order_by(WebAuthnChallenge.id.desc())
-        .first_or_404()
-    )
-
-    try:
-        verification = webauthn.verify_registration_response(
-            credential=data,
-            expected_challenge=_b64url_decode(ch.challenge),
-            expected_rp_id=_rp_id(),
-            expected_origin=_origin(),
-            require_user_verification=True,
-        )
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
-
-    db.session.delete(ch)
-
-    user = AdminUser.query.filter_by(username="admin").first()
-    cred = WebAuthnCredential(
-        user_id=user.id,
-        credential_id=_b64url(verification.credential_id),
-        public_key=_b64url(verification.credential_public_key),
-        sign_count=verification.sign_count,
-        name=data.get("name", "My Passkey"),
-        transports=json.dumps(data.get("transports", [])),
-    )
-    db.session.add(cred)
-    db.session.commit()
-
-    session["admin_authenticated"] = True
-    return jsonify({"ok": True})
-
-
-# ── WebAuthn: Authentication (any network) ────────────────────────────────────
+# ── WebAuthn: Authentication (local only) ─────────────────────────────────────
 
 @admin_bp.route("/webauthn/auth/begin", methods=["POST"])
 @local_only

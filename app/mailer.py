@@ -27,9 +27,18 @@ def _build_html(data: dict) -> str:
         else "—"
     )
     browser = f"{data.get('ua_browser') or '—'} {data.get('ua_browser_version') or ''}".strip()
+
+    base_url = os.environ.get("WEBAUTHN_ORIGIN", "").rstrip("/")
+    job_id   = data.get("job_id") or ""
+    file_name = data.get("file_name") or "—"
+    if base_url and job_id:
+        file_cell = f'<a href="{base_url}/files/{job_id}" style="color:#39FF14;">{file_name}</a>'
+    else:
+        file_cell = file_name
+
     rows = [
         ("Title",            data.get("title") or "—"),
-        ("File",             data.get("file_name") or "—"),
+        ("File",             file_cell),
         ("YouTube URL",      data.get("youtube_url") or "—"),
         ("Date",             created),
         ("IP",               data.get("ip_address") or "—"),
