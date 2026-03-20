@@ -83,55 +83,30 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Extract changelog section for this version
-        id: changelog
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          # Extract block between ## [X.Y.Z] and the next ## [
-          NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          # Store as multiline output
-          {
-            echo "notes<<EOF"
-            echo "$NOTES"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Compose release body
-        id: body
+      - name: Compose release notes
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           DIGEST="${{ needs.build-push.outputs.digest }}"
-          {
-            echo "body<<EOF"
-            echo "## Cambios en v${VERSION}"
-            echo ""
-            echo "${{ steps.changelog.outputs.notes }}"
-            echo ""
-            echo "---"
-            echo ""
-            echo "## Docker"
-            echo ""
-            echo '```'
-            echo "docker pull ghcr.io/davic80/yt2mp3:${VERSION}"
-            echo '```'
-            echo ""
-            echo "| | |"
-            echo "|---|---|"
-            echo "| **Imagen** | \`ghcr.io/davic80/yt2mp3:${VERSION}\` |"
-            echo "| **Tags** | \`${VERSION}\`, \`latest\` |"
-            echo "| **Plataformas** | \`linux/amd64\`, \`linux/arm64\` |"
-            echo "| **Digest** | \`${DIGEST}\` |"
-            echo ""
-            echo "### Desplegar en Raspberry Pi"
-            echo '```bash'
-            echo "# Actualizar a esta versión"
-            echo "docker compose pull && docker compose up -d"
-            echo ""
-            echo "# O fijar esta versión concreta en .env"
-            echo "IMAGE_TAG=${VERSION} docker compose up -d"
-            echo '```'
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+
+          # Extract changelog section for this version into a temp file
+          awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" \
+            CHANGELOG.md > /tmp/release_notes.md
+
+          # Append Docker section using printf to avoid any shell interpretation issues
+          printf '\n---\n\n## Docker\n\n```\ndocker pull ghcr.io/davic80/yt2mp3:%s\n```\n\n' \
+            "${VERSION}" >> /tmp/release_notes.md
+
+          printf '| | |\n|---|---|\n' >> /tmp/release_notes.md
+          printf '| **Image** | `ghcr.io/davic80/yt2mp3:%s` |\n' "${VERSION}" >> /tmp/release_notes.md
+          printf '| **Tags** | `%s`, `latest` |\n' "${VERSION}" >> /tmp/release_notes.md
+          printf '| **Platforms** | `linux/amd64`, `linux/arm64` |\n' >> /tmp/release_notes.md
+          printf '| **Digest** | `%s` |\n' "${DIGEST}" >> /tmp/release_notes.md
+
+          printf '\n### Deploy on Raspberry Pi\n```bash\ndocker compose pull && docker compose up -d\n\n# Or pin this specific version\nIMAGE_TAG=%s docker compose up -d\n```\n' \
+            "${VERSION}" >> /tmp/release_notes.md
+
+          echo "--- Release notes preview ---"
+          cat /tmp/release_notes.md
 
       - name: Create GitHub Release
         env:
@@ -139,5 +114,5 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" \
             --title "${{ github.ref_name }}" \
-            --notes "${{ steps.body.outputs.body }}" \
+            --notes-file /tmp/release_notes.md \
             --verify-tag
