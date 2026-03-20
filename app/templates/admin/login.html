@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>yt2mp3 · admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1c1c1c; --surface: #252525; --border: #333;
+      --neon: #39FF14; --neon-glow: rgba(57,255,20,.3);
+      --text: #e0e0e0; --muted: #888; --error: #ff4d4d;
+      --radius: 8px; --font: 'Inter', system-ui, sans-serif;
+    }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--font);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    .card {
+      width: 100%; max-width: 400px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 2.5rem 2rem;
+      display: flex; flex-direction: column; gap: 1.5rem;
+    }
+    .logo { text-align: center; }
+    .logo-title { font-size: 1.8rem; font-weight: 600; letter-spacing: -1px; }
+    .logo-sep, .logo-mp3 { color: var(--neon); }
+    .logo-sub { font-size: 0.75rem; color: var(--muted); letter-spacing: .1em; margin-top: .3rem; }
+
+    .btn-passkey {
+      width: 100%; padding: 0.9rem;
+      background: var(--neon); border: none; border-radius: var(--radius);
+      color: #0a0a0a; font-family: var(--font); font-size: 1rem; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: .6rem;
+      transition: background .15s, box-shadow .15s;
+    }
+    .btn-passkey:hover:not(:disabled) { background: #4fff25; box-shadow: 0 0 18px var(--neon-glow); }
+    .btn-passkey:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-passkey svg { width: 1.2rem; height: 1.2rem; flex-shrink: 0; }
+
+    .btn-secondary {
+      width: 100%; padding: .65rem;
+      background: transparent; border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--muted); font-family: var(--font); font-size: .85rem;
+      cursor: pointer; transition: border-color .15s, color .15s;
+    }
+    .btn-secondary:hover { border-color: var(--muted); color: var(--text); }
+
+    .status {
+      font-size: .82rem; text-align: center; color: var(--muted); min-height: 1.2em;
+    }
+    .status.error { color: var(--error); }
+    .status.ok    { color: var(--neon); }
+
+    .divider { border: none; border-top: 1px solid var(--border); }
+
+    /* Blocked state */
+    .blocked-icon {
+      text-align: center; font-size: 2.5rem; opacity: .25; margin-bottom: -.5rem;
+    }
+    .blocked-msg {
+      text-align: center; color: var(--muted); font-size: .875rem; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-title">
+      <span>yt</span><span class="logo-sep">2</span><span class="logo-mp3">mp3</span>
+    </div>
+    <div class="logo-sub">panel de administración</div>
+  </div>
+
+  {# ── State 1: has credentials → show auth button (always), register extra (local only) ── #}
+  {% if has_credentials %}
+
+    <button class="btn-passkey" id="btn-auth">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+      </svg>
+      autenticar con passkey
+    </button>
+
+    {% if is_local %}
+    <hr class="divider" />
+    <button class="btn-secondary" id="btn-add-key">añadir otra passkey</button>
+    {% endif %}
+
+  {# ── State 2: no credentials + local → first-time registration ── #}
+  {% elif is_local %}
+
+    <p class="status">Primera vez. Registra una passkey para activar el acceso al admin.</p>
+    <button class="btn-passkey" id="btn-register-first">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      registrar passkey
+    </button>
+
+  {# ── State 3: no credentials + remote → say nothing useful ── #}
+  {% else %}
+
+    <div class="blocked-icon">⚿</div>
+    <p class="blocked-msg">
+      Panel de administración no disponible.<br/>
+      Accede desde la red local para configurarlo.
+    </p>
+
+  {% endif %}
+
+  <p class="status" id="status-msg"></p>
+</div>
+
+{% if has_credentials or is_local %}
+<script>
+const statusEl = document.getElementById('status-msg');
+
+function setStatus(msg, type = '') {
+  statusEl.textContent = msg;
+  statusEl.className = 'status ' + type;
+}
+
+function b64urlToBuffer(b64) {
+  b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+function bufferToB64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function register() {
+  setStatus('solicitando opciones de registro...', '');
+  try {
+    const beginResp = await fetch('/db/webauthn/register/begin', { method: 'POST' });
+    if (!beginResp.ok) { setStatus((await beginResp.json()).error || 'Error', 'error'); return; }
+    const options = await beginResp.json();
+
+    options.challenge = b64urlToBuffer(options.challenge);
+    options.user.id   = b64urlToBuffer(options.user.id);
+    if (options.excludeCredentials) {
+      options.excludeCredentials = options.excludeCredentials.map(c =>
+        ({ ...c, id: b64urlToBuffer(c.id) })
+      );
+    }
+
+    setStatus('esperando autenticador (Touch ID / Face ID)...', '');
+    const credential = await navigator.credentials.create({ publicKey: options });
+
+    const payload = {
+      id:    credential.id,
+      rawId: bufferToB64url(credential.rawId),
+      type:  credential.type,
+      response: {
+        attestationObject: bufferToB64url(credential.response.attestationObject),
+        clientDataJSON:    bufferToB64url(credential.response.clientDataJSON),
+      },
+      transports: credential.response.getTransports ? credential.response.getTransports() : [],
+    };
+
+    const completeResp = await fetch('/db/webauthn/register/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await completeResp.json();
+    if (result.ok) {
+      setStatus('¡passkey registrada!', 'ok');
+      setTimeout(() => window.location.href = '/db/', 800);
+    } else {
+      setStatus(result.error || 'Error al registrar', 'error');
+    }
+  } catch (err) {
+    setStatus(err.message || 'Cancelado o no soportado', 'error');
+  }
+}
+
+async function authenticate() {
+  setStatus('solicitando reto...', '');
+  try {
+    const beginResp = await fetch('/db/webauthn/auth/begin', { method: 'POST' });
+    if (!beginResp.ok) { setStatus((await beginResp.json()).error || 'Error', 'error'); return; }
+    const options = await beginResp.json();
+
+    options.challenge = b64urlToBuffer(options.challenge);
+    if (options.allowCredentials) {
+      options.allowCredentials = options.allowCredentials.map(c =>
+        ({ ...c, id: b64urlToBuffer(c.id) })
+      );
+    }
+
+    setStatus('esperando passkey (Touch ID / Face ID)...', '');
+    const assertion = await navigator.credentials.get({ publicKey: options });
+
+    const payload = {
+      id:    assertion.id,
+      rawId: bufferToB64url(assertion.rawId),
+      type:  assertion.type,
+      response: {
+        authenticatorData: bufferToB64url(assertion.response.authenticatorData),
+        clientDataJSON:    bufferToB64url(assertion.response.clientDataJSON),
+        signature:         bufferToB64url(assertion.response.signature),
+        userHandle: assertion.response.userHandle
+          ? bufferToB64url(assertion.response.userHandle) : null,
+      },
+    };
+
+    const completeResp = await fetch('/db/webauthn/auth/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await completeResp.json();
+    if (result.ok) {
+      setStatus('¡autenticado!', 'ok');
+      setTimeout(() => window.location.href = '/db/', 600);
+    } else {
+      setStatus(result.error || 'Autenticación fallida', 'error');
+    }
+  } catch (err) {
+    setStatus(err.message || 'Cancelado o no soportado', 'error');
+  }
+}
+
+document.getElementById('btn-auth')?.addEventListener('click', authenticate);
+document.getElementById('btn-register-first')?.addEventListener('click', register);
+document.getElementById('btn-add-key')?.addEventListener('click', register);
+</script>
+{% endif %}
+</body>
+</html>
