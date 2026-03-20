@@ -1,0 +1,232 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:        #1c1c1c;
+  --surface:   #252525;
+  --border:    #333;
+  --neon:      #39FF14;
+  --neon-dim:  #27b30d;
+  --neon-glow: rgba(57, 255, 20, 0.35);
+  --text:      #e0e0e0;
+  --muted:     #888;
+  --error:     #ff4d4d;
+  --radius:    8px;
+  --font:      'Inter', system-ui, sans-serif;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+/* ── Container ─────────────────────────────────────────── */
+.container {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  text-align: center;
+}
+
+.logo {
+  font-size: 3rem;
+  font-weight: 600;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.logo-yt  { color: var(--text); }
+.logo-sep { color: var(--neon); }
+.logo-mp3 { color: var(--neon); }
+
+.tagline {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+/* ── Form ────────────────────────────────────────────────── */
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.input-wrap {
+  position: relative;
+}
+
+#url-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--neon);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  padding: 0.85rem 1rem;
+  outline: none;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+#url-input::placeholder {
+  color: var(--muted);
+}
+
+#url-input:focus {
+  box-shadow: 0 0 0 3px var(--neon-glow);
+}
+
+#url-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Button ──────────────────────────────────────────────── */
+#btn-magic {
+  width: 100%;
+  background: var(--neon);
+  border: none;
+  border-radius: var(--radius);
+  color: #0a0a0a;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 0.9rem;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+#btn-magic:hover:not(:disabled) {
+  background: #4fff25;
+  box-shadow: 0 0 18px var(--neon-glow);
+}
+
+#btn-magic:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+#btn-magic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Progress ────────────────────────────────────────────── */
+.progress-bar-track {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--neon);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px var(--neon-glow);
+}
+
+.progress-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+/* ── Download result ─────────────────────────────────────── */
+.download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: transparent;
+  border: 1.5px solid var(--neon);
+  border-radius: var(--radius);
+  color: var(--neon);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.9rem;
+  text-decoration: none;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.download-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+.download-btn:hover {
+  background: rgba(57, 255, 20, 0.08);
+  box-shadow: 0 0 14px var(--neon-glow);
+}
+
+.reset-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  padding: 0.6rem;
+  transition: border-color 0.15s, color 0.15s;
+  margin-top: 0.25rem;
+}
+
+.reset-btn:hover {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+/* ── Error ───────────────────────────────────────────────── */
+.error-msg {
+  background: rgba(255, 77, 77, 0.1);
+  border: 1px solid rgba(255, 77, 77, 0.35);
+  border-radius: var(--radius);
+  color: var(--error);
+  font-size: 0.875rem;
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+
+/* ── Utils ───────────────────────────────────────────────── */
+.hidden {
+  display: none !important;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 400px) {
+  .logo { font-size: 2.2rem; }
+}

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>yt2mp3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="logo">
+        <span class="logo-yt">yt</span><span class="logo-sep">2</span><span class="logo-mp3">mp3</span>
+      </div>
+      <p class="tagline">pega, pulsa, descarga</p>
+    </header>
+
+    <main>
+      <form id="form" autocomplete="off" novalidate>
+        <div class="input-wrap">
+          <input
+            id="url-input"
+            type="url"
+            placeholder="https://youtube.com/watch?v=..."
+            spellcheck="false"
+            required
+          />
+        </div>
+        <button type="submit" id="btn-magic">magia</button>
+      </form>
+
+      <!-- Progress area -->
+      <div id="progress-area" class="hidden">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <p class="progress-label" id="progress-label">preparando...</p>
+      </div>
+
+      <!-- Result area -->
+      <div id="result-area" class="hidden">
+        <a id="download-link" class="download-btn" href="#" download>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span id="download-label">descargar mp3</span>
+        </a>
+        <button class="reset-btn" id="btn-reset">convertir otro</button>
+      </div>
+
+      <!-- Error area -->
+      <div id="error-area" class="hidden">
+        <p id="error-msg" class="error-msg"></p>
+        <button class="reset-btn" id="btn-reset-err">reintentar</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- FingerprintJS OSS (loaded from CDN, no tracking to FP servers) -->
+  <script>
+    // Minimal canvas + audio fingerprint implementation (no external CDN required)
+    (function () {
+      window._fpData = { visitorId: null, components: {} };
+
+      function canvasFingerprint() {
+        try {
+          const c = document.createElement('canvas');
+          const ctx = c.getContext('2d');
+          ctx.textBaseline = 'top';
+          ctx.font = '14px Arial';
+          ctx.fillStyle = '#f60';
+          ctx.fillRect(125, 1, 62, 20);
+          ctx.fillStyle = '#069';
+          ctx.fillText('yt2mp3 🎵', 2, 15);
+          ctx.fillStyle = 'rgba(102,204,0,0.7)';
+          ctx.fillText('yt2mp3 🎵', 4, 17);
+          return c.toDataURL();
+        } catch (e) { return ''; }
+      }
+
+      function getComponents() {
+        const nav = navigator;
+        return {
+          ua: nav.userAgent,
+          lang: nav.language,
+          langs: (nav.languages || []).join(','),
+          platform: nav.platform,
+          cookieEnabled: nav.cookieEnabled,
+          doNotTrack: nav.doNotTrack,
+          screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezoneOffset: new Date().getTimezoneOffset(),
+          hardwareConcurrency: nav.hardwareConcurrency,
+          deviceMemory: nav.deviceMemory,
+          maxTouchPoints: nav.maxTouchPoints,
+          canvas: canvasFingerprint().slice(0, 64),
+          plugins: Array.from(nav.plugins || []).map(p => p.name).join(','),
+          webGL: (function () {
+            try {
+              const gl = document.createElement('canvas').getContext('webgl');
+              const ext = gl.getExtension('WEBGL_debug_renderer_info');
+              return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : '';
+            } catch (e) { return ''; }
+          })(),
+        };
+      }
+
+      function simpleHash(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) {
+          h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        }
+        return Math.abs(h).toString(16);
+      }
+
+      function getCookiesAsObject() {
+        const obj = {};
+        document.cookie.split(';').forEach(pair => {
+          const [k, ...rest] = pair.trim().split('=');
+          if (k) obj[k.trim()] = rest.join('=');
+        });
+        return obj;
+      }
+
+      const components = getComponents();
+      const hash = simpleHash(JSON.stringify(components));
+      window._fpData = {
+        visitorId: hash,
+        components: components,
+      };
+      window._cookieData = getCookiesAsObject();
+    })();
+  </script>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
