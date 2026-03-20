@@ -28,10 +28,10 @@ body {
   color: var(--text);
   font-family: var(--font);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   min-height: 100vh;
-  padding: 1.5rem;
+  padding: clamp(2rem, 15vh, 8rem) 1.5rem 1.5rem;
 }
 
 /* ── Container ─────────────────────────────────────────── */
@@ -228,7 +228,23 @@ main {
   display: none !important;
 }
 
+/* ── Version badge ───────────────────────────────────────── */
+.version-badge {
+  position: fixed;
+  bottom: 0.75rem;
+  right: 1rem;
+  font-size: 0.7rem;
+  color: #555;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .version-badge { display: none; }
+}
+
 @media (max-width: 400px) {
   .logo { font-size: 2.2rem; }
 }

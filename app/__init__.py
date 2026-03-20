@@ -51,6 +51,11 @@ def create_app():
     app.config["WEBAUTHN_RP_NAME"] = os.environ.get("WEBAUTHN_RP_NAME", "yt2mp3 admin")
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
+    # Version / build info (injected at Docker build time)
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "1.3.0")
+    app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
+    app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
+
     # Ensure dirs exist
     os.makedirs(app.config["DOWNLOAD_DIR"], exist_ok=True)
     os.makedirs(os.path.dirname(
@@ -69,5 +74,13 @@ def create_app():
     from app.admin_routes import admin_bp
     app.register_blueprint(bp)
     app.register_blueprint(admin_bp)
+
+    @app.context_processor
+    def inject_build_info():
+        return {
+            "version":  app.config["APP_VERSION"],
+            "commit":   app.config["GIT_COMMIT"],
+            "repo_url": app.config["REPO_URL"],
+        }
 
     return app

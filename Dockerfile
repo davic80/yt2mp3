@@ -24,8 +24,14 @@ RUN mkdir -p /app/downloads /app/database
 
 EXPOSE 5000
 
+# Build-time arg for commit SHA (passed by GitHub Actions)
+ARG GIT_COMMIT=dev
+ARG APP_VERSION=1.3.0
+
 ENV FLASK_APP=wsgi.py \
     FLASK_ENV=production \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    GIT_COMMIT=${GIT_COMMIT} \
+    APP_VERSION=${APP_VERSION}
 
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "300", "wsgi:app"]

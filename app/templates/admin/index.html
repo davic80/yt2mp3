@@ -92,8 +92,19 @@
     .cookie-dot.has { background: var(--neon); }
     .cookie-dot.no  { background: var(--border2); }
 
-    .url-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+    .url-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    .title-cell { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
     .fp-cell  { max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+
+    /* Version badge */
+    .version-badge {
+      position: fixed; bottom: .75rem; right: 1rem;
+      font-size: .7rem; color: #555; letter-spacing: .03em;
+      pointer-events: none; user-select: none;
+    }
+    .version-badge a { color: #555; text-decoration: none; pointer-events: all; }
+    .version-badge a:hover { color: #888; }
+    @media (max-width: 480px) { .version-badge { display: none; } }
 
     /* row detail expand */
     tr.detail-row td {
@@ -162,6 +173,7 @@
           <th>fecha</th>
           <th>ip</th>
           <th>url youtube</th>
+          <th>título</th>
           <th>navegador</th>
           <th>os</th>
           <th>dispositivo</th>
@@ -187,6 +199,15 @@
               {{ row.youtube_url | truncate(40, True) }}
             </a>
           </td>
+          <td class="title-cell" title="{{ row.title }}">
+            {% if row.title and row.status == 'done' %}
+            <a href="/files/{{ row.job_id }}" style="color: var(--neon); text-decoration: none;">
+              {{ row.title | truncate(45, True) }}
+            </a>
+            {% else %}
+            <span style="color: var(--muted);">{{ row.title | truncate(45, True) if row.title else '—' }}</span>
+            {% endif %}
+          </td>
           <td>{{ row.ua_browser or '—' }} {{ row.ua_browser_version or '' }}</td>
           <td>{{ row.ua_os or '—' }}</td>
           <td>
@@ -207,7 +228,7 @@
           </td>
         </tr>
         <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-          <td colspan="13">
+          <td colspan="14">
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-label">URL completa</span>
@@ -314,5 +335,9 @@ function toggleDetail(id) {
   btn.textContent = hidden ? '−' : '+';
 }
 </script>
+
+<div class="version-badge">
+  v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
+</div>
 </body>
 </html>

@@ -6,6 +6,38 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.0] - 2026-03-21
+
+### Added
+- **Song title column in admin DB table**: each row now shows a clickable link with the
+  YouTube video title (neon green, ellipsis at 45 chars). Links to `/files/<job_id>` for
+  direct MP3 download. Rows with no title or failed jobs show a muted placeholder.
+- **Version badge** (bottom-right, fixed, hidden on mobile < 480 px) on all three pages:
+  - Public page: `v<version>`
+  - Admin login: `v<version> · <commit> · github`
+  - Admin DB panel: `v<version> · <commit> · github`
+- **Version + commit injection at build time**: `APP_VERSION` and `GIT_COMMIT` are now
+  passed as Docker `ARG`/`ENV` by GitHub Actions and forwarded to Flask via a Jinja2
+  `context_processor`. Local deployments fall back to `APP_VERSION=1.3.0` / `GIT_COMMIT=dev`.
+
+### Changed
+- **Vertical position**: all pages shifted from vertically centered (50%) to ~40% from
+  the top (`align-items: flex-start` + `padding-top: clamp(2rem, 15vh, 8rem)`).
+- `docker-compose.yml`: added `APP_VERSION` env var (default `1.3.0`).
+- `Dockerfile`: added `ARG GIT_COMMIT` / `ARG APP_VERSION` with `ENV` export.
+- `build-push.yml`: added `Derive app version` step and passes `GIT_COMMIT` + `APP_VERSION`
+  as `build-args` to the Docker build.
+
+### Known limitation — tracking cookies always empty
+`_fbp`, `_fbc`, `_ga`, and `ig_did` will always be blank. These cookies are set by
+third-party ad/analytics scripts (Meta Pixel, Google Analytics, Instagram SDK) which are
+**not loaded on this site**. Browsers scope cookies per domain, so cookies set by
+`facebook.com` or `google.com` on other sites are not readable here. The collection
+infrastructure is correct; there is simply nothing to capture without adding the respective
+tracking scripts to the frontend.
+
+---
+
 ## [1.2.1] - 2026-03-20
 
 ### Security

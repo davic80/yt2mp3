@@ -17,8 +17,8 @@
     }
     body {
       background: var(--bg); color: var(--text); font-family: var(--font);
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      padding: 1.5rem;
+      min-height: 100vh; display: flex; align-items: flex-start; justify-content: center;
+      padding: clamp(2rem, 15vh, 8rem) 1.5rem 1.5rem;
     }
     .card {
       width: 100%; max-width: 400px;
@@ -56,6 +56,16 @@
     .blocked-msg {
       text-align: center; color: var(--muted); font-size: .875rem; line-height: 1.6;
     }
+
+    /* Version badge */
+    .version-badge {
+      position: fixed; bottom: .75rem; right: 1rem;
+      font-size: .7rem; color: #555; letter-spacing: .03em;
+      pointer-events: none; user-select: none;
+    }
+    .version-badge a { color: #555; text-decoration: none; }
+    .version-badge a:hover { color: #888; }
+    @media (max-width: 480px) { .version-badge { display: none; } }
   </style>
 </head>
 <body>
@@ -161,5 +171,9 @@ async function authenticate() {
 document.getElementById('btn-auth').addEventListener('click', authenticate);
 </script>
 {% endif %}
+
+<div class="version-badge">
+  v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
+</div>
 </body>
 </html>
