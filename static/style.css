@@ -10,6 +10,7 @@
   --border:    #333;
   --neon:      #39FF14;
   --neon-dim:  #27b30d;
+  --neon-muted: #27a008;
   --neon-glow: rgba(57, 255, 20, 0.35);
   --text:      #e0e0e0;
   --muted:     #888;
@@ -55,7 +56,7 @@ header {
 }
 
 .logo-yt  { color: var(--text); }
-.logo-sep { color: var(--neon); }
+.logo-sep { color: var(--neon-muted); }
 .logo-mp3 { color: var(--neon); }
 
 .tagline {
@@ -115,6 +116,7 @@ main {
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.05em;
+  margin-top: 0.5rem;
   padding: 0.9rem;
   transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
 }

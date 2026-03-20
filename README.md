@@ -1,70 +1,79 @@
 # yt2mp3
 
-Web app para convertir vídeos de YouTube a MP3.
-Desplegada en `diana.f1madrid.win` via Cloudflare Tunnel desde una Raspberry Pi.
+Web app to convert YouTube videos to MP3.
+Deployed at `<subdomain>.<domain>` via Cloudflare Tunnel from a Raspberry Pi.
 
 ---
 
-## Despliegue en Raspberry Pi
+## Deployment on Raspberry Pi
 
-### 1. Clonar el repositorio
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/davic80/yt2mp3.git
 cd yt2mp3
 ```
 
-### 2. Configurar variables de entorno
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Edita `.env` y rellena:
-- `SECRET_KEY` — genera una con `python3 -c "import secrets; print(secrets.token_hex(32))"`
-- `CLOUDFLARE_TUNNEL_TOKEN` — ver sección Cloudflare Tunnel más abajo
+Edit `.env` and fill in:
+- `SECRET_KEY` — generate one with `python3 -c "import secrets; print(secrets.token_hex(32))"`
+- `CLOUDFLARE_TUNNEL_TOKEN` — see Cloudflare Tunnel section below
+- `ADMIN_EMAIL` — email address where download notifications will be sent
+- `SMTP_USER` / `SMTP_PASSWORD` — Gmail address and App Password
+- `SMTP_FROM` — sender address shown in the notification email
 
-### 3. Configurar Cloudflare Tunnel
+### 3. Configure Cloudflare Tunnel
 
-1. Ve a [dash.cloudflare.com](https://dash.cloudflare.com) → **Zero Trust** → **Networks** → **Tunnels**
-2. Crea un nuevo tunnel (tipo Cloudflared)
-3. Copia el token del connector y ponlo en `.env` como `CLOUDFLARE_TUNNEL_TOKEN`
-4. En **Public Hostnames** del tunnel, añade:
-   - **Subdomain:** `diana`
-   - **Domain:** `f1madrid.win`
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Zero Trust** → **Networks** → **Tunnels**
+2. Create a new tunnel (Cloudflared type)
+3. Copy the connector token and set it in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`
+4. Under **Public Hostnames** for the tunnel, add:
+   - **Subdomain:** `<subdomain>`
+   - **Domain:** `<domain>`
    - **Service:** `http://app:5000`
 
-### 4. Arrancar
+### 4. Start
 
 ```bash
-# Primera vez o tras actualizar imagen
+# First time or after updating the image
 docker compose pull
 
-# Arrancar en background
+# Start in background
 docker compose up -d
 
-# Ver logs
+# Follow logs
 docker compose logs -f
 ```
 
-### 5. Actualizar a nueva versión
+### 5. Update to a new version
 
 ```bash
 docker compose pull && docker compose up -d
 ```
 
----
-
-## Desarrollo local
+To pin a specific version:
 
 ```bash
-# Instalar dependencias (requiere ffmpeg en el sistema)
+IMAGE_TAG=1.2.0 docker compose up -d
+```
+
+---
+
+## Local development
+
+```bash
+# Install dependencies (requires ffmpeg on the system)
 pip install -r requirements.txt
 
-# Arrancar en modo desarrollo
+# Start in development mode
 FLASK_APP=wsgi.py FLASK_ENV=development flask run
 
-# O con Docker
+# Or with Docker
 docker build -t yt2mp3:dev .
 docker run -p 5000:5000 \
   -v $(pwd)/downloads:/app/downloads \
@@ -75,17 +84,23 @@ docker run -p 5000:5000 \
 
 ---
 
-## Estructura
+## Structure
 
 ```
 app/
   __init__.py      # Flask app factory
-  models.py        # SQLAlchemy models (tabla downloads)
+  models.py        # SQLAlchemy models (downloads table)
   routes.py        # Endpoints: GET /, POST /download, GET /status/<id>, GET /files/<f>
-  downloader.py    # yt-dlp wrapper con jobs en background (threading)
-  fingerprint.py   # Recolección de metadatos de usuario
+  downloader.py    # yt-dlp wrapper with background jobs (threading)
+  fingerprint.py   # User metadata collection
+  mailer.py        # Email notifications via Gmail SMTP
+  admin_models.py  # AdminUser, WebAuthnCredential, WebAuthnChallenge models
+  admin_routes.py  # WebAuthn endpoints + local-only guard + paginated admin view
   templates/
-    index.html     # UI
+    index.html     # Main UI
+    admin/
+      login.html   # Passkey login (three states)
+      index.html   # Downloads admin table
 static/
   style.css
   app.js
@@ -96,23 +111,33 @@ docker-compose.yml
 
 ---
 
-## CI/CD
+## Admin panel
 
-Cada push a `main` desencadena un GitHub Action que:
+Available at `/db`. Protected with **WebAuthn / Passkey** (Face ID, Touch ID, YubiKey, Windows Hello).
 
-1. Construye la imagen Docker para `linux/amd64` y `linux/arm64`
-2. La publica en `ghcr.io/davic80/yt2mp3:latest`
-
-La imagen se construye con caché de GitHub Actions para acelerar builds sucesivos.
+- **Registration** is restricted to the local network — it is never reachable from the internet.
+- **Authentication** works from any network.
+- **Emergency recovery:** run the CLI command directly on the Raspberry Pi to delete all credentials and re-register.
 
 ---
 
-## Base de datos
+## CI/CD
 
-SQLite en `/app/database/yt2mp3.db` (montado como volumen).
+Every push to `main` triggers a GitHub Action that:
 
-Tabla `downloads` — campos relevantes:
-- Metadatos de la petición (IP, User-Agent parseado, Accept-Language, Referrer)
+1. Builds the Docker image for `linux/amd64` and `linux/arm64`
+2. Pushes it to `ghcr.io/davic80/yt2mp3:latest`
+
+Every `v*` tag additionally creates a GitHub Release with the relevant CHANGELOG section and Docker image metadata.
+
+---
+
+## Database
+
+SQLite at `/app/database/yt2mp3.db` (mounted as a volume).
+
+`downloads` table — relevant fields:
+- Request metadata (IP, parsed User-Agent, Accept-Language, Referrer)
 - Browser fingerprint (canvas, WebGL, fonts, screen, timezone)
-- Cookies de tracking (Meta `_fbp`/`_fbc`, Google Analytics `_ga`, Instagram `ig_did`)
-- Estado del job y ruta del archivo descargado
+- Tracking cookies (Meta `_fbp`/`_fbc`, Google Analytics `_ga`, Instagram `ig_did`)
+- Job state and path of the downloaded file

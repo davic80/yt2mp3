@@ -79,6 +79,8 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 record.file_name = file_name
                 record.title = title
                 db.session.commit()
+                from app.mailer import send_download_notification
+                send_download_notification(record)
 
         except Exception as exc:
             err = str(exc)
