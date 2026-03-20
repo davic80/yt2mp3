@@ -106,6 +106,7 @@ def local_only(f):
 # ── Pages ──────────────────────────────────────────────────────────────────────
 
 @admin_bp.route("/")
+@local_only
 @login_required
 def index():
     page = request.args.get("page", 1, type=int)
@@ -119,6 +120,7 @@ def index():
 
 
 @admin_bp.route("/login")
+@local_only
 def login_page():
     if session.get("admin_authenticated"):
         return redirect(url_for("admin.index"))
@@ -132,6 +134,7 @@ def login_page():
 
 
 @admin_bp.route("/logout", methods=["POST"])
+@local_only
 def logout():
     session.pop("admin_authenticated", None)
     return redirect(url_for("admin.login_page"))
@@ -243,6 +246,7 @@ def register_complete():
 # ── WebAuthn: Authentication (any network) ────────────────────────────────────
 
 @admin_bp.route("/webauthn/auth/begin", methods=["POST"])
+@local_only
 def auth_begin():
     _clean_challenges()
 
@@ -277,6 +281,7 @@ def auth_begin():
 
 
 @admin_bp.route("/webauthn/auth/complete", methods=["POST"])
+@local_only
 def auth_complete():
     _clean_challenges()
     data = request.get_json()

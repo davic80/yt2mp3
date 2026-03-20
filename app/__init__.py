@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from datetime import timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -15,6 +17,17 @@ limiter = Limiter(
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="../static")
+
+    # ── Logging — route app.* logs to stdout so they appear in docker logs ──
+    if not app.debug and not logging.getLogger("app").handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s: %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S",
+        ))
+        logging.getLogger("app").addHandler(handler)
+        logging.getLogger("app").setLevel(logging.INFO)
 
     # Core config
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")

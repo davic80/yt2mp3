@@ -6,6 +6,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.1] - 2026-03-20
+
+### Security
+- All `/db` routes (panel, login, logout, WebAuthn auth and registration) now require
+  local network access (RFC-1918 + loopback). Previously only passkey registration was
+  local-only; authentication and the panel itself were reachable from the internet.
+
+### Fixed
+- **mailer crash**: `send_download_notification` was passing a SQLAlchemy model instance
+  to a background thread. After `db.session.commit()` SQLAlchemy expires all attributes,
+  and the mailer thread had no Flask app context to reload them, causing a
+  `RuntimeError: Working outside of application context`. Fixed by serialising the record
+  to a plain `dict` before spawning the mailer thread.
+- **dead code in downloader**: removed `db.session.get(Download, None)` (line 74) which
+  always returned `None` and emitted a `SAWarning` on every download.
+- **mailer logs invisible**: `logger.debug` skip message promoted to `logger.warning` so
+  SMTP misconfiguration is always visible. Added a `StreamHandler` to `stdout` in
+  `create_app()` so all `app.*` logger output appears in `docker logs`.
+
+---
+
 ## [1.2.0] - 2026-03-20
 
 ### Added

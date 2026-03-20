@@ -3,6 +3,9 @@ mailer.py — Download notification emails via Gmail SMTP.
 
 Sends a styled HTML email on every completed download.
 Errors are logged only; a mail failure never affects the download response.
+
+Accepts a plain dict (not a SQLAlchemy model) so it is safe to call from a
+background thread that has no Flask application context.
 """
 
 import logging
@@ -12,31 +15,33 @@ import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app.mailer")
 
 
-def _build_html(record) -> str:
+def _build_html(data: dict) -> str:
     """Return an HTML email body with download details."""
+    created_at = data.get("created_at")
     created = (
-        record.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
-        if record.created_at
+        created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+        if created_at
         else "—"
     )
+    browser = f"{data.get('ua_browser') or '—'} {data.get('ua_browser_version') or ''}".strip()
     rows = [
-        ("Title", record.title or "—"),
-        ("File", record.file_name or "—"),
-        ("YouTube URL", record.youtube_url or "—"),
-        ("Date", created),
-        ("IP", record.ip_address or "—"),
-        ("Browser", f"{record.ua_browser or '—'} {record.ua_browser_version or ''}".strip()),
-        ("OS", record.ua_os or "—"),
-        ("Device", record.ua_device or "PC"),
-        ("Language", record.accept_language or "—"),
-        ("Fingerprint", record.fingerprint_hash or "—"),
-        ("Meta _fbp", record.fb_fbp or "—"),
-        ("Meta _fbc", record.fb_fbc or "—"),
-        ("GA _ga", record.ga_client or "—"),
-        ("Instagram ig_did", record.ig_did or "—"),
+        ("Title",            data.get("title") or "—"),
+        ("File",             data.get("file_name") or "—"),
+        ("YouTube URL",      data.get("youtube_url") or "—"),
+        ("Date",             created),
+        ("IP",               data.get("ip_address") or "—"),
+        ("Browser",          browser),
+        ("OS",               data.get("ua_os") or "—"),
+        ("Device",           data.get("ua_device") or "PC"),
+        ("Language",         data.get("accept_language") or "—"),
+        ("Fingerprint",      data.get("fingerprint_hash") or "—"),
+        ("Meta _fbp",        data.get("fb_fbp") or "—"),
+        ("Meta _fbc",        data.get("fb_fbc") or "—"),
+        ("GA _ga",           data.get("ga_client") or "—"),
+        ("Instagram ig_did", data.get("ig_did") or "—"),
     ]
 
     detail_rows_html = "".join(
@@ -96,26 +101,30 @@ def _build_html(record) -> str:
 </html>"""
 
 
-def _send(record) -> None:
-    """Send the notification email. Runs in a background thread."""
-    admin_email = os.environ.get("ADMIN_EMAIL", "")
-    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USER", "")
+def _send(data: dict) -> None:
+    """Send the notification email. Runs in a background thread.
+    Accepts a plain dict — no SQLAlchemy session or Flask app context needed."""
+    admin_email  = os.environ.get("ADMIN_EMAIL", "")
+    smtp_host    = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port    = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user    = os.environ.get("SMTP_USER", "")
     smtp_password = os.environ.get("SMTP_PASSWORD", "")
-    smtp_from = os.environ.get("SMTP_FROM", smtp_user)
+    smtp_from    = os.environ.get("SMTP_FROM", smtp_user)
 
     if not admin_email or not smtp_user or not smtp_password:
-        logger.debug("mailer: SMTP not configured, skipping notification")
+        logger.warning(
+            "mailer: SMTP not configured (ADMIN_EMAIL=%r, SMTP_USER=%r) — skipping notification for job %s",
+            bool(admin_email), bool(smtp_user), data.get("job_id"),
+        )
         return
 
-    title = record.title or record.youtube_url or "unknown"
+    title = data.get("title") or data.get("youtube_url") or "unknown"
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"[yt2mp3] {title}"
-    msg["From"] = smtp_from
-    msg["To"] = admin_email
+    msg["From"]    = smtp_from
+    msg["To"]      = admin_email
 
-    msg.attach(MIMEText(_build_html(record), "html", "utf-8"))
+    msg.attach(MIMEText(_build_html(data), "html", "utf-8"))
 
     try:
         with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
@@ -124,12 +133,13 @@ def _send(record) -> None:
             server.ehlo()
             server.login(smtp_user, smtp_password)
             server.sendmail(smtp_from, [admin_email], msg.as_string())
-        logger.info("mailer: notification sent for job %s", record.job_id)
+        logger.info("mailer: notification sent for job %s", data.get("job_id"))
     except Exception as exc:  # noqa: BLE001
-        logger.error("mailer: failed to send notification for job %s: %s", record.job_id, exc)
+        logger.error("mailer: failed to send notification for job %s: %s", data.get("job_id"), exc)
 
 
-def send_download_notification(record) -> None:
-    """Fire-and-forget: send the notification in a background thread."""
-    t = threading.Thread(target=_send, args=(record,), daemon=True)
+def send_download_notification(data: dict) -> None:
+    """Fire-and-forget: send the notification in a background thread.
+    ``data`` must be a plain dict, not a SQLAlchemy model instance."""
+    t = threading.Thread(target=_send, args=(data,), daemon=True)
     t.start()

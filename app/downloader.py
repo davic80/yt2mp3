@@ -71,7 +71,6 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 _jobs[job_id]["title"] = title
 
             # Update DB
-            record = db.session.get(Download, None)
             record = Download.query.filter_by(job_id=job_id).first()
             if record:
                 record.status = "done"
@@ -79,8 +78,29 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 record.file_name = file_name
                 record.title = title
                 db.session.commit()
+
+                # Serialize record to a plain dict BEFORE spawning the mailer
+                # thread — SQLAlchemy expires attributes after commit, and the
+                # mailer thread has no Flask app context to reload them.
                 from app.mailer import send_download_notification
-                send_download_notification(record)
+                send_download_notification({
+                    "job_id":           record.job_id,
+                    "title":            record.title,
+                    "file_name":        record.file_name,
+                    "youtube_url":      record.youtube_url,
+                    "created_at":       record.created_at,
+                    "ip_address":       record.ip_address,
+                    "ua_browser":       record.ua_browser,
+                    "ua_browser_version": record.ua_browser_version,
+                    "ua_os":            record.ua_os,
+                    "ua_device":        record.ua_device,
+                    "accept_language":  record.accept_language,
+                    "fingerprint_hash": record.fingerprint_hash,
+                    "fb_fbp":           record.fb_fbp,
+                    "fb_fbc":           record.fb_fbc,
+                    "ga_client":        record.ga_client,
+                    "ig_did":           record.ig_did,
+                })
 
         except Exception as exc:
             err = str(exc)
