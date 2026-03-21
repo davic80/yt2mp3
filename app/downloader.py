@@ -101,23 +101,21 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 _jobs[job_id]["file_name"] = file_name
                 _jobs[job_id]["title"] = title
 
-            # Update DB
+            # Update DB — capture all fields BEFORE commit so that post-commit
+            # attribute expiry (SQLAlchemy default) never causes a lazy-reload
+            # failure when we pass values to the mailer thread.
             record = Download.query.filter_by(job_id=job_id).first()
             if record:
-                record.status = "done"
+                record.status    = "done"
                 record.file_path = mp3_path
                 record.file_name = file_name
-                record.title = title
-                db.session.commit()
+                record.title     = title
 
-                # Serialize record to a plain dict BEFORE spawning the mailer
-                # thread — SQLAlchemy expires attributes after commit, and the
-                # mailer thread has no Flask app context to reload them.
-                from app.mailer import send_download_notification
-                send_download_notification({
+                # Snapshot every field we need while the session is still live
+                mail_data = {
                     "job_id":             record.job_id,
-                    "title":              record.title,
-                    "file_name":          record.file_name,
+                    "title":              title,
+                    "file_name":          file_name,
                     "youtube_url":        record.youtube_url,
                     "playlist_url":       record.playlist_url,
                     "created_at":         record.created_at,
@@ -131,7 +129,12 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                     "accept_language":    record.accept_language,
                     "fingerprint_hash":   record.fingerprint_hash,
                     "bot_score":          record.bot_score,
-                })
+                }
+
+                db.session.commit()  # expires ORM attrs — safe, we already snapshotted
+
+                from app.mailer import send_download_notification
+                send_download_notification(mail_data)
 
         except Exception as exc:
             err = str(exc)
@@ -139,11 +142,17 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 _jobs[job_id]["status"] = "error"
                 _jobs[job_id]["error"] = err
 
-            record = Download.query.filter_by(job_id=job_id).first()
-            if record:
-                record.status = "error"
-                record.error_message = err
-                db.session.commit()
+            # Guard against a broken/rolled-back session in the error path —
+            # an uncaught secondary exception here would leave the job stuck
+            # at "pending" forever in the in-memory store.
+            try:
+                record = Download.query.filter_by(job_id=job_id).first()
+                if record:
+                    record.status = "error"
+                    record.error_message = err
+                    db.session.commit()
+            except Exception:
+                pass
 
 
 def start_download(app, youtube_url: str, download_dir: str) -> str:
