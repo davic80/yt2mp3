@@ -36,15 +36,16 @@ def _rate_limits():
 def _strip_playlist_params(url: str):
     """Remove list/index/start_radio params, keeping only v= and t=.
 
-    Returns the cleaned URL string, or None if there is no v= param to target
-    (e.g. a bare playlist?list=PL... URL with no specific video).
+    If the URL has a v= param, return a clean single-video URL.
+    If it's a bare playlist URL (no v=), return it as-is — yt-dlp with
+    noplaylist=True will download the first track of the list.
     """
     try:
         parsed = urlparse(url)
         params = parse_qs(parsed.query, keep_blank_values=True)
         clean = {k: v[0] for k, v in params.items() if k in ("v", "t")}
         if not clean.get("v"):
-            return None  # pure playlist URL — no single video to target
+            return url  # bare playlist — let yt-dlp grab the first track
         return urlunparse(parsed._replace(query=urlencode(clean)))
     except Exception:
         return url
@@ -71,10 +72,9 @@ def download():
     if not YOUTUBE_RE.match(youtube_url):
         return jsonify({"error": "Invalid YouTube URL"}), 400
 
-    # Strip playlist params — reject bare playlist URLs that have no v=
+    # Strip playlist params — if URL has v=, use clean single-video URL;
+    # if bare playlist, pass through and let yt-dlp grab the first track
     clean_url = _strip_playlist_params(youtube_url)
-    if clean_url is None:
-        return jsonify({"error": "Las listas no están soportadas. Pega la URL de una canción concreta."}), 400
 
     meta = collect(client_fingerprint=data.get("fingerprint"))
     fp_components = meta.get("fingerprint_components")

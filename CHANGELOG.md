@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.0.2] - 2026-03-21
+
+### Added
+- **File size as a separate download column in admin table.** The `size` field
+  is now its own column (after `title`) instead of being appended inline next
+  to the title. When the record is `done`, the size is a direct download link
+  (`/files/<job_id>`); otherwise it renders as plain muted text.
+
+### Fixed
+- **Playlist URLs now accepted.** Pasting a bare playlist URL
+  (`?list=PL...` with no `v=`) previously returned a 400 error. It now passes
+  through to yt-dlp (which has `noplaylist=True`), so the first track of the
+  list — the one currently playing on YouTube — is downloaded instead.
+
+---
+
 ## [2.0.1] - 2026-03-21
 
 ### Fixed

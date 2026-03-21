@@ -11,6 +11,7 @@
         <th>ip</th>
         <th>country</th>
         <th>title</th>
+        <th>size</th>
         <th>browser</th>
         <th>os</th>
         <th>device</th>
@@ -47,14 +48,20 @@
              onclick="event.preventDefault(); renameTitle('{{ row.job_id }}', '{{ row.title | e }}')">
             {{ row.title | truncate(45, True) }}
           </a>
-          {% if row.file_size %}
-          <span style="color:var(--muted);font-size:.72rem;margin-left:.35rem;">{{ row.file_size | filesizeformat }}</span>
-          {% endif %}
           {% else %}
           <span style="color: var(--muted);">{{ row.title | truncate(45, True) if row.title else '—' }}</span>
-          {% if row.file_size %}
-          <span style="color:var(--muted);font-size:.72rem;margin-left:.35rem;">{{ row.file_size | filesizeformat }}</span>
           {% endif %}
+        </td>
+        <td class="mono" style="white-space:nowrap;">
+          {% if row.file_size and row.status == 'done' %}
+          <a href="/files/{{ row.job_id }}" style="color:var(--neon);text-decoration:none;font-size:.82rem;"
+             title="Descargar {{ row.file_name or row.job_id }}.mp3">
+            {{ row.file_size | filesizeformat }}
+          </a>
+          {% elif row.file_size %}
+          <span style="color:var(--muted);font-size:.82rem;">{{ row.file_size | filesizeformat }}</span>
+          {% else %}
+          <span style="color:var(--muted)">—</span>
           {% endif %}
         </td>
         <td>{{ row.ua_browser or '—' }} {{ row.ua_browser_version or '' }}</td>
@@ -89,7 +96,7 @@
         </td>
       </tr>
       <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-        <td colspan="16">
+        <td colspan="17">
           <div class="detail-grid">
             <div class="detail-item">
               <span class="detail-label">YouTube URL</span>
