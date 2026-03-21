@@ -1,5 +1,8 @@
+import io
 import os
 import re
+import zipfile
+from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 from flask import (
     Blueprint,
@@ -7,6 +10,7 @@ from flask import (
     jsonify,
     render_template,
     request,
+    send_file,
     send_from_directory,
     abort,
 )
@@ -192,6 +196,53 @@ def serve_file(filename: str):
         f"{job_id}.mp3",
         as_attachment=True,
         download_name=display_name,
+    )
+
+
+# ─── Public playlist ZIP ──────────────────────────────────────────────────────
+
+@bp.route("/playlist-zip", methods=["POST"])
+@limiter.limit(lambda: "; ".join(_rate_limits()))
+def playlist_zip():
+    """Build and stream a ZIP of all completed tracks for the given job_ids."""
+    data = request.get_json(silent=True) or {}
+    job_ids = data.get("job_ids", [])
+    if not job_ids:
+        return jsonify({"error": "no job_ids provided"}), 400
+
+    records = (
+        Download.query
+        .filter(Download.job_id.in_(job_ids), Download.status == "done")
+        .all()
+    )
+    if not records:
+        return jsonify({"error": "no downloadable files"}), 400
+
+    buf = io.BytesIO()
+    seen_names: dict[str, int] = {}
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for r in records:
+            raw = r.file_name or r.job_id
+            base_name = raw[:-4] if raw.endswith(".mp3") else raw
+            candidate = f"{base_name}.mp3"
+            if candidate in seen_names:
+                seen_names[candidate] += 1
+                candidate = f"{base_name} ({seen_names[candidate]}).mp3"
+            else:
+                seen_names[candidate] = 1
+            try:
+                zf.write(r.file_path, arcname=candidate)
+            except Exception:
+                pass
+
+    buf.seek(0)
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"yt2mp3-{date_str}.zip",
     )
 
 

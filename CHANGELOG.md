@@ -6,7 +6,39 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.6.2] - 2026-03-21
+## [1.6.4] - 2026-03-21
+
+### Added
+- **Playlist download modes**: when a playlist URL is submitted, a confirmation banner
+  now offers two choices:
+  - **Descargar ZIP** — waits for all tracks to finish, then builds and streams a ZIP
+    via the new public endpoint `POST /playlist-zip`.
+  - **Canción por canción** — polls all jobs as before; on completion shows a scrollable
+    list of individual `↓ Title.mp3` download links (max-height 240 px, styled scrollbar)
+    plus a "↓ descargar todo .zip" button at the bottom that triggers the same ZIP endpoint.
+- `POST /playlist-zip` — new public (rate-limited) endpoint that accepts `{"job_ids": [...]}`
+  and returns a ZIP of all completed tracks. Deduplicates filenames to avoid archive
+  conflicts. Does not require admin authentication.
+
+### Fixed
+- **Progress bar loops back to "analyzing"**: `_progress_hook` in `downloader.py` now
+  only advances the progress value — never resets it. FFmpeg post-processing fires new
+  `downloading` events with `downloaded_bytes=0` which previously snapped the bar back
+  to 0 mid-way through conversion.
+
+---
+
+## [1.6.3] - 2026-03-21
+
+### Fixed
+- **Progress bar loops back to "analyzing…" / "almost ready…"**: yt-dlp fires new
+  `downloading` hook events with `downloaded_bytes=0` during FFmpeg post-processing,
+  causing the progress percentage to reset. `_progress_hook` now only ever moves
+  progress forward (monotonic).
+
+---
+
+
 
 ### Fixed
 - **Single video with `list=` param hangs forever**: URLs like `watch?v=X&list=Y` are now

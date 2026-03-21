@@ -56,7 +56,10 @@ def _progress_hook(job_id: str):
                 downloaded = d.get("downloaded_bytes", 0)
                 if total > 0:
                     pct = int(downloaded / total * 90)  # cap at 90, post-process adds 10
-                    _jobs[job_id]["progress"] = pct
+                    # Never go backwards — post-processing fires new downloading
+                    # events with downloaded_bytes=0 which would reset the bar
+                    if pct > _jobs[job_id].get("progress", 0):
+                        _jobs[job_id]["progress"] = pct
             elif d["status"] == "finished":
                 _jobs[job_id]["progress"] = 95
     return hook

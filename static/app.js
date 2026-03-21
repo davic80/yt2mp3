@@ -19,7 +19,7 @@
   // ── Playlist confirmation banner (injected dynamically) ──────────────────
   let playlistBanner = null;
 
-  function showPlaylistBanner(onConfirm) {
+  function showPlaylistBanner(onZip, onIndividual) {
     removePlaylistBanner();
     playlistBanner = document.createElement('div');
     playlistBanner.id = 'playlist-banner';
@@ -32,36 +32,46 @@
       'font-size:0.85rem',
       'color:#ccc',
       'display:flex',
-      'align-items:center',
-      'gap:12px',
-      'flex-wrap:wrap',
+      'flex-direction:column',
+      'gap:10px',
     ].join(';');
 
     const msg = document.createElement('span');
-    msg.textContent = 'Playlist detected — all songs will be downloaded individually.';
-    msg.style.flex = '1';
+    msg.textContent = 'Playlist detectada — ¿cómo quieres descargar?';
 
-    const btnYes = document.createElement('button');
-    btnYes.textContent = 'Download all';
-    btnYes.style.cssText = 'background:#39FF14;color:#111;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-weight:700;';
-    btnYes.addEventListener('click', function () {
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+
+    const btnZip = document.createElement('button');
+    btnZip.textContent = 'Descargar ZIP';
+    btnZip.style.cssText = 'background:#39FF14;color:#111;border:none;padding:5px 14px;border-radius:4px;cursor:pointer;font-weight:700;font-size:0.85rem;';
+    btnZip.addEventListener('click', function () {
       removePlaylistBanner();
-      onConfirm();
+      onZip();
+    });
+
+    const btnInd = document.createElement('button');
+    btnInd.textContent = 'Canción por canción';
+    btnInd.style.cssText = 'background:transparent;color:#39FF14;border:1px solid #39FF14;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:0.85rem;';
+    btnInd.addEventListener('click', function () {
+      removePlaylistBanner();
+      onIndividual();
     });
 
     const btnNo = document.createElement('button');
-    btnNo.textContent = 'Cancel';
-    btnNo.style.cssText = 'background:transparent;color:#aaa;border:1px solid #555;padding:4px 10px;border-radius:4px;cursor:pointer;';
+    btnNo.textContent = 'Cancelar';
+    btnNo.style.cssText = 'background:transparent;color:#aaa;border:1px solid #555;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:0.85rem;margin-left:auto;';
     btnNo.addEventListener('click', function () {
       removePlaylistBanner();
-      // Re-enable inputs so user can edit the URL
       urlInput.disabled = false;
       btnMagic.disabled = false;
     });
 
+    btnRow.appendChild(btnZip);
+    btnRow.appendChild(btnInd);
+    btnRow.appendChild(btnNo);
     playlistBanner.appendChild(msg);
-    playlistBanner.appendChild(btnYes);
-    playlistBanner.appendChild(btnNo);
+    playlistBanner.appendChild(btnRow);
     form.parentNode.insertBefore(playlistBanner, form.nextSibling);
   }
 
@@ -79,12 +89,15 @@
     errorArea.classList.add('hidden');
     progressArea.classList.add('hidden');
     removePlaylistBanner();
+    // Remove injected playlist result if present
+    const pr = document.getElementById('playlist-result');
+    if (pr) pr.parentNode.removeChild(pr);
     form.classList.remove('hidden');
     urlInput.disabled = false;
     btnMagic.disabled = false;
     urlInput.value = '';
     urlInput.focus();
-    setProgress(0, 'preparing...');
+    setProgress(0, 'preparando...');
   }
 
   function setProgress(pct, label) {
@@ -119,7 +132,6 @@
     const url = urlInput.value.trim();
     if (!url) { urlInput.focus(); return; }
 
-    // Disable inputs while we decide what to do
     urlInput.disabled = true;
     btnMagic.disabled = true;
     errorArea.classList.add('hidden');
@@ -127,16 +139,18 @@
     removePlaylistBanner();
 
     if (isPlaylistOnly(url)) {
-      // Show confirmation banner; actual submission happens on "Download all"
-      showPlaylistBanner(() => submitDownload(url));
+      showPlaylistBanner(
+        () => submitDownload(url, 'zip'),
+        () => submitDownload(url, 'individual')
+      );
     } else {
-      submitDownload(url);
+      submitDownload(url, 'single');
     }
   });
 
-  async function submitDownload(url) {
+  async function submitDownload(url, mode) {
     progressArea.classList.remove('hidden');
-    setProgress(5, 'sending...');
+    setProgress(5, 'enviando...');
 
     const fpData = window._fpData || {};
 
@@ -151,36 +165,33 @@
       const data = await resp.json();
 
       if (!resp.ok) {
-        showError(data.error || 'Unknown error');
+        showError(data.error || 'Error desconocido');
         return;
       }
 
-      // Backend always returns job_ids (array)
       jobIds = data.job_ids || (data.job_id ? [data.job_id] : []);
     } catch (err) {
-      showError('Connection error. Are you connected?');
+      showError('Error de conexión. ¿Estás conectado?');
       return;
     }
 
     if (!jobIds.length) {
-      showError('No jobs returned from server.');
+      showError('El servidor no devolvió ninguna tarea.');
       return;
     }
 
     if (jobIds.length === 1) {
-      // Single track — existing progress bar UX
-      setProgress(10, 'downloading...');
+      setProgress(10, 'descargando...');
       await pollSingle(jobIds[0]);
     } else {
-      // Playlist — counter UX
-      await pollPlaylist(jobIds);
+      await pollPlaylist(jobIds, mode);
     }
   }
 
-  // ── Single-track polling (original UX) ────────────────────────────────────
+  // ── Single-track polling ──────────────────────────────────────────────────
 
   async function pollSingle(jobId) {
-    const POLL_MS  = 1500;
+    const POLL_MS   = 1500;
     const MAX_POLLS = 200;
     let polls = 0;
 
@@ -189,7 +200,7 @@
         polls++;
         if (polls > MAX_POLLS) {
           clearInterval(interval);
-          showError('Timed out. Please try again.');
+          showError('Tiempo de espera agotado. Inténtalo de nuevo.');
           resolve();
           return;
         }
@@ -204,19 +215,20 @@
         const status = data.status;
 
         if (status === 'pending' || status === 'downloading') {
-          const label = pct < 20 ? 'analyzing...'
-                      : pct < 60 ? 'downloading...'
-                      : pct < 90 ? 'converting to mp3...'
-                      : 'almost ready...';
+          const label = pct < 20 ? 'analizando...'
+                      : pct < 60 ? 'descargando...'
+                      : pct < 90 ? 'convirtiendo a mp3...'
+                      : 'casi listo...';
           setProgress(Math.max(pct, 10), label);
 
         } else if (status === 'done') {
           clearInterval(interval);
-          setProgress(100, 'done!');
+          setProgress(100, '¡listo!');
 
           setTimeout(() => {
             progressArea.classList.add('hidden');
             resultArea.classList.remove('hidden');
+            downloadLink.style.display = '';
             downloadLink.href = `/files/${jobId}`;
             const title = data.title || 'audio';
             downloadLabel.textContent = `↓ ${truncate(title, 40)}.mp3`;
@@ -225,38 +237,37 @@
 
         } else if (status === 'error') {
           clearInterval(interval);
-          showError(data.error_message || 'Error processing the video.');
+          showError(data.error_message || 'Error procesando el vídeo.');
           resolve();
         }
       }, POLL_MS);
     });
   }
 
-  // ── Playlist polling — counter UX ─────────────────────────────────────────
+  // ── Playlist polling ──────────────────────────────────────────────────────
 
-  async function pollPlaylist(jobIds) {
+  async function pollPlaylist(jobIds, mode) {
     const total    = jobIds.length;
     const POLL_MS  = 2000;
     const MAX_WAIT = 600000; // 10 min hard cap
     const started  = Date.now();
 
-    setProgress(5, `Downloading: 0 / ${total}`);
+    setProgress(5, `Descargando: 0 / ${total}`);
 
-    // Poll all jobs until each is done or errored
     const statuses = Object.fromEntries(jobIds.map(id => [id, 'pending']));
-    let done = 0;
+    const jobData  = {};   // id → last /status response (for title + file_name)
+    let done   = 0;
     let errors = 0;
 
     await new Promise((resolve) => {
       const interval = setInterval(async () => {
         if (Date.now() - started > MAX_WAIT) {
           clearInterval(interval);
-          showError('Timed out waiting for playlist. Some tracks may have downloaded.');
+          showError('Tiempo de espera agotado. Puede que algunos tracks se hayan descargado.');
           resolve();
           return;
         }
 
-        // Poll only jobs that are still pending/downloading
         const pending = jobIds.filter(id => statuses[id] === 'pending' || statuses[id] === 'downloading');
         if (!pending.length) {
           clearInterval(interval);
@@ -268,6 +279,7 @@
           try {
             const resp = await fetch(`/status/${id}`);
             const data = await resp.json();
+            jobData[id] = data;
             if (data.status === 'done') {
               statuses[id] = 'done';
               done++;
@@ -282,21 +294,146 @@
         }));
 
         const pct = Math.round((done / total) * 95);
-        setProgress(pct, `Downloading: ${done} / ${total}`);
+        setProgress(pct, `Descargando: ${done} / ${total}`);
       }, POLL_MS);
     });
 
-    // All settled
-    setProgress(100, 'done!');
-    setTimeout(() => {
+    // All settled — hand off to the right completion handler
+    setProgress(100, '¡listo!');
+    await new Promise(r => setTimeout(r, 400));
+    progressArea.classList.add('hidden');
+
+    if (mode === 'zip') {
+      await finishZipMode(jobIds, total, errors);
+    } else {
+      finishIndividualMode(jobIds, jobData, total, errors);
+    }
+  }
+
+  // ── ZIP completion ────────────────────────────────────────────────────────
+
+  async function finishZipMode(jobIds, total, errors) {
+    const successCount = total - errors;
+    setProgress(100, 'preparando ZIP...');
+    progressArea.classList.remove('hidden');
+
+    try {
+      const resp = await fetch('/playlist-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_ids: jobIds }),
+      });
+
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        showError(d.error || 'No se pudo crear el ZIP.');
+        return;
+      }
+
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `yt2mp3-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
       progressArea.classList.add('hidden');
       resultArea.classList.remove('hidden');
-      downloadLink.style.display = 'none';   // no single file to link
-      const successCount = done - errors;
+      downloadLink.style.display = 'none';
       downloadLabel.textContent = errors > 0
-        ? `${successCount} / ${total} tracks downloaded (${errors} errors)`
-        : `${total} tracks downloaded successfully`;
-    }, 400);
+        ? `${successCount} / ${total} tracks en el ZIP (${errors} errores)`
+        : `${total} tracks descargados en ZIP`;
+    } catch (err) {
+      showError('Error al descargar el ZIP.');
+    }
+  }
+
+  // ── Individual completion ─────────────────────────────────────────────────
+
+  function finishIndividualMode(jobIds, jobData, total, errors) {
+    const successCount = total - errors;
+    const doneIds = jobIds.filter(id => jobData[id] && jobData[id].status === 'done');
+
+    // Build the playlist result block inside #result-area
+    // Hide the standard single-track link
+    downloadLink.style.display = 'none';
+
+    // Remove any previous playlist-result
+    const old = document.getElementById('playlist-result');
+    if (old) old.parentNode.removeChild(old);
+
+    const container = document.createElement('div');
+    container.id = 'playlist-result';
+
+    // Scrollable track list
+    const list = document.createElement('div');
+    list.className = 'playlist-links';
+
+    doneIds.forEach(id => {
+      const d = jobData[id];
+      const title = (d && d.title) ? truncate(d.title, 50) : id;
+      const a = document.createElement('a');
+      a.href = `/files/${id}`;
+      a.download = '';
+      a.className = 'playlist-track-link';
+      a.textContent = `↓ ${title}.mp3`;
+      list.appendChild(a);
+    });
+
+    container.appendChild(list);
+
+    // ZIP all button
+    if (doneIds.length > 0) {
+      const zipBtn = document.createElement('a');
+      zipBtn.href = '#';
+      zipBtn.className = 'download-btn';
+      zipBtn.style.marginTop = '0.5rem';
+      zipBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg><span>↓ descargar todo .zip</span>`;
+      zipBtn.addEventListener('click', async function (e) {
+        e.preventDefault();
+        zipBtn.style.opacity = '0.5';
+        zipBtn.style.pointerEvents = 'none';
+        try {
+          const resp = await fetch('/playlist-zip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ job_ids: jobIds }),
+          });
+          if (!resp.ok) { zipBtn.style.opacity = '1'; zipBtn.style.pointerEvents = ''; return; }
+          const blob = await resp.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `yt2mp3-${new Date().toISOString().slice(0, 10)}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (_) {}
+        zipBtn.style.opacity = '1';
+        zipBtn.style.pointerEvents = '';
+      });
+      container.appendChild(zipBtn);
+    }
+
+    // Summary label
+    const summary = document.createElement('p');
+    summary.className = 'progress-label';
+    summary.style.marginTop = '0.6rem';
+    summary.textContent = errors > 0
+      ? `${successCount} / ${total} tracks · ${errors} errores`
+      : `${total} tracks descargados`;
+    container.appendChild(summary);
+
+    // Insert before the reset button inside result-area
+    const resetBtn = resultArea.querySelector('.reset-btn');
+    resultArea.insertBefore(container, resetBtn);
+
+    resultArea.classList.remove('hidden');
   }
 
   function truncate(str, max) {
