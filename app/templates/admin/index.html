@@ -63,6 +63,16 @@
     }
     .btn-zip:hover { background: #4fff25; box-shadow: 0 0 10px var(--neon-dim); }
 
+    /* Delete button */
+    .btn-delete {
+      background: #ff4d4d; color: #111; border: none;
+      border-radius: var(--radius); font-family: var(--font);
+      font-weight: 600; padding: .32rem .85rem; cursor: pointer;
+      font-size: .8rem; transition: background .15s, box-shadow .15s;
+      white-space: nowrap;
+    }
+    .btn-delete:hover { background: #ff6b6b; box-shadow: 0 0 10px rgba(255,77,77,.4); }
+
     /* Refresh button + countdown */
     .btn-refresh {
       background: transparent; border: 1px solid var(--border2);
@@ -208,6 +218,7 @@
     </select>
 
     <button class="btn-zip hidden" id="btn-zip" onclick="downloadZip()">↓ ZIP (0)</button>
+    <button class="btn-delete hidden" id="btn-delete">Eliminar seleccionados (0)</button>
 
     <button class="btn-refresh" id="btn-refresh" onclick="doRefresh()" title="Refrescar tabla">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -298,7 +309,7 @@ async function doRefresh() {
       cb.closest('tr').classList.add('selected-row');
     }
   });
-  updateZipBtn();
+  updateActionButtons();
 }
 
 // ── Selection logic ──────────────────────────────────────────────────────────
@@ -306,11 +317,11 @@ function initCheckboxes() {
   const selectAll = document.getElementById('select-all');
   if (selectAll) {
     selectAll.addEventListener('change', function () {
-      document.querySelectorAll('.row-check').forEach(cb => {
-        cb.checked = this.checked;
-        cb.closest('tr').classList.toggle('selected-row', this.checked);
-      });
-      updateZipBtn();
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.checked = this.checked;
+    cb.closest('tr').classList.toggle('selected-row', this.checked);
+  });
+  updateActionButtons();
     });
   }
 
@@ -318,7 +329,7 @@ function initCheckboxes() {
     cb.addEventListener('change', function () {
       this.closest('tr').classList.toggle('selected-row', this.checked);
       syncSelectAll();
-      updateZipBtn();
+      updateActionButtons();
     });
   });
 }
@@ -332,13 +343,21 @@ function syncSelectAll() {
   sa.indeterminate = checked.length > 0 && checked.length < all.length;
 }
 
-function updateZipBtn() {
-  const n   = document.querySelectorAll('.row-check:checked').length;
-  const btn = document.getElementById('btn-zip');
-  if (!btn) return;
-  btn.classList.toggle('hidden', n === 0);
-  btn.textContent = `↓ ZIP (${n})`;
+function updateActionButtons() {
+  const n      = document.querySelectorAll('.row-check:checked').length;
+  const btnZip = document.getElementById('btn-zip');
+  const btnDel = document.getElementById('btn-delete');
+  if (btnZip) {
+    btnZip.classList.toggle('hidden', n === 0);
+    btnZip.textContent = `↓ ZIP (${n})`;
+  }
+  if (btnDel) {
+    btnDel.classList.toggle('hidden', n === 0);
+    btnDel.textContent = `Eliminar seleccionados (${n})`;
+  }
 }
+// legacy alias used by older code paths
+function updateZipBtn() { updateActionButtons(); }
 
 // ── ZIP download ─────────────────────────────────────────────────────────────
 async function downloadZip() {
@@ -391,6 +410,40 @@ function toggleDetail(id) {
   row.style.display = hidden ? 'table-row' : 'none';
   if (btn) btn.textContent = hidden ? '−' : '+';
 }
+
+// ── Delete records ────────────────────────────────────────────────────────────
+document.getElementById('btn-delete').addEventListener('click', async function () {
+  const checked = [...document.querySelectorAll('.row-check:checked')].map(c => c.value);
+  if (!checked.length) return;
+  if (!confirm(`¿Eliminar ${checked.length} descarga(s)? Se borrará el fichero MP3 y el registro.`)) return;
+
+  this.disabled = true;
+  const orig = this.textContent;
+  this.textContent = 'Eliminando…';
+
+  try {
+    const resp = await fetch('/db/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_ids: checked }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      refreshTable();
+    } else {
+      alert(data.error || 'Error al eliminar');
+      this.disabled = false;
+      this.textContent = orig;
+    }
+  } catch (e) {
+    alert('Error de conexión al intentar eliminar.');
+    this.disabled = false;
+    this.textContent = orig;
+  }
+});
+
+// ── Convenience alias used by delete handler ──────────────────────────────────
+function refreshTable() { doRefresh(); }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 initCheckboxes();

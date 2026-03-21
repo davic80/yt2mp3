@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.6] - 2026-03-21
+
+### Added
+- **"Eliminar seleccionados" button in admin panel.** When one or more rows are
+  checked a red "Eliminar seleccionados (N)" button appears in the top bar.
+  Clicking it shows a `confirm()` dialog; on confirmation it calls the new
+  `POST /db/delete` endpoint which removes the MP3 file from disk and the DB
+  row for each selected job. Missing MP3 files are silently ignored. The table
+  refreshes automatically on success. Works for any job status.
+- New endpoint `POST /db/delete` (`@local_only @login_required`): accepts
+  `{"job_ids": [...]}` and returns `{"deleted": N}`.
+
+---
+
 ## [1.6.5] - 2026-03-21
 
 ### Changed

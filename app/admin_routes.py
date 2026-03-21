@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import os
 import re
 import time
 import zipfile
@@ -271,6 +272,31 @@ def download_zip():
         as_attachment=True,
         download_name=f"yt2mp3-{date_str}.zip",
     )
+
+
+# ── Delete records ─────────────────────────────────────────────────────────────
+
+@admin_bp.route("/delete", methods=["POST"])
+@local_only
+@login_required
+def delete_records():
+    data = request.get_json(silent=True) or {}
+    job_ids = data.get("job_ids", [])
+    if not job_ids:
+        return jsonify({"error": "no job_ids provided"}), 400
+
+    records = Download.query.filter(Download.job_id.in_(job_ids)).all()
+    deleted = 0
+    for r in records:
+        if r.file_path:
+            try:
+                os.remove(r.file_path)
+            except FileNotFoundError:
+                pass
+        db.session.delete(r)
+        deleted += 1
+    db.session.commit()
+    return jsonify({"deleted": deleted})
 
 
 # ── WebAuthn: Authentication (local only) ─────────────────────────────────────
