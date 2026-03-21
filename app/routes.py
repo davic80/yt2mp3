@@ -13,6 +13,7 @@ from app import db, limiter
 from app.models import Download
 from app.downloader import start_download, get_job
 from app.fingerprint import collect
+from app.hardware_parser import detect_hardware, compute_identity_hash
 
 bp = Blueprint("main", __name__)
 
@@ -57,9 +58,12 @@ def download():
     )
 
     # Create DB record
+    fp_components = meta.get("fingerprint_components")
     record = Download(
         job_id="placeholder",  # will be replaced below
         youtube_url=youtube_url,
+        hardware_model=detect_hardware(fp_components),
+        identity_hash=compute_identity_hash(fp_components),
         **meta,
     )
     db.session.add(record)

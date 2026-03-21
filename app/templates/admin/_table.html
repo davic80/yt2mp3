@@ -1,0 +1,180 @@
+{% if pagination.items %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:2rem">
+          <input type="checkbox" id="select-all" title="Seleccionar todos">
+        </th>
+        <th style="width:2rem"></th>
+        <th>#</th>
+        <th>fecha</th>
+        <th>ip</th>
+        <th>url youtube</th>
+        <th>título</th>
+        <th>navegador</th>
+        <th>os</th>
+        <th>dispositivo</th>
+        <th>modelo</th>
+        <th>identity</th>
+        <th>idioma</th>
+        <th>fingerprint</th>
+        <th>meta</th>
+        <th>ga</th>
+        <th>ig</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in pagination.items %}
+      <tr class="data-row" data-id="{{ row.id }}" data-job="{{ row.job_id }}">
+        <td style="vertical-align:middle">
+          <input type="checkbox" class="row-check" value="{{ row.job_id }}" title="Seleccionar">
+        </td>
+        <td>
+          <button class="btn-expand" onclick="toggleDetail({{ row.id }})" title="expandir">+</button>
+        </td>
+        <td class="mono">{{ row.id }}</td>
+        <td class="mono">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
+        <td class="mono">{{ row.ip_address or '—' }}</td>
+        <td class="url-cell" title="{{ row.youtube_url }}">
+          <a href="{{ row.youtube_url }}" target="_blank" rel="noopener"
+             style="color: var(--neon); text-decoration: none;">
+            {{ row.youtube_url | truncate(40, True) }}
+          </a>
+        </td>
+        <td class="title-cell" title="{{ row.title }}">
+          {% if row.title and row.status == 'done' %}
+          <a href="/files/{{ row.job_id }}" style="color: var(--neon); text-decoration: none;">
+            {{ row.title | truncate(45, True) }}
+          </a>
+          {% else %}
+          <span style="color: var(--muted);">{{ row.title | truncate(45, True) if row.title else '—' }}</span>
+          {% endif %}
+        </td>
+        <td>{{ row.ua_browser or '—' }} {{ row.ua_browser_version or '' }}</td>
+        <td>{{ row.ua_os or '—' }}</td>
+        <td>
+          {% set dev = row.ua_device or 'PC' %}
+          <span class="badge badge-{{ dev | lower }}">{{ dev }}</span>
+        </td>
+        <td class="hw-cell" title="{{ row.hardware_model or '—' }}">{{ row.hardware_model or '—' }}</td>
+        <td class="mono" title="{{ row.identity_hash or '—' }}">{{ row.identity_hash or '—' }}</td>
+        <td class="mono">{{ (row.accept_language or '—')[:12] }}</td>
+        <td class="fp-cell" title="{{ row.fingerprint_hash }}">{{ row.fingerprint_hash or '—' }}</td>
+        <td>
+          <span class="cookie-dot {{ 'has' if row.fb_fbp else 'no' }}" title="_fbp"></span>
+          <span class="cookie-dot {{ 'has' if row.fb_fbc else 'no' }}" title="_fbc"></span>
+        </td>
+        <td>
+          <span class="cookie-dot {{ 'has' if row.ga_client else 'no' }}" title="_ga"></span>
+        </td>
+        <td>
+          <span class="cookie-dot {{ 'has' if row.ig_did else 'no' }}" title="ig_did"></span>
+        </td>
+      </tr>
+      <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
+        <td colspan="17">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">URL completa</span>
+              <span class="detail-value">{{ row.youtube_url }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">User-Agent raw</span>
+              <span class="detail-value">{{ row.user_agent_raw or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Accept-Language</span>
+              <span class="detail-value">{{ row.accept_language or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Referrer</span>
+              <span class="detail-value">{{ row.referrer or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Modelo hardware</span>
+              <span class="detail-value">{{ row.hardware_model or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Identity hash</span>
+              <span class="detail-value">{{ row.identity_hash or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Fingerprint hash</span>
+              <span class="detail-value">{{ row.fingerprint_hash or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">_fbp (Meta pixel)</span>
+              <span class="detail-value">{{ row.fb_fbp or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">_fbc (Meta click ID)</span>
+              <span class="detail-value">{{ row.fb_fbc or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">_ga (Google Analytics)</span>
+              <span class="detail-value">{{ row.ga_client or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">_ga session</span>
+              <span class="detail-value">{{ row.ga_session or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">ig_did (Instagram)</span>
+              <span class="detail-value">{{ row.ig_did or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Todas las cookies</span>
+              <span class="detail-value">{{ row.cookies_json or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Componentes fingerprint</span>
+              <span class="detail-value">{{ row.fingerprint_components or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Es bot</span>
+              <span class="detail-value">{{ 'Sí' if row.ua_is_bot else 'No' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Es móvil</span>
+              <span class="detail-value">{{ 'Sí' if row.ua_is_mobile else 'No' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Archivo MP3</span>
+              <span class="detail-value">{{ row.file_name or '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Estado job</span>
+              <span class="detail-value">{{ row.status }}</span>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="pagination">
+  <a class="page-btn {{ 'disabled' if not pagination.has_prev }}"
+     href="?page={{ pagination.prev_num }}&per_page={{ per_page }}">&#8592;</a>
+
+  {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+    {% if p %}
+      <a class="page-btn {{ 'active' if p == pagination.page }}"
+         href="?page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
+    {% else %}
+      <span class="page-info">…</span>
+    {% endif %}
+  {% endfor %}
+
+  <a class="page-btn {{ 'disabled' if not pagination.has_next }}"
+     href="?page={{ pagination.next_num }}&per_page={{ per_page }}">&#8594;</a>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">No hay registros todavía.</div>
+{% endif %}

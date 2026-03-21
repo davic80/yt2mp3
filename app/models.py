@@ -46,6 +46,10 @@ class Download(db.Model):
     ga_session = db.Column(db.String(256), nullable=True) # _ga_* session
     ig_did = db.Column(db.String(256), nullable=True)    # Instagram device ID
 
+    # Hardware inference (v1.4.0)
+    hardware_model = db.Column(db.String(256), nullable=True)  # e.g. "Apple M1 Pro · MacBook Pro"
+    identity_hash  = db.Column(db.String(16),  nullable=True)  # 8-char stable device hash
+
     def to_dict(self):
         return {
             "job_id": self.job_id,

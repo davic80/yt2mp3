@@ -6,6 +6,47 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.0] - 2026-03-21
+
+### Added
+- **Multi-select + ZIP download** in the admin panel (`/db`): checkbox column (first column),
+  select-all scoped to the current page, a "Download ZIP" button in the top bar that appears
+  only when ≥ 1 row is selected. ZIP is built server-side by Flask, named
+  `yt2mp3-YYYY-MM-DD.zip`. Songs without an MP3 on disk are silently skipped.
+  Anti-duplicate filename suffixes handle collisions within the archive.
+- **Per-page selector** (10 / 25 / 50 / 100) in the admin top bar. Selection is preserved
+  across AJAX refreshes via a query-string parameter (`per_page`).
+- **AJAX auto-refresh** with a live countdown timer in the top bar. The table partial
+  (`admin/_table.html`) is fetched from the new `GET /db/table-fragment` endpoint and
+  swapped in without a full page reload. Checkbox selections that are still on the page
+  are restored after each refresh. Interval is configurable via the `ADMIN_REFRESH_INTERVAL`
+  environment variable (default: 300 s). The logout button was removed; a manual Refresh
+  button is added next to the countdown.
+- **Hardware model detection** (`app/hardware_parser.py`): `detect_hardware()` infers a
+  human-readable device/chip description from WebGL renderer, User-Agent, and screen
+  resolution (e.g. `"Apple M1 Pro · MacBook Pro"`, `"iPhone 15 (iOS 18.7)"`).
+- **Identity hash** (`compute_identity_hash()`): stable 8-character SHA-256 digest of
+  WebGL renderer + screen resolution + platform, consistent across page loads on the same
+  device/browser combination.
+- Two new columns in the `downloads` table: `hardware_model VARCHAR(256)`,
+  `identity_hash VARCHAR(16)`. Both columns are displayed in the admin panel.
+- **Automatic retroactive DB migration**: on app startup a background thread runs
+  `ALTER TABLE downloads ADD COLUMN` for the two new columns. Already-migrated databases
+  are handled gracefully (SQLite `ALTER TABLE` errors on duplicate columns are caught and
+  ignored).
+- `ADMIN_REFRESH_INTERVAL` environment variable (`.env.example`, `docker-compose.yml`).
+
+### Changed
+- Admin panel table extracted into a reusable Jinja2 partial `admin/_table.html` to support
+  AJAX partial rendering without duplicating markup.
+- `colspan` on expandable detail rows updated from 15 → 17 to account for the two new columns.
+- Selected rows receive a neon-green left-border highlight for visual feedback.
+- `docker-compose.yml`: default `APP_VERSION` bumped to `1.4.0`; `ADMIN_REFRESH_INTERVAL`
+  env var added.
+- `Dockerfile`: default `ARG APP_VERSION` bumped to `1.4.0`.
+
+---
+
 ## [1.3.1] - 2026-03-21
 
 ### Fixed

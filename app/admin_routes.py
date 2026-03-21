@@ -1,8 +1,11 @@
 import base64
+import io
 import json
 import re
 import time
+import zipfile
 import functools
+from datetime import datetime
 
 import webauthn
 from webauthn.helpers.structs import (
@@ -16,6 +19,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     session,
     url_for,
     abort,
@@ -27,6 +31,7 @@ from app.models import Download
 admin_bp = Blueprint("admin", __name__, url_prefix="/db")
 
 CHALLENGE_TTL = 300  # 5 minutes
+_VALID_PER_PAGE = (10, 25, 50, 100)
 
 # RFC-1918 + loopback ranges — registration is only allowed from these
 _LOCAL_EXACT = {"127.0.0.1", "::1", "localhost"}
@@ -100,6 +105,11 @@ def local_only(f):
     return decorated
 
 
+def _get_per_page() -> int:
+    per_page = request.args.get("per_page", 25, type=int)
+    return per_page if per_page in _VALID_PER_PAGE else 25
+
+
 # ── Pages ──────────────────────────────────────────────────────────────────────
 
 @admin_bp.route("/")
@@ -107,13 +117,28 @@ def local_only(f):
 @login_required
 def index():
     page = request.args.get("page", 1, type=int)
-    per_page = 25
+    per_page = _get_per_page()
     pagination = (
         Download.query
         .order_by(Download.created_at.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
-    return render_template("admin/index.html", pagination=pagination)
+    return render_template("admin/index.html", pagination=pagination, per_page=per_page)
+
+
+@admin_bp.route("/table-fragment")
+@local_only
+@login_required
+def table_fragment():
+    """Returns only the table HTML fragment for AJAX refresh."""
+    page = request.args.get("page", 1, type=int)
+    per_page = _get_per_page()
+    pagination = (
+        Download.query
+        .order_by(Download.created_at.desc())
+        .paginate(page=page, per_page=per_page, error_out=False)
+    )
+    return render_template("admin/_table.html", pagination=pagination, per_page=per_page)
 
 
 @admin_bp.route("/login")
@@ -136,6 +161,53 @@ def login_page():
 def logout():
     session.pop("admin_authenticated", None)
     return redirect(url_for("admin.login_page"))
+
+
+# ── ZIP download ───────────────────────────────────────────────────────────────
+
+@admin_bp.route("/download-zip", methods=["POST"])
+@local_only
+@login_required
+def download_zip():
+    data = request.get_json(silent=True) or {}
+    job_ids = data.get("job_ids", [])
+    if not job_ids:
+        return jsonify({"error": "no job_ids provided"}), 400
+
+    records = (
+        Download.query
+        .filter(Download.job_id.in_(job_ids), Download.status == "done")
+        .all()
+    )
+    if not records:
+        return jsonify({"error": "no downloadable files in selection"}), 400
+
+    buf = io.BytesIO()
+    seen_names: dict[str, int] = {}
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for r in records:
+            base_name = (r.file_name or r.job_id) if not (r.file_name or "").endswith(".mp3") \
+                        else (r.file_name or r.job_id)[:-4]
+            candidate = f"{base_name}.mp3"
+            if candidate in seen_names:
+                seen_names[candidate] += 1
+                candidate = f"{base_name} ({seen_names[candidate]}).mp3"
+            else:
+                seen_names[candidate] = 1
+            try:
+                zf.write(r.file_path, arcname=candidate)
+            except Exception:
+                pass  # skip files that can't be read (shouldn't happen)
+
+    buf.seek(0)
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"yt2mp3-{date_str}.zip",
+    )
 
 
 # ── WebAuthn: Authentication (local only) ─────────────────────────────────────

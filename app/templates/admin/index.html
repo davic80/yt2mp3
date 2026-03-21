@@ -27,30 +27,57 @@
       background: var(--surface); border-bottom: 1px solid var(--border);
       padding: .75rem 1.5rem;
       display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 10;
+      position: sticky; top: 0; z-index: 10; gap: 1rem; flex-wrap: wrap;
     }
-    .topbar-logo { font-size: 1.1rem; font-weight: 600; letter-spacing: -.5px; }
+    .topbar-logo { font-size: 1.1rem; font-weight: 600; letter-spacing: -.5px; flex-shrink: 0; }
     .topbar-logo .sep { color: #27a008; }
     .topbar-logo .mp3 { color: var(--neon); }
     .topbar-logo .admin-label {
       font-size: .7rem; color: var(--muted); letter-spacing: .1em;
       text-transform: uppercase; margin-left: .5rem;
     }
-    .topbar-right { display: flex; align-items: center; gap: 1rem; }
+    .topbar-right { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+
     .stat-pill {
       background: var(--surface2); border: 1px solid var(--border2);
       border-radius: 20px; padding: .2rem .75rem;
       font-size: .78rem; color: var(--muted);
     }
     .stat-pill span { color: var(--neon); font-weight: 600; }
-    .btn-logout {
-      background: transparent; border: 1px solid var(--border);
+
+    /* per-page selector */
+    .per-page-select {
+      background: var(--surface2); color: var(--text); border: 1px solid var(--border2);
+      border-radius: var(--radius); padding: .28rem .55rem; font-size: .78rem;
+      font-family: var(--font); cursor: pointer;
+    }
+    .per-page-select:focus { outline: none; border-color: var(--neon); }
+
+    /* ZIP button */
+    .btn-zip {
+      background: var(--neon); color: #0a0a0a; border: none;
+      border-radius: var(--radius); font-family: var(--font);
+      font-weight: 600; padding: .32rem .85rem; cursor: pointer;
+      font-size: .8rem; transition: background .15s, box-shadow .15s;
+      white-space: nowrap;
+    }
+    .btn-zip:hover { background: #4fff25; box-shadow: 0 0 10px var(--neon-dim); }
+
+    /* Refresh button + countdown */
+    .btn-refresh {
+      background: transparent; border: 1px solid var(--border2);
       border-radius: var(--radius); color: var(--muted);
       font-family: var(--font); font-size: .8rem;
-      padding: .35rem .75rem; cursor: pointer;
+      padding: .28rem .65rem; cursor: pointer;
       transition: border-color .15s, color .15s;
+      display: flex; align-items: center; gap: .35rem;
     }
-    .btn-logout:hover { border-color: var(--muted); color: var(--text); }
+    .btn-refresh:hover { border-color: var(--muted); color: var(--text); }
+    .btn-refresh svg { width: .9rem; height: .9rem; flex-shrink: 0; }
+    .refresh-countdown {
+      font-size: .72rem; color: var(--muted); font-family: var(--mono);
+      min-width: 2.8rem; text-align: right;
+    }
 
     /* ── Main ── */
     .main { padding: 1.5rem; }
@@ -77,6 +104,15 @@
     td { padding: .55rem .8rem; vertical-align: top; }
     td.mono { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
 
+    /* selected row highlight */
+    tr.selected-row {
+      background: rgba(57,255,20,.06) !important;
+      box-shadow: inset 3px 0 0 var(--neon);
+    }
+
+    /* checkboxes */
+    input[type=checkbox] { accent-color: var(--neon); cursor: pointer; width: 1rem; height: 1rem; }
+
     .badge {
       display: inline-block; padding: .15rem .5rem;
       border-radius: 4px; font-size: .72rem; font-weight: 600;
@@ -92,9 +128,10 @@
     .cookie-dot.has { background: var(--neon); }
     .cookie-dot.no  { background: var(--border2); }
 
-    .url-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    .url-cell  { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
     .title-cell { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
-    .fp-cell  { max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+    .fp-cell   { max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+    .hw-cell   { max-width: 200px; overflow: hidden; text-overflow: ellipsis; font-size: .78rem; }
 
     /* Version badge */
     .version-badge {
@@ -144,6 +181,7 @@
     .page-info { font-size: .8rem; color: var(--muted); }
 
     .empty { text-align: center; padding: 3rem; color: var(--muted); }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -155,189 +193,202 @@
   </div>
   <div class="topbar-right">
     <div class="stat-pill">total <span>{{ pagination.total }}</span></div>
-    <div class="stat-pill">página <span>{{ pagination.page }}/{{ pagination.pages or 1 }}</span></div>
-    <form method="post" action="/db/logout" style="display:inline">
-      <button class="btn-logout" type="submit">cerrar sesión</button>
-    </form>
+    <div class="stat-pill">página <span id="page-indicator">{{ pagination.page }}/{{ pagination.pages or 1 }}</span></div>
+
+    <select class="per-page-select" id="per-page-select" onchange="changePerPage(this.value)" title="Filas por página">
+      {% for n in [10, 25, 50, 100] %}
+      <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }} / pág</option>
+      {% endfor %}
+    </select>
+
+    <button class="btn-zip hidden" id="btn-zip" onclick="downloadZip()">↓ ZIP (0)</button>
+
+    <button class="btn-refresh" id="btn-refresh" onclick="doRefresh()" title="Refrescar tabla">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+      </svg>
+      Refresh
+    </button>
+    {% if refresh_interval > 0 %}
+    <span class="refresh-countdown" id="refresh-countdown">--:--</span>
+    {% endif %}
   </div>
 </div>
 
 <div class="main">
-  {% if pagination.items %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th></th>
-          <th>#</th>
-          <th>fecha</th>
-          <th>ip</th>
-          <th>url youtube</th>
-          <th>título</th>
-          <th>navegador</th>
-          <th>os</th>
-          <th>dispositivo</th>
-          <th>idioma</th>
-          <th>fingerprint</th>
-          <th>meta</th>
-          <th>ga</th>
-          <th>ig</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in pagination.items %}
-        <tr class="data-row" data-id="{{ row.id }}">
-          <td>
-            <button class="btn-expand" onclick="toggleDetail({{ row.id }})" title="expandir">+</button>
-          </td>
-          <td class="mono">{{ row.id }}</td>
-          <td class="mono">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
-          <td class="mono">{{ row.ip_address or '—' }}</td>
-          <td class="url-cell" title="{{ row.youtube_url }}">
-            <a href="{{ row.youtube_url }}" target="_blank" rel="noopener"
-               style="color: var(--neon); text-decoration: none;">
-              {{ row.youtube_url | truncate(40, True) }}
-            </a>
-          </td>
-          <td class="title-cell" title="{{ row.title }}">
-            {% if row.title and row.status == 'done' %}
-            <a href="/files/{{ row.job_id }}" style="color: var(--neon); text-decoration: none;">
-              {{ row.title | truncate(45, True) }}
-            </a>
-            {% else %}
-            <span style="color: var(--muted);">{{ row.title | truncate(45, True) if row.title else '—' }}</span>
-            {% endif %}
-          </td>
-          <td>{{ row.ua_browser or '—' }} {{ row.ua_browser_version or '' }}</td>
-          <td>{{ row.ua_os or '—' }}</td>
-          <td>
-            {% set dev = row.ua_device or 'PC' %}
-            <span class="badge badge-{{ dev | lower }}">{{ dev }}</span>
-          </td>
-          <td class="mono">{{ (row.accept_language or '—')[:12] }}</td>
-          <td class="fp-cell" title="{{ row.fingerprint_hash }}">{{ row.fingerprint_hash or '—' }}</td>
-          <td>
-            <span class="cookie-dot {{ 'has' if row.fb_fbp else 'no' }}" title="_fbp"></span>
-            <span class="cookie-dot {{ 'has' if row.fb_fbc else 'no' }}" title="_fbc"></span>
-          </td>
-          <td>
-            <span class="cookie-dot {{ 'has' if row.ga_client else 'no' }}" title="_ga"></span>
-          </td>
-          <td>
-            <span class="cookie-dot {{ 'has' if row.ig_did else 'no' }}" title="ig_did"></span>
-          </td>
-        </tr>
-        <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-          <td colspan="14">
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">URL completa</span>
-                <span class="detail-value">{{ row.youtube_url }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">User-Agent raw</span>
-                <span class="detail-value">{{ row.user_agent_raw or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Accept-Language</span>
-                <span class="detail-value">{{ row.accept_language or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Referrer</span>
-                <span class="detail-value">{{ row.referrer or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Fingerprint hash</span>
-                <span class="detail-value">{{ row.fingerprint_hash or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">_fbp (Meta pixel)</span>
-                <span class="detail-value">{{ row.fb_fbp or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">_fbc (Meta click ID)</span>
-                <span class="detail-value">{{ row.fb_fbc or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">_ga (Google Analytics)</span>
-                <span class="detail-value">{{ row.ga_client or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">_ga session</span>
-                <span class="detail-value">{{ row.ga_session or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">ig_did (Instagram)</span>
-                <span class="detail-value">{{ row.ig_did or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Todas las cookies</span>
-                <span class="detail-value">{{ row.cookies_json or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Componentes fingerprint</span>
-                <span class="detail-value">{{ row.fingerprint_components or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Es bot</span>
-                <span class="detail-value">{{ 'Sí' if row.ua_is_bot else 'No' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Es móvil</span>
-                <span class="detail-value">{{ 'Sí' if row.ua_is_mobile else 'No' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Archivo MP3</span>
-                <span class="detail-value">{{ row.file_name or '—' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Estado job</span>
-                <span class="detail-value">{{ row.status }}</span>
-              </div>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div id="table-container">
+    {% include 'admin/_table.html' %}
   </div>
-
-  <!-- Pagination -->
-  {% if pagination.pages > 1 %}
-  <div class="pagination">
-    <a class="page-btn {{ 'disabled' if not pagination.has_prev }}"
-       href="?page={{ pagination.prev_num }}">&#8592;</a>
-
-    {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
-      {% if p %}
-        <a class="page-btn {{ 'active' if p == pagination.page }}" href="?page={{ p }}">{{ p }}</a>
-      {% else %}
-        <span class="page-info">…</span>
-      {% endif %}
-    {% endfor %}
-
-    <a class="page-btn {{ 'disabled' if not pagination.has_next }}"
-       href="?page={{ pagination.next_num }}">&#8594;</a>
-  </div>
-  {% endif %}
-
-  {% else %}
-  <div class="empty">No hay registros todavía.</div>
-  {% endif %}
 </div>
-
-<script>
-function toggleDetail(id) {
-  const row = document.getElementById('detail-' + id);
-  const btn = row.previousElementSibling.querySelector('.btn-expand');
-  const hidden = row.style.display === 'none';
-  row.style.display = hidden ? 'table-row' : 'none';
-  btn.textContent = hidden ? '−' : '+';
-}
-</script>
 
 <div class="version-badge">
   v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
 </div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const REFRESH_INTERVAL = {{ refresh_interval }};  // seconds (0 = disabled)
+let currentPage    = {{ pagination.page }};
+let currentPerPage = {{ per_page }};
+
+// ── Countdown ───────────────────────────────────────────────────────────────
+let countdown = REFRESH_INTERVAL;
+let countdownTimer = null;
+const countdownEl = document.getElementById('refresh-countdown');
+
+function formatTime(s) {
+  const m = String(Math.floor(s / 60)).padStart(2, '0');
+  const sec = String(s % 60).padStart(2, '0');
+  return `${m}:${sec}`;
+}
+
+function updateCountdown() {
+  if (countdownEl) countdownEl.textContent = formatTime(countdown);
+}
+
+function resetCountdown() {
+  countdown = REFRESH_INTERVAL;
+  updateCountdown();
+}
+
+if (REFRESH_INTERVAL > 0) {
+  updateCountdown();
+  countdownTimer = setInterval(() => {
+    countdown--;
+    updateCountdown();
+    if (countdown <= 0) doRefresh();
+  }, 1000);
+}
+
+// ── AJAX table refresh ───────────────────────────────────────────────────────
+async function doRefresh() {
+  resetCountdown();
+
+  // Save current selection
+  const selectedIds = new Set(
+    Array.from(document.querySelectorAll('.row-check:checked')).map(cb => cb.value)
+  );
+
+  const url = new URL('/db/table-fragment', window.location.origin);
+  url.searchParams.set('page', currentPage);
+  url.searchParams.set('per_page', currentPerPage);
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    const html = await resp.text();
+    document.getElementById('table-container').innerHTML = html;
+  } catch (e) {
+    return;
+  }
+
+  // Re-attach listeners and restore selection
+  initCheckboxes();
+  document.querySelectorAll('.row-check').forEach(cb => {
+    if (selectedIds.has(cb.value)) {
+      cb.checked = true;
+      cb.closest('tr').classList.add('selected-row');
+    }
+  });
+  updateZipBtn();
+}
+
+// ── Selection logic ──────────────────────────────────────────────────────────
+function initCheckboxes() {
+  const selectAll = document.getElementById('select-all');
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      document.querySelectorAll('.row-check').forEach(cb => {
+        cb.checked = this.checked;
+        cb.closest('tr').classList.toggle('selected-row', this.checked);
+      });
+      updateZipBtn();
+    });
+  }
+
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.addEventListener('change', function () {
+      this.closest('tr').classList.toggle('selected-row', this.checked);
+      syncSelectAll();
+      updateZipBtn();
+    });
+  });
+}
+
+function syncSelectAll() {
+  const all     = document.querySelectorAll('.row-check');
+  const checked = document.querySelectorAll('.row-check:checked');
+  const sa = document.getElementById('select-all');
+  if (!sa) return;
+  sa.checked       = checked.length > 0 && checked.length === all.length;
+  sa.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function updateZipBtn() {
+  const n   = document.querySelectorAll('.row-check:checked').length;
+  const btn = document.getElementById('btn-zip');
+  if (!btn) return;
+  btn.classList.toggle('hidden', n === 0);
+  btn.textContent = `↓ ZIP (${n})`;
+}
+
+// ── ZIP download ─────────────────────────────────────────────────────────────
+async function downloadZip() {
+  const ids = Array.from(document.querySelectorAll('.row-check:checked')).map(cb => cb.value);
+  if (!ids.length) return;
+
+  const btn = document.getElementById('btn-zip');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = 'preparando…';
+
+  try {
+    const resp = await fetch('/db/download-zip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_ids: ids }),
+    });
+    if (!resp.ok) {
+      alert('No hay archivos descargables en la selección.');
+      return;
+    }
+    const blob = await resp.blob();
+    const cd   = resp.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="(.+?)"/);
+    const name  = match ? match[1] : 'yt2mp3.zip';
+    const a = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+// ── Per-page selector ────────────────────────────────────────────────────────
+function changePerPage(val) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('per_page', val);
+  url.searchParams.set('page', 1);
+  window.location.href = url.toString();
+}
+
+// ── Row expand ───────────────────────────────────────────────────────────────
+function toggleDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  const btn = row.previousElementSibling.querySelectorAll('.btn-expand')[0];
+  const hidden = row.style.display === 'none';
+  row.style.display = hidden ? 'table-row' : 'none';
+  if (btn) btn.textContent = hidden ? '−' : '+';
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+initCheckboxes();
+</script>
+
 </body>
 </html>

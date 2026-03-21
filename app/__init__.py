@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import threading
 from datetime import timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -52,9 +53,12 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "1.3.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "1.4.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
+
+    # Admin panel auto-refresh interval in seconds (0 = disabled)
+    app.config["ADMIN_REFRESH_INTERVAL"] = int(os.environ.get("ADMIN_REFRESH_INTERVAL", 300))
 
     # Ensure dirs exist
     os.makedirs(app.config["DOWNLOAD_DIR"], exist_ok=True)
@@ -66,9 +70,22 @@ def create_app():
     limiter.init_app(app)
 
     with app.app_context():
+        from sqlalchemy import text
         from app.models import Download  # noqa: F401
         from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge  # noqa: F401
         db.create_all()
+
+        # ── Inline migrations: add new columns if they don't exist yet ──
+        for col_sql in (
+            "ALTER TABLE downloads ADD COLUMN hardware_model VARCHAR(256)",
+            "ALTER TABLE downloads ADD COLUMN identity_hash VARCHAR(16)",
+        ):
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text(col_sql))
+                    conn.commit()
+            except Exception:
+                pass  # column already exists — safe to ignore
 
     from app.routes import bp
     from app.admin_routes import admin_bp
@@ -78,9 +95,36 @@ def create_app():
     @app.context_processor
     def inject_build_info():
         return {
-            "version":  app.config["APP_VERSION"],
-            "commit":   app.config["GIT_COMMIT"],
-            "repo_url": app.config["REPO_URL"],
+            "version":          app.config["APP_VERSION"],
+            "commit":           app.config["GIT_COMMIT"],
+            "repo_url":         app.config["REPO_URL"],
+            "refresh_interval": app.config["ADMIN_REFRESH_INTERVAL"],
         }
+
+    # ── Background migration: fill hardware_model / identity_hash for old rows ──
+    def _migrate_hardware():
+        from app.hardware_parser import detect_hardware, compute_identity_hash
+        logger = logging.getLogger("app")
+        with app.app_context():
+            try:
+                rows = Download.query.filter(
+                    (Download.hardware_model == None) | (Download.identity_hash == None),  # noqa: E711
+                    Download.fingerprint_components != None,  # noqa: E711
+                ).all()
+                if not rows:
+                    return
+                updated = 0
+                for r in rows:
+                    if not r.hardware_model:
+                        r.hardware_model = detect_hardware(r.fingerprint_components)
+                    if not r.identity_hash:
+                        r.identity_hash = compute_identity_hash(r.fingerprint_components)
+                    updated += 1
+                db.session.commit()
+                logger.info("hardware migration: updated %d rows", updated)
+            except Exception as exc:
+                logger.warning("hardware migration failed: %s", exc)
+
+    threading.Thread(target=_migrate_hardware, daemon=True).start()
 
     return app
