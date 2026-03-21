@@ -291,7 +291,7 @@ def delete_records():
         if r.file_path:
             try:
                 os.remove(r.file_path)
-            except FileNotFoundError:
+            except OSError:
                 pass
         db.session.delete(r)
         deleted += 1

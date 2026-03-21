@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.7] - 2026-03-21
+
+### Fixed
+- **"Eliminar seleccionados" button stays disabled after first successful delete.**
+  `this.disabled` was never reset to `false` on the success path, so every
+  subsequent click was silently swallowed — making it appear the confirm dialog
+  never fired. Button is now re-enabled before `refreshTable()` is called.
+- **MP3 files not removed on delete.** The `except` clause only caught
+  `FileNotFoundError`; widened to `OSError` so any filesystem error (permissions,
+  stale NFS handle, etc.) is handled gracefully without aborting the DB deletion.
+
+---
+
 ## [1.6.6] - 2026-03-21
 
 ### Added

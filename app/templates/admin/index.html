@@ -429,6 +429,7 @@ document.getElementById('btn-delete').addEventListener('click', async function (
     });
     const data = await resp.json();
     if (resp.ok) {
+      this.disabled = false;
       refreshTable();
     } else {
       alert(data.error || 'Error al eliminar');
