@@ -45,6 +45,9 @@ class Download(db.Model):
     # Bot score (v1.5.0) — 0-100 heuristic
     bot_score = db.Column(db.Integer, nullable=True)
 
+    # File size in bytes (v1.7.0)
+    file_size = db.Column(db.Integer, nullable=True)
+
     def to_dict(self):
         return {
             "job_id": self.job_id,

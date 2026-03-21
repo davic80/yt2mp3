@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.7.0] - 2026-03-21
+
+### Added
+- **Rename title from admin panel.** Clicking any title in the downloads table
+  opens a `prompt()` pre-filled with the current title. On confirm, `POST /db/rename`
+  updates both `title` and `file_name` in the DB (the actual file on disk keeps its
+  `<job_id>.mp3` name). The table refreshes automatically.
+- **File size column.** New `file_size` DB column (integer bytes) populated at
+  download time via `os.path.getsize()`. The size is displayed inline next to each
+  title using Jinja2's `filesizeformat` filter (e.g. "6.2 MiB"), and also shown in
+  the row detail panel.
+- **Date column moved.** The `date` column now appears after `fingerprint` instead
+  of between `#` and `ip`, keeping network/identity fields together.
+
+---
+
 ## [1.6.7] - 2026-03-21
 
 ### Fixed

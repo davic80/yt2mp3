@@ -82,6 +82,7 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 record.file_path = mp3_path
                 record.file_name = file_name
                 record.title     = title
+                record.file_size = os.path.getsize(mp3_path)
 
                 # Snapshot every field we need while the session is still live
                 mail_data = {

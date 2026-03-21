@@ -274,6 +274,25 @@ def download_zip():
     )
 
 
+# ── Rename title ───────────────────────────────────────────────────────────────
+
+@admin_bp.route("/rename", methods=["POST"])
+@local_only
+@login_required
+def rename_record():
+    data = request.get_json(silent=True) or {}
+    job_id = data.get("job_id", "").strip()
+    new_title = data.get("title", "").strip()
+    if not job_id or not new_title:
+        return jsonify({"error": "job_id and title are required"}), 400
+
+    record = Download.query.filter_by(job_id=job_id).first_or_404()
+    record.title     = new_title
+    record.file_name = new_title + ".mp3"
+    db.session.commit()
+    return jsonify({"ok": True, "title": record.title, "file_name": record.file_name})
+
+
 # ── Delete records ─────────────────────────────────────────────────────────────
 
 @admin_bp.route("/delete", methods=["POST"])

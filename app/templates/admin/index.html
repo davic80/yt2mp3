@@ -446,6 +446,28 @@ document.getElementById('btn-delete').addEventListener('click', async function (
 // ── Convenience alias used by delete handler ──────────────────────────────────
 function refreshTable() { doRefresh(); }
 
+// ── Rename title ──────────────────────────────────────────────────────────────
+async function renameTitle(jobId, currentTitle) {
+  const newTitle = prompt('Renombrar título:', currentTitle);
+  if (!newTitle || newTitle.trim() === '' || newTitle.trim() === currentTitle) return;
+
+  try {
+    const resp = await fetch('/db/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId, title: newTitle.trim() }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.ok) {
+      refreshTable();
+    } else {
+      alert(data.error || 'Error al renombrar');
+    }
+  } catch (e) {
+    alert('Error de conexión al intentar renombrar.');
+  }
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 initCheckboxes();
 </script>

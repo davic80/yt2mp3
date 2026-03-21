@@ -8,7 +8,6 @@
         </th>
         <th style="width:2rem"></th>
         <th>#</th>
-        <th>date</th>
         <th>ip</th>
         <th>country</th>
         <th>title</th>
@@ -19,6 +18,7 @@
         <th>identity</th>
         <th>language</th>
         <th>fingerprint</th>
+        <th>date</th>
         <th>bot</th>
         <th>url</th>
       </tr>
@@ -33,7 +33,6 @@
           <button class="btn-expand" onclick="toggleDetail({{ row.id }})" title="expand">+</button>
         </td>
         <td class="mono">{{ row.id }}</td>
-        <td class="mono">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
         <td class="mono">{{ row.ip_address or '—' }}</td>
         <td class="mono" title="{{ row.city or '' }}{% if row.city and row.country_code %} · {% endif %}{{ row.country_code or '' }}" style="white-space:nowrap;">
           {% if row.country_code %}
@@ -44,11 +43,18 @@
         </td>
         <td class="title-cell" title="{{ row.title }}">
           {% if row.title and row.status == 'done' %}
-          <a href="/files/{{ row.job_id }}" style="color: var(--neon); text-decoration: none;">
+          <a href="/files/{{ row.job_id }}" style="color: var(--neon); text-decoration: none;"
+             onclick="event.preventDefault(); renameTitle('{{ row.job_id }}', '{{ row.title | e }}')">
             {{ row.title | truncate(45, True) }}
           </a>
+          {% if row.file_size %}
+          <span style="color:var(--muted);font-size:.72rem;margin-left:.35rem;">{{ row.file_size | filesizeformat }}</span>
+          {% endif %}
           {% else %}
           <span style="color: var(--muted);">{{ row.title | truncate(45, True) if row.title else '—' }}</span>
+          {% if row.file_size %}
+          <span style="color:var(--muted);font-size:.72rem;margin-left:.35rem;">{{ row.file_size | filesizeformat }}</span>
+          {% endif %}
           {% endif %}
         </td>
         <td>{{ row.ua_browser or '—' }} {{ row.ua_browser_version or '' }}</td>
@@ -61,6 +67,7 @@
         <td class="mono" title="{{ row.identity_hash or '—' }}">{{ row.identity_hash or '—' }}</td>
         <td class="mono">{{ (row.accept_language or '—')[:12] }}</td>
         <td class="fp-cell" title="{{ row.fingerprint_hash }}">{{ row.fingerprint_hash or '—' }}</td>
+        <td class="mono">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
         <td>
           {% if row.bot_score is not none %}
             {% if row.bot_score >= 60 %}
@@ -130,7 +137,7 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">MP3 file</span>
-              <span class="detail-value">{{ row.file_name or '—' }}</span>
+              <span class="detail-value">{{ row.file_name or '—' }}{% if row.file_size %} · {{ row.file_size | filesizeformat }}{% endif %}</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">Job status</span>
