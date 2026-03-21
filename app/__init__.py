@@ -162,4 +162,31 @@ def create_app():
 
     threading.Thread(target=_migrate_geo, daemon=True).start()
 
+    # ── Background migration: fill file_size for old done rows ──
+    def _migrate_file_size():
+        logger = logging.getLogger("app")
+        with app.app_context():
+            try:
+                rows = Download.query.filter(
+                    Download.status == "done",
+                    Download.file_path != None,   # noqa: E711
+                    Download.file_size == None,   # noqa: E711
+                ).all()
+                if not rows:
+                    return
+                updated = 0
+                for r in rows:
+                    try:
+                        r.file_size = os.path.getsize(r.file_path)
+                        updated += 1
+                    except OSError:
+                        pass  # file deleted from disk — leave NULL
+                if updated:
+                    db.session.commit()
+                logger.info("file_size migration: updated %d rows", updated)
+            except Exception as exc:
+                logger.warning("file_size migration failed: %s", exc)
+
+    threading.Thread(target=_migrate_file_size, daemon=True).start()
+
     return app

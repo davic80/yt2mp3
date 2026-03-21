@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.0.1] - 2026-03-21
+
+### Fixed
+- **File size missing for existing downloads.** Records created before v1.7.0
+  had `file_size = NULL` because the column was only populated on new downloads.
+  A background migration thread now runs at startup and fills `file_size` for
+  all `done` rows whose MP3 is still on disk (`os.path.getsize`). Files that
+  have been deleted from disk are left as NULL silently.
+- **`to_dict()` did not include `file_size`.** When the frontend polled
+  `/status/<job_id>` after the job had expired from the in-memory store (e.g.
+  after a container restart), the response came from `record.to_dict()` which
+  was missing the `file_size` field, so the download label never showed the
+  size even for freshly converted tracks. Field added.
+
+---
+
 ## [2.0.0] - 2026-03-21
 
 ### Added

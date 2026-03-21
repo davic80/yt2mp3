@@ -57,5 +57,6 @@ class Download(db.Model):
             "status": self.status,
             "title": self.title,
             "file_name": self.file_name,
+            "file_size": self.file_size,
             "error_message": self.error_message,
         }
