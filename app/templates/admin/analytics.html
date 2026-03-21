@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>yt2mp3 · analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1c1c1c; --surface: #222; --surface2: #2a2a2a;
+      --border: #333; --border2: #3a3a3a;
+      --neon: #39FF14; --neon-dim: rgba(57,255,20,.15);
+      --text: #e0e0e0; --muted: #777; --mono: 'JetBrains Mono', monospace;
+      --radius: 6px; --font: 'Inter', system-ui, sans-serif;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--font); font-size: 14px; min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: .75rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10; gap: 1rem; flex-wrap: wrap;
+    }
+    .topbar-logo { font-size: 1.1rem; font-weight: 600; letter-spacing: -.5px; flex-shrink: 0; }
+    .topbar-logo .sep  { color: #27a008; }
+    .topbar-logo .mp3  { color: var(--neon); }
+    .topbar-logo .admin-label {
+      font-size: .7rem; color: var(--muted); letter-spacing: .1em;
+      text-transform: uppercase; margin-left: .5rem;
+    }
+    .topbar-right { display: flex; align-items: center; gap: .75rem; }
+    .topbar-nav a {
+      color: var(--muted); text-decoration: none; font-size: .82rem;
+      padding: .25rem .6rem; border-radius: var(--radius);
+      transition: color .15s, background .15s;
+    }
+    .topbar-nav a:hover { color: var(--text); background: var(--surface2); }
+    .topbar-nav a.active { color: var(--neon); }
+
+    /* ── Main ── */
+    .main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+    /* ── Stat pills row ── */
+    .stats-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: .75rem 1.25rem;
+      display: flex; flex-direction: column; gap: .2rem; flex: 1; min-width: 120px;
+    }
+    .stat-card .label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .stat-card .value { font-size: 1.6rem; font-weight: 600; color: var(--neon); font-family: var(--mono); }
+
+    /* ── Chart cards ── */
+    .chart-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+    @media (min-width: 900px) {
+      .chart-grid { grid-template-columns: 1fr 1fr; }
+      .chart-full  { grid-column: 1 / -1; }
+    }
+    .chart-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem 1.25rem;
+    }
+    .chart-card h2 {
+      font-size: .8rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .06em; margin-bottom: .9rem; font-weight: 600;
+    }
+    .chart-wrap { position: relative; }
+
+    /* ── Version badge ── */
+    .version-badge {
+      position: fixed; bottom: .75rem; right: 1rem;
+      font-size: .7rem; color: #555; letter-spacing: .03em;
+      pointer-events: none; user-select: none;
+    }
+    .version-badge a { color: #555; text-decoration: none; pointer-events: all; }
+    .version-badge a:hover { color: #888; }
+    @media (max-width: 480px) { .version-badge { display: none; } }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <span class="yt">yt</span><span class="sep">2</span><span class="mp3">mp3</span>
+    <span class="admin-label">analytics</span>
+  </div>
+  <nav class="topbar-nav topbar-right">
+    <a href="/db/">Tabla</a>
+    <a href="/db/analytics" class="active">Analytics</a>
+  </nav>
+</div>
+
+<div class="main">
+
+  <!-- Summary stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <span class="label">Total descargas</span>
+      <span class="value">{{ total }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="label">Completadas</span>
+      <span class="value" style="color:#39FF14">{{ total_done }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="label">Errores</span>
+      <span class="value" style="color:#ff4d4d">{{ total_error }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="label">Tasa de éxito</span>
+      <span class="value">{{ ((total_done / total * 100) | round(1)) if total else 0 }}%</span>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+
+    <!-- Downloads per day (full width) -->
+    <div class="chart-card chart-full">
+      <h2>Descargas por día</h2>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chart-daily"></canvas>
+      </div>
+    </div>
+
+    <!-- Top songs -->
+    <div class="chart-card">
+      <h2>Top 10 canciones</h2>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="chart-songs"></canvas>
+      </div>
+    </div>
+
+    <!-- Top countries -->
+    <div class="chart-card">
+      <h2>Top 10 países</h2>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="chart-countries"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="version-badge">
+  v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
+</div>
+
+<script>
+const NEON       = '#39FF14';
+const NEON_DIM   = 'rgba(57,255,20,0.15)';
+const NEON_GRID  = 'rgba(255,255,255,0.06)';
+const TEXT_MUTED = '#777';
+
+Chart.defaults.color = TEXT_MUTED;
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+
+// ── Shared options helpers ───────────────────────────────────────────────────
+function gridOpts() {
+  return { color: NEON_GRID, drawBorder: false };
+}
+function tickOpts() {
+  return { color: TEXT_MUTED, font: { size: 11 } };
+}
+
+// ── Downloads per day ────────────────────────────────────────────────────────
+new Chart(document.getElementById('chart-daily'), {
+  type: 'line',
+  data: {
+    labels: {{ daily_labels | safe }},
+    datasets: [{
+      label: 'descargas',
+      data: {{ daily_counts | safe }},
+      borderColor: NEON,
+      backgroundColor: NEON_DIM,
+      borderWidth: 2,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: NEON,
+      fill: true,
+      tension: 0.3,
+    }],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: gridOpts(), ticks: { ...tickOpts(), maxTicksLimit: 12, maxRotation: 45 } },
+      y: { grid: gridOpts(), ticks: { ...tickOpts(), precision: 0 }, beginAtZero: true },
+    },
+  },
+});
+
+// ── Top songs (horizontal bar) ────────────────────────────────────────────────
+new Chart(document.getElementById('chart-songs'), {
+  type: 'bar',
+  data: {
+    labels: {{ song_labels | safe }},
+    datasets: [{
+      label: 'descargas',
+      data: {{ song_counts | safe }},
+      backgroundColor: NEON_DIM,
+      borderColor: NEON,
+      borderWidth: 1,
+      borderRadius: 3,
+    }],
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: gridOpts(), ticks: { ...tickOpts(), precision: 0 }, beginAtZero: true },
+      y: { grid: { display: false }, ticks: {
+        ...tickOpts(),
+        callback: function(val) {
+          const label = this.getLabelForValue(val);
+          return label && label.length > 30 ? label.slice(0, 30) + '…' : label;
+        }
+      }},
+    },
+  },
+});
+
+// ── Top countries (horizontal bar) ────────────────────────────────────────────
+new Chart(document.getElementById('chart-countries'), {
+  type: 'bar',
+  data: {
+    labels: {{ country_labels | safe }},
+    datasets: [{
+      label: 'descargas',
+      data: {{ country_counts | safe }},
+      backgroundColor: 'rgba(136,136,255,0.15)',
+      borderColor: '#8888ff',
+      borderWidth: 1,
+      borderRadius: 3,
+    }],
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: gridOpts(), ticks: { ...tickOpts(), precision: 0 }, beginAtZero: true },
+      y: { grid: { display: false }, ticks: tickOpts() },
+    },
+  },
+});
+</script>
+
+</body>
+</html>

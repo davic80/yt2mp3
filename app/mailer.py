@@ -47,10 +47,6 @@ def _build_html(data: dict) -> str:
         ("Device",           data.get("ua_device") or "PC"),
         ("Language",         data.get("accept_language") or "—"),
         ("Fingerprint",      data.get("fingerprint_hash") or "—"),
-        ("Meta _fbp",        data.get("fb_fbp") or "—"),
-        ("Meta _fbc",        data.get("fb_fbc") or "—"),
-        ("GA _ga",           data.get("ga_client") or "—"),
-        ("Instagram ig_did", data.get("ig_did") or "—"),
     ]
 
     detail_rows_html = "".join(

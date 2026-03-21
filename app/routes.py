@@ -14,6 +14,8 @@ from app.models import Download
 from app.downloader import start_download, get_job
 from app.fingerprint import collect
 from app.hardware_parser import detect_hardware, compute_identity_hash
+from app.bot_score import compute_bot_score
+from app.geo import geolocate
 
 bp = Blueprint("main", __name__)
 
@@ -54,16 +56,25 @@ def download():
     # Collect fingerprint data
     meta = collect(
         client_fingerprint=data.get("fingerprint"),
-        client_cookies=data.get("cookies"),
     )
 
     # Create DB record
     fp_components = meta.get("fingerprint_components")
+    geo = geolocate(meta.get("ip_address"))
     record = Download(
         job_id="placeholder",  # will be replaced below
         youtube_url=youtube_url,
         hardware_model=detect_hardware(fp_components),
         identity_hash=compute_identity_hash(fp_components),
+        bot_score=compute_bot_score(
+            ua_raw=meta.get("user_agent_raw"),
+            ua_is_bot=meta.get("ua_is_bot", False),
+            fingerprint_hash=meta.get("fingerprint_hash"),
+            fingerprint_components=fp_components,
+            referrer=meta.get("referrer"),
+        ),
+        country_code=geo["country_code"],
+        city=geo["city"],
         **meta,
     )
     db.session.add(record)

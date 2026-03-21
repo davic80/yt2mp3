@@ -3,7 +3,7 @@
   <table>
     <thead>
       <tr>
-        <th style="width:2rem">
+        <th style="width:2rem; background:#2a2a2a;">
           <input type="checkbox" id="select-all" title="Seleccionar todos">
         </th>
         <th style="width:2rem"></th>
@@ -19,15 +19,13 @@
         <th>identity</th>
         <th>idioma</th>
         <th>fingerprint</th>
-        <th>meta</th>
-        <th>ga</th>
-        <th>ig</th>
+        <th>bot</th>
       </tr>
     </thead>
     <tbody>
       {% for row in pagination.items %}
       <tr class="data-row" data-id="{{ row.id }}" data-job="{{ row.job_id }}">
-        <td style="vertical-align:middle">
+        <td style="vertical-align:middle; background:#333;">
           <input type="checkbox" class="row-check" value="{{ row.job_id }}" title="Seleccionar">
         </td>
         <td>
@@ -62,18 +60,21 @@
         <td class="mono">{{ (row.accept_language or '—')[:12] }}</td>
         <td class="fp-cell" title="{{ row.fingerprint_hash }}">{{ row.fingerprint_hash or '—' }}</td>
         <td>
-          <span class="cookie-dot {{ 'has' if row.fb_fbp else 'no' }}" title="_fbp"></span>
-          <span class="cookie-dot {{ 'has' if row.fb_fbc else 'no' }}" title="_fbc"></span>
-        </td>
-        <td>
-          <span class="cookie-dot {{ 'has' if row.ga_client else 'no' }}" title="_ga"></span>
-        </td>
-        <td>
-          <span class="cookie-dot {{ 'has' if row.ig_did else 'no' }}" title="ig_did"></span>
+          {% if row.bot_score is not none %}
+            {% if row.bot_score >= 60 %}
+              <span class="bot-badge bot-high" title="Bot score: {{ row.bot_score }}">{{ row.bot_score }}</span>
+            {% elif row.bot_score >= 30 %}
+              <span class="bot-badge bot-mid" title="Bot score: {{ row.bot_score }}">{{ row.bot_score }}</span>
+            {% else %}
+              <span class="bot-badge bot-low" title="Bot score: {{ row.bot_score }}">{{ row.bot_score }}</span>
+            {% endif %}
+          {% else %}
+            <span style="color:var(--muted)">—</span>
+          {% endif %}
         </td>
       </tr>
       <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-        <td colspan="17">
+        <td colspan="15">
           <div class="detail-grid">
             <div class="detail-item">
               <span class="detail-label">URL completa</span>
@@ -102,30 +103,6 @@
             <div class="detail-item">
               <span class="detail-label">Fingerprint hash</span>
               <span class="detail-value">{{ row.fingerprint_hash or '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">_fbp (Meta pixel)</span>
-              <span class="detail-value">{{ row.fb_fbp or '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">_fbc (Meta click ID)</span>
-              <span class="detail-value">{{ row.fb_fbc or '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">_ga (Google Analytics)</span>
-              <span class="detail-value">{{ row.ga_client or '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">_ga session</span>
-              <span class="detail-value">{{ row.ga_session or '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">ig_did (Instagram)</span>
-              <span class="detail-value">{{ row.ig_did or '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Todas las cookies</span>
-              <span class="detail-value">{{ row.cookies_json or '—' }}</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">Componentes fingerprint</span>

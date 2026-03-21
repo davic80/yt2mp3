@@ -63,9 +63,8 @@
     </main>
   </div>
 
-  <!-- FingerprintJS OSS (loaded from CDN, no tracking to FP servers) -->
+  <!-- Minimal canvas + WebGL fingerprint (no external CDN, no cookie access) -->
   <script>
-    // Minimal canvas + audio fingerprint implementation (no external CDN required)
     (function () {
       window._fpData = { visitorId: null, components: {} };
 
@@ -92,8 +91,6 @@
           lang: nav.language,
           langs: (nav.languages || []).join(','),
           platform: nav.platform,
-          cookieEnabled: nav.cookieEnabled,
-          doNotTrack: nav.doNotTrack,
           screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           timezoneOffset: new Date().getTimezoneOffset(),
@@ -120,28 +117,24 @@
         return Math.abs(h).toString(16);
       }
 
-      function getCookiesAsObject() {
-        const obj = {};
-        document.cookie.split(';').forEach(pair => {
-          const [k, ...rest] = pair.trim().split('=');
-          if (k) obj[k.trim()] = rest.join('=');
-        });
-        return obj;
-      }
-
       const components = getComponents();
       const hash = simpleHash(JSON.stringify(components));
       window._fpData = {
         visitorId: hash,
         components: components,
       };
-      window._cookieData = getCookiesAsObject();
     })();
   </script>
 
   <script src="/static/app.js"></script>
   <div class="version-badge">
     v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
+  </div>
+  <div class="footer-bar">
+    <span class="footer-cookie">cookie free</span>
+    <span class="footer-sep">·</span>
+    <a href="https://www.paypal.com/donate/?hosted_button_id=7Z6JDTBCDCWHC"
+       target="_blank" rel="noopener" class="footer-donate">invite me to a coffee ☕</a>
   </div>
 </body>
 </html>

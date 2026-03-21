@@ -20,6 +20,8 @@ class Download(db.Model):
     # Network
     ip_address = db.Column(db.String(64), nullable=True)
     referrer = db.Column(db.Text, nullable=True)
+    country_code = db.Column(db.String(2), nullable=True)   # ISO 3166-1 alpha-2
+    city = db.Column(db.String(128), nullable=True)
 
     # User-Agent (raw + parsed)
     user_agent_raw = db.Column(db.Text, nullable=True)
@@ -36,19 +38,12 @@ class Download(db.Model):
     fingerprint_hash = db.Column(db.String(256), nullable=True)
     fingerprint_components = db.Column(db.Text, nullable=True)  # JSON string
 
-    # Cookies (accessible, non-HttpOnly)
-    cookies_json = db.Column(db.Text, nullable=True)
-
-    # Tracking cookies
-    fb_fbp = db.Column(db.String(256), nullable=True)   # Meta pixel
-    fb_fbc = db.Column(db.String(256), nullable=True)   # Meta click ID
-    ga_client = db.Column(db.String(256), nullable=True) # Google Analytics _ga
-    ga_session = db.Column(db.String(256), nullable=True) # _ga_* session
-    ig_did = db.Column(db.String(256), nullable=True)    # Instagram device ID
-
     # Hardware inference (v1.4.0)
     hardware_model = db.Column(db.String(256), nullable=True)  # e.g. "Apple M1 Pro · MacBook Pro"
     identity_hash  = db.Column(db.String(16),  nullable=True)  # 8-char stable device hash
+
+    # Bot score (v1.5.0) — 0-100 heuristic
+    bot_score = db.Column(db.Integer, nullable=True)
 
     def to_dict(self):
         return {

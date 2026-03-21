@@ -6,6 +6,63 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.5.0] - 2026-03-21
+
+### Added
+- **Analytics dashboard** at `/db/analytics`: summary stats (total, done, errors, success
+  rate), line chart of downloads per day (full history), top-10 songs bar chart, top-10
+  countries bar chart. Built with Chart.js 4 (CDN), dark theme neon green palette.
+  Navigation link added to the admin panel top bar.
+- **Bot score** (`app/bot_score.py`): heuristic 0–100 score saved per download.
+  Signals: headless/automation keywords in UA (+40), `ua_is_bot` from UA parser (+30),
+  absent fingerprint (+20), known headless WebGL renderer (+20), compound signal (+10).
+  Displayed in the admin table with colour-coded badge (green / yellow / red).
+- **IP geolocation** (`app/geo.py`): MaxMind GeoLite2-City `.mmdb` lookup, saving
+  `country_code` and `city` per download. Gracefully disabled when the database file is
+  absent. `GEOIP_PATH` env var (default `/app/geoip/GeoLite2-City.mmdb`).
+- Three new DB columns (`bot_score INTEGER`, `country_code VARCHAR(2)`, `city VARCHAR(128)`)
+  with automatic inline migration on startup.
+- **"cookie free · invite me to a coffee ☕"** footer on the public page, linking to the
+  PayPal donation campaign.
+
+### Removed
+- **All cookie tracking code** — completely removed from the codebase:
+  - DB columns dropped from model: `cookies_json`, `fb_fbp`, `fb_fbc`, `ga_client`,
+    `ga_session`, `ig_did`
+  - `fingerprint.py`: removed `_parse_cookies`, `client_cookies` param, all cookie logic
+  - `routes.py`: no longer passes `client_cookies` to `collect()`
+  - `app.js`: removed `getCookiesAsObject()` and `_cookieData`; no longer sends cookies
+    in the `/download` POST body
+  - `index.html`: removed `getCookiesAsObject`, `cookieEnabled`, `doNotTrack` from
+    the inline fingerprint script; comment updated
+  - `mailer.py`: removed Meta/GA/Instagram rows from notification email
+  - Admin table: removed meta/ga/ig columns and cookie-dot indicators
+  - Note: the DB columns still exist in older databases — they are simply no longer
+    written or displayed.
+
+### Fixed
+- **Admin panel checkbox cells** now have `background: #333` matching the ID/date/IP
+  cells, instead of the default transparent/white browser rendering.
+
+### Changed
+- `docker-compose.yml`: `APP_VERSION` default bumped to `1.5.0`; `GEOIP_PATH` env var
+  and `./geoip:/app/geoip:ro` volume added.
+- `Dockerfile`: `ARG APP_VERSION` bumped to `1.5.0`.
+- `requirements.txt`: added `geoip2==4.8.0`.
+- `.env.example`: added `GEOIP_PATH` with setup instructions.
+
+### Operational note — GeoIP setup
+The GeoLite2-City database is **not** bundled in the Docker image (60 MB binary, MaxMind
+license required). To enable geolocation:
+1. Register free at <https://www.maxmind.com/en/geolite2/signup>
+2. Download `GeoLite2-City.mmdb`
+3. Place it in `./geoip/GeoLite2-City.mmdb` next to `docker-compose.yml`
+4. Restart the container — the app picks it up automatically
+
+Without the file, geolocation is silently skipped and `country_code`/`city` remain `NULL`.
+
+---
+
 ## [1.4.0] - 2026-03-21
 
 ### Added

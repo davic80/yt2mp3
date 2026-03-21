@@ -121,12 +121,14 @@
     .badge-desktop { background: rgba(130,130,255,.15); color: #8888ff; }
     .badge-tablet { background: rgba(255,180,50,.15); color: #ffb432; }
 
-    .cookie-dot {
-      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-      margin-right: 3px;
+    .bot-badge {
+      display: inline-block; padding: .12rem .45rem;
+      border-radius: 4px; font-size: .72rem; font-weight: 700;
+      font-family: var(--mono);
     }
-    .cookie-dot.has { background: var(--neon); }
-    .cookie-dot.no  { background: var(--border2); }
+    .bot-low  { background: rgba(57,255,20,.12);  color: #39FF14; }
+    .bot-mid  { background: rgba(255,200,50,.12); color: #ffc832; }
+    .bot-high { background: rgba(255,77,77,.15);  color: #ff4d4d; }
 
     .url-cell  { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
     .title-cell { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
@@ -192,6 +194,10 @@
     <span class="admin-label">admin</span>
   </div>
   <div class="topbar-right">
+    <a href="/db/analytics" style="color:var(--muted);text-decoration:none;font-size:.82rem;
+       padding:.25rem .6rem;border-radius:var(--radius);transition:color .15s,background .15s;"
+       onmouseover="this.style.color='var(--text)';this.style.background='var(--surface2)'"
+       onmouseout="this.style.color='var(--muted)';this.style.background='transparent'">Analytics</a>
     <div class="stat-pill">total <span>{{ pagination.total }}</span></div>
     <div class="stat-pill">página <span id="page-indicator">{{ pagination.page }}/{{ pagination.pages or 1 }}</span></div>
 

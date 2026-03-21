@@ -7,3 +7,4 @@ python-dotenv==1.0.1
 gunicorn==22.0.0
 webauthn==2.1.0
 cachelib==0.13.0
+geoip2==4.8.0

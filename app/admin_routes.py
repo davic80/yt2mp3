@@ -5,6 +5,7 @@ import re
 import time
 import zipfile
 import functools
+from collections import defaultdict
 from datetime import datetime
 
 import webauthn
@@ -161,6 +162,68 @@ def login_page():
 def logout():
     session.pop("admin_authenticated", None)
     return redirect(url_for("admin.login_page"))
+
+
+@admin_bp.route("/analytics")
+@local_only
+@login_required
+def analytics():
+    from sqlalchemy import func, text as sa_text
+
+    # ── Downloads per day ────────────────────────────────────────────────────
+    daily_rows = (
+        db.session.query(
+            func.strftime("%Y-%m-%d", Download.created_at).label("day"),
+            func.count(Download.id).label("cnt"),
+        )
+        .group_by("day")
+        .order_by("day")
+        .all()
+    )
+    daily_labels = [r.day for r in daily_rows]
+    daily_counts = [r.cnt for r in daily_rows]
+
+    # ── Top 10 songs (by title, only done jobs with a title) ─────────────────
+    song_rows = (
+        db.session.query(Download.title, func.count(Download.id).label("cnt"))
+        .filter(Download.status == "done", Download.title != None)  # noqa: E711
+        .group_by(Download.title)
+        .order_by(func.count(Download.id).desc())
+        .limit(10)
+        .all()
+    )
+    song_labels = [r.title for r in song_rows]
+    song_counts = [r.cnt for r in song_rows]
+
+    # ── Top 10 countries ─────────────────────────────────────────────────────
+    country_rows = (
+        db.session.query(Download.country_code, func.count(Download.id).label("cnt"))
+        .filter(Download.country_code != None)  # noqa: E711
+        .group_by(Download.country_code)
+        .order_by(func.count(Download.id).desc())
+        .limit(10)
+        .all()
+    )
+    country_labels = [r.country_code for r in country_rows]
+    country_counts = [r.cnt for r in country_rows]
+
+    # ── Summary stats ────────────────────────────────────────────────────────
+    total = Download.query.count()
+    total_done = Download.query.filter_by(status="done").count()
+    total_error = Download.query.filter_by(status="error").count()
+
+    return render_template(
+        "admin/analytics.html",
+        daily_labels=json.dumps(daily_labels),
+        daily_counts=json.dumps(daily_counts),
+        song_labels=json.dumps(song_labels),
+        song_counts=json.dumps(song_counts),
+        country_labels=json.dumps(country_labels),
+        country_counts=json.dumps(country_counts),
+        total=total,
+        total_done=total_done,
+        total_error=total_error,
+    )
 
 
 # ── ZIP download ───────────────────────────────────────────────────────────────

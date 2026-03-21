@@ -60,9 +60,8 @@
     progressArea.classList.remove('hidden');
     setProgress(5, 'enviando...');
 
-    // Collect fingerprint + cookies gathered by inline script
+    // Collect fingerprint gathered by inline script
     const fpData = window._fpData || {};
-    const cookieData = window._cookieData || {};
 
     let jobId;
     try {
@@ -72,7 +71,6 @@
         body: JSON.stringify({
           url: url,
           fingerprint: JSON.stringify(fpData),
-          cookies: JSON.stringify(cookieData),
         }),
       });
 
