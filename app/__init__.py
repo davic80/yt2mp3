@@ -53,7 +53,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "1.7.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "2.0.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -73,6 +73,7 @@ def create_app():
         from sqlalchemy import text
         from app.models import Download  # noqa: F401
         from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge  # noqa: F401
+        from app.player_models import Playlist, PlaylistTrack  # noqa: F401
         db.create_all()
 
         # ── Inline migrations: add new columns if they don't exist yet ──
@@ -83,6 +84,7 @@ def create_app():
             "ALTER TABLE downloads ADD COLUMN country_code VARCHAR(2)",
             "ALTER TABLE downloads ADD COLUMN city VARCHAR(128)",
             "ALTER TABLE downloads ADD COLUMN file_size INTEGER",
+            "ALTER TABLE downloads ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT 0",
         ):
             try:
                 with db.engine.connect() as conn:
@@ -93,8 +95,10 @@ def create_app():
 
     from app.routes import bp
     from app.admin_routes import admin_bp
+    from app.player_routes import player_bp
     app.register_blueprint(bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(player_bp)
 
     @app.context_processor
     def inject_build_info():

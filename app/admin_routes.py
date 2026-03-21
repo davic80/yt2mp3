@@ -2,11 +2,9 @@ import base64
 import io
 import json
 import os
-import re
 import time
 import zipfile
 import functools
-from collections import defaultdict
 from datetime import datetime
 
 import webauthn
@@ -29,43 +27,12 @@ from flask import (
 from app import db
 from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge
 from app.models import Download
+from app.auth_utils import _client_ip, _is_local_request, local_only
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/db")
 
 CHALLENGE_TTL = 300  # 5 minutes
 _VALID_PER_PAGE = (10, 25, 50, 100)
-
-# RFC-1918 + loopback ranges — registration is only allowed from these
-_LOCAL_EXACT = {"127.0.0.1", "::1", "localhost"}
-_LOCAL_RE = [
-    re.compile(r"^10\."),
-    re.compile(r"^192\.168\."),
-    re.compile(r"^172\.(1[6-9]|2[0-9]|3[01])\."),
-    re.compile(r"^fd"),   # IPv6 ULA
-    re.compile(r"^fe80"), # IPv6 link-local
-]
-
-
-# ── Network helpers ────────────────────────────────────────────────────────────
-
-def _client_ip() -> str:
-    """Real client IP — prefers Cloudflare header, then X-Forwarded-For."""
-    return (
-        request.headers.get("CF-Connecting-IP")
-        or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        or request.remote_addr
-        or ""
-    )
-
-def _is_local_request() -> bool:
-    """Return True only if the request originates from a private/loopback address."""
-    ip = _client_ip()
-    if ip in _LOCAL_EXACT:
-        return True
-    return any(pattern.match(ip) for pattern in _LOCAL_RE)
-
-
-# ── Auth helpers ───────────────────────────────────────────────────────────────
 
 def _rp_id():
     return current_app.config.get("WEBAUTHN_RP_ID", "localhost")
@@ -94,15 +61,6 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if not _is_local_request() and not session.get("admin_authenticated"):
             return redirect(url_for("admin.login_page"))
-        return f(*args, **kwargs)
-    return decorated
-
-def local_only(f):
-    """Decorator: reject with 403 if request is not from a local network address."""
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        if not _is_local_request():
-            abort(403)
         return f(*args, **kwargs)
     return decorated
 

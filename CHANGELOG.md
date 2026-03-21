@@ -6,6 +6,33 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.0.0] - 2026-03-21
+
+### Added
+- **Private music player.** New `/player` SPA (single-page app) backed by a
+  dedicated `player` blueprint. Streams MP3s from the existing downloads folder
+  using HTTP range requests, supports playlists (create, rename, delete, reorder
+  tracks), and includes a full-featured in-browser audio player with seek bar,
+  volume, and shuffle/repeat modes.
+- **File size in public download UI.** After a conversion completes the download
+  button now shows the file size inline (e.g. `↓ Song Title.mp3 · 6.2 MB`).
+  `file_size` is propagated through the in-memory job store and the
+  `/status/<job_id>` JSON response so `app.js` can display it without an extra
+  round-trip.
+- **`is_favorite` column.** New boolean column on the `downloads` table
+  (migrated inline via `ALTER TABLE … ADD COLUMN … DEFAULT 0`) used by the
+  player to mark favourite tracks.
+- **`→ Player` link in admin topbar.** Quick navigation from the admin DB view
+  to the player, styled identically to the existing Analytics link.
+
+### Changed
+- **`auth_utils` module extracted.** `local_only` decorator, `_client_ip`, and
+  `_is_local_request` moved from `admin_routes.py` into a new
+  `app/auth_utils.py` so both the admin and player blueprints can share them
+  without circular imports.
+
+---
+
 ## [1.7.0] - 2026-03-21
 
 ### Added

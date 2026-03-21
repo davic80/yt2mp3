@@ -127,6 +127,7 @@ def status(job_id: str):
         "progress": job.get("progress", 0),
         "title": job.get("title"),
         "file_name": job.get("file_name"),
+        "file_size": job.get("file_size"),
         "error_message": job.get("error"),
     }
     return jsonify(resp)

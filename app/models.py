@@ -48,6 +48,9 @@ class Download(db.Model):
     # File size in bytes (v1.7.0)
     file_size = db.Column(db.Integer, nullable=True)
 
+    # Player (v2.0.0)
+    is_favorite = db.Column(db.Boolean, default=False, nullable=False)
+
     def to_dict(self):
         return {
             "job_id": self.job_id,

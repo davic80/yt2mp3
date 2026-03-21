@@ -72,6 +72,7 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 _jobs[job_id]["progress"] = 100
                 _jobs[job_id]["file_name"] = file_name
                 _jobs[job_id]["title"] = title
+                _jobs[job_id]["file_size"] = os.path.getsize(mp3_path)
 
             # Update DB — capture all fields BEFORE commit so that post-commit
             # attribute expiry (SQLAlchemy default) never causes a lazy-reload

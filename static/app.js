@@ -140,7 +140,12 @@
             downloadLink.style.display = '';
             downloadLink.href = `/files/${jobId}`;
             const title = data.title || 'audio';
-            downloadLabel.textContent = `↓ ${truncate(title, 40)}.mp3`;
+            let label = `↓ ${truncate(title, 40)}.mp3`;
+            if (data.file_size) {
+              const mb = (data.file_size / 1048576).toFixed(1);
+              label += ` · ${mb} MB`;
+            }
+            downloadLabel.textContent = label;
           }, 400);
           resolve();
 
