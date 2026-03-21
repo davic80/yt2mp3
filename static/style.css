@@ -276,46 +276,6 @@ main {
   .footer-bar { display: none; }
 }
 
-/* ── Playlist individual result ──────────────────────────── */
-.playlist-links {
-  max-height: 240px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 0.5rem;
-  padding-right: 0.25rem;
-}
-
-.playlist-links::-webkit-scrollbar {
-  width: 4px;
-}
-.playlist-links::-webkit-scrollbar-track {
-  background: var(--border);
-  border-radius: 2px;
-}
-.playlist-links::-webkit-scrollbar-thumb {
-  background: var(--neon-dim);
-  border-radius: 2px;
-}
-
-.playlist-track-link {
-  color: var(--neon);
-  font-size: 0.875rem;
-  text-decoration: none;
-  padding: 0.35rem 0.6rem;
-  border-radius: 4px;
-  transition: background 0.12s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-}
-
-.playlist-track-link:hover {
-  background: rgba(57, 255, 20, 0.08);
-}
-
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 480px) {
   .version-badge { display: none; }

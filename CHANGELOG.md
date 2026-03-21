@@ -6,6 +6,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.5] - 2026-03-21
+
+### Changed
+- **Removed playlist support entirely.** URLs containing both `list=` and `v=`
+  parameters now download only the single video (playlist params are stripped
+  before passing the URL to yt-dlp). Bare playlist URLs (`?list=PL…` with no
+  `v=`) return HTTP 400 with the message
+  _"Las listas no están soportadas. Pega la URL de una canción concreta."_
+
+### Removed
+- `POST /playlist-zip` endpoint — no longer needed.
+- `playlist_url` column removed from ORM model (`models.py`); the physical
+  column remains in the SQLite DB but is no longer read or written by the app.
+- All playlist UI: confirmation banner, ZIP/individual-mode flows, scrollable
+  track list, and associated CSS (`.playlist-links`, `.playlist-track-link`).
+- `playlist` column removed from admin panel table and detail view.
+
+---
+
 ## [1.6.4] - 2026-03-21
 
 ### Added

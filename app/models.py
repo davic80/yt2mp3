@@ -45,9 +45,6 @@ class Download(db.Model):
     # Bot score (v1.5.0) — 0-100 heuristic
     bot_score = db.Column(db.Integer, nullable=True)
 
-    # Playlist support (v1.6.0) — original playlist URL if download was part of a playlist
-    playlist_url = db.Column(db.Text, nullable=True)
-
     def to_dict(self):
         return {
             "job_id": self.job_id,

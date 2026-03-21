@@ -20,7 +20,6 @@
         <th>language</th>
         <th>fingerprint</th>
         <th>bot</th>
-        <th>playlist</th>
         <th>url</th>
       </tr>
     </thead>
@@ -75,15 +74,6 @@
             <span style="color:var(--muted)">—</span>
           {% endif %}
         </td>
-        <td style="text-align:center;">
-          {% if row.playlist_url %}
-            <a href="{{ row.playlist_url }}" target="_blank" rel="noopener"
-               title="{{ row.playlist_url }}"
-               style="color:var(--neon); text-decoration:none; font-size:1rem;">&#9654;</a>
-          {% else %}
-            <span style="color:var(--muted)">—</span>
-          {% endif %}
-        </td>
         <td class="url-cell" title="{{ row.youtube_url }}">
           <a href="{{ row.youtube_url }}" target="_blank" rel="noopener"
              style="color: var(--neon); text-decoration: none;">
@@ -92,20 +82,11 @@
         </td>
       </tr>
       <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-        <td colspan="17">
+        <td colspan="16">
           <div class="detail-grid">
             <div class="detail-item">
               <span class="detail-label">YouTube URL</span>
               <span class="detail-value">{{ row.youtube_url }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Playlist URL</span>
-              <span class="detail-value">
-                {% if row.playlist_url %}
-                  <a href="{{ row.playlist_url }}" target="_blank" rel="noopener"
-                     style="color:var(--neon); text-decoration:none;">{{ row.playlist_url }}</a>
-                {% else %}—{% endif %}
-              </span>
             </div>
             <div class="detail-item">
               <span class="detail-label">Country / City</span>

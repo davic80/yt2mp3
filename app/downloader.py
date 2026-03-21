@@ -15,37 +15,6 @@ def get_job(job_id: str) -> dict | None:
         return _jobs.get(job_id)
 
 
-def extract_playlist_entries(url: str) -> list[dict]:
-    """Return a list of {"url": ..., "title": ...} for every entry in a playlist.
-
-    Uses yt-dlp with extract_flat so no actual download occurs.
-    Falls back to [{"url": url, "title": None}] on any error so the caller
-    can always treat the result as a non-empty iterable.
-    """
-    ydl_opts = {
-        "extract_flat": "in_playlist",
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": False,
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-        entries = info.get("entries") or []
-        result = []
-        for e in entries:
-            video_id = e.get("id") or e.get("url", "")
-            if video_id and not video_id.startswith("http"):
-                video_url = f"https://www.youtube.com/watch?v={video_id}"
-            else:
-                video_url = e.get("url") or e.get("webpage_url") or video_id
-            if video_url:
-                result.append({"url": video_url, "title": e.get("title")})
-        return result if result else [{"url": url, "title": None}]
-    except Exception:
-        return [{"url": url, "title": None}]
-
-
 def _progress_hook(job_id: str):
     def hook(d):
         with _jobs_lock:
@@ -120,7 +89,6 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                     "title":              title,
                     "file_name":          file_name,
                     "youtube_url":        record.youtube_url,
-                    "playlist_url":       record.playlist_url,
                     "created_at":         record.created_at,
                     "ip_address":         record.ip_address,
                     "country_code":       record.country_code,
