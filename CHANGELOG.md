@@ -6,6 +6,35 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.2] - 2026-03-21
+
+### Fixed
+- **Single video with `list=` param hangs forever**: URLs like `watch?v=X&list=Y` are now
+  stripped of `list=`, `index=`, and `start_radio=` params before being passed to yt-dlp.
+  Recent yt-dlp versions attempt to resolve playlist metadata even when `noplaylist=True`
+  is set, causing the download thread to hang indefinitely. The original URL is still
+  stored in the DB (`youtube_url` field) for reference.
+- **`watch?v=X&list=Y` always treated as a single video**: `_has_playlist()` in
+  `routes.py` and `isPlaylistOnly()` in `app.js` now trigger on **any** `list=` param,
+  regardless of whether a `v=` param is also present. Previously, pasting a URL like
+  `watch?v=X&list=Y` would silently download only the single video (and then hang);
+  now it shows the playlist confirmation banner and expands the full playlist.
+
+---
+
+## [1.6.1] - 2026-03-21
+
+### Fixed
+- **Download jobs stuck at "pending" forever** (silent thread crash): after
+  `db.session.commit()` SQLAlchemy expires all ORM attributes. The background download
+  thread later accessed `record.job_id` and other fields outside a session, triggering a
+  `DetachedInstanceError` that was silently swallowed, leaving the job in `pending` state
+  permanently. Fixed in `downloader.py` by snapshotting all required record fields into a
+  plain `dict` before the `commit()`, and wrapping the error-path DB update in its own
+  `try/except` so a secondary DB failure can't mask the original error.
+
+---
+
 ## [1.6.0] - 2026-03-21
 
 ### Added

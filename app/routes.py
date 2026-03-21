@@ -33,21 +33,32 @@ def _rate_limits():
     return [f"{per_minute} per minute", f"{per_hour} per hour"]
 
 
-def _is_playlist_only(url: str) -> bool:
-    """Return True when the URL points to a playlist without a specific video.
+def _has_playlist(url: str) -> bool:
+    """Return True whenever the URL contains a list= param.
 
-    youtube.com/watch?v=XYZ&list=PL... → False  (single video in playlist context)
+    youtube.com/watch?v=XYZ&list=PL... → True   (video in playlist context)
     youtube.com/playlist?list=PL...   → True    (pure playlist)
     """
     try:
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query)
-        # Pure playlist page: no v= param
-        if "list" in params and "v" not in params:
-            return True
+        return "list" in parse_qs(urlparse(url).query)
     except Exception:
-        pass
-    return False
+        return False
+
+
+def _strip_playlist_params(url: str) -> str:
+    """Remove list/index/start_radio params, keeping only v= and t=.
+
+    Prevents yt-dlp from hanging when a URL carries playlist context params
+    but we only want to download the single video.
+    """
+    try:
+        from urllib.parse import urlencode, urlunparse
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        clean = {k: v[0] for k, v in params.items() if k in ("v", "t")}
+        return urlunparse(parsed._replace(query=urlencode(clean)))
+    except Exception:
+        return url
 
 
 # ─── Pages ────────────────────────────────────────────────────────────────────
@@ -88,7 +99,7 @@ def download():
     app_obj = current_app._get_current_object()
     download_dir = current_app.config["DOWNLOAD_DIR"]
 
-    if _is_playlist_only(youtube_url):
+    if _has_playlist(youtube_url):
         # ── Playlist: expand entries, one Download record per track ──
         entries = extract_playlist_entries(youtube_url)
         job_ids = []
@@ -117,7 +128,8 @@ def download():
         return jsonify({"job_ids": job_ids}), 202
 
     else:
-        # ── Single video (may have list= param for context — we ignore it) ──
+        # ── Single video: strip playlist params so yt-dlp won't hang ──
+        clean_url = _strip_playlist_params(youtube_url)
         record = Download(
             job_id="placeholder",
             youtube_url=youtube_url,
@@ -132,7 +144,7 @@ def download():
         db.session.add(record)
         db.session.flush()
 
-        job_id = start_download(app_obj, youtube_url, download_dir)
+        job_id = start_download(app_obj, clean_url, download_dir)
         record.job_id = job_id
         db.session.commit()
 

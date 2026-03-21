@@ -105,7 +105,7 @@
   function isPlaylistOnly(url) {
     try {
       const u = new URL(url.startsWith('http') ? url : 'https://' + url);
-      return u.searchParams.has('list') && !u.searchParams.has('v');
+      return u.searchParams.has('list');
     } catch (_) {
       return false;
     }
