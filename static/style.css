@@ -31,7 +31,7 @@ body {
   align-items: flex-start;
   justify-content: center;
   min-height: 100vh;
-  padding: clamp(2rem, 15vh, 8rem) 1.5rem 1.5rem;
+  padding: clamp(3rem, calc(40vh - 150px), 20rem) 1.5rem 1.5rem;
 }
 
 /* ── Container ─────────────────────────────────────────── */
@@ -239,6 +239,12 @@ main {
   pointer-events: none;
   user-select: none;
 }
+.version-badge a {
+  color: #555;
+  text-decoration: none;
+  pointer-events: all;
+}
+.version-badge a:hover { color: #888; }
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 480px) {

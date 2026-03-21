@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.1] - 2026-03-21
+
+### Fixed
+- **Vertical position**: content block now reliably lands at ~40% from the top on all screen
+  sizes. Previous formula `clamp(2rem, 15vh, 8rem)` only produced ~15vh of top padding,
+  placing the visual center at ~20–25%. Corrected to
+  `clamp(3rem, calc(40vh - 150px), 20rem)` (150 px ≈ half the content block height).
+  Applies to the public page (`body` in `style.css`) and the admin login card (inline style
+  in `login.html`).
+- **Public page version badge parity**: badge now shows `v<version> · <commit> · github`
+  matching the admin pages, instead of just `v<version>`. Commit hash links to the GitHub
+  commit; "github" links to the repository.
+- **Version badge links clickable**: `style.css` had `pointer-events: none` on
+  `.version-badge` with no override for child anchors. Added `.version-badge a` rule with
+  `pointer-events: all` so the commit and repo links are actually clickable.
+
+---
+
 ## [1.3.0] - 2026-03-21
 
 ### Added
