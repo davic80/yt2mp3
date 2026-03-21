@@ -15,6 +15,37 @@ def get_job(job_id: str) -> dict | None:
         return _jobs.get(job_id)
 
 
+def extract_playlist_entries(url: str) -> list[dict]:
+    """Return a list of {"url": ..., "title": ...} for every entry in a playlist.
+
+    Uses yt-dlp with extract_flat so no actual download occurs.
+    Falls back to [{"url": url, "title": None}] on any error so the caller
+    can always treat the result as a non-empty iterable.
+    """
+    ydl_opts = {
+        "extract_flat": "in_playlist",
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": False,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        entries = info.get("entries") or []
+        result = []
+        for e in entries:
+            video_id = e.get("id") or e.get("url", "")
+            if video_id and not video_id.startswith("http"):
+                video_url = f"https://www.youtube.com/watch?v={video_id}"
+            else:
+                video_url = e.get("url") or e.get("webpage_url") or video_id
+            if video_url:
+                result.append({"url": video_url, "title": e.get("title")})
+        return result if result else [{"url": url, "title": None}]
+    except Exception:
+        return [{"url": url, "title": None}]
+
+
 def _progress_hook(job_id: str):
     def hook(d):
         with _jobs_lock:
@@ -84,22 +115,22 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 # mailer thread has no Flask app context to reload them.
                 from app.mailer import send_download_notification
                 send_download_notification({
-                    "job_id":           record.job_id,
-                    "title":            record.title,
-                    "file_name":        record.file_name,
-                    "youtube_url":      record.youtube_url,
-                    "created_at":       record.created_at,
-                    "ip_address":       record.ip_address,
-                    "ua_browser":       record.ua_browser,
+                    "job_id":             record.job_id,
+                    "title":              record.title,
+                    "file_name":          record.file_name,
+                    "youtube_url":        record.youtube_url,
+                    "playlist_url":       record.playlist_url,
+                    "created_at":         record.created_at,
+                    "ip_address":         record.ip_address,
+                    "country_code":       record.country_code,
+                    "city":               record.city,
+                    "ua_browser":         record.ua_browser,
                     "ua_browser_version": record.ua_browser_version,
-                    "ua_os":            record.ua_os,
-                    "ua_device":        record.ua_device,
-                    "accept_language":  record.accept_language,
-                    "fingerprint_hash": record.fingerprint_hash,
-                    "fb_fbp":           record.fb_fbp,
-                    "fb_fbc":           record.fb_fbc,
-                    "ga_client":        record.ga_client,
-                    "ig_did":           record.ig_did,
+                    "ua_os":              record.ua_os,
+                    "ua_device":          record.ua_device,
+                    "accept_language":    record.accept_language,
+                    "fingerprint_hash":   record.fingerprint_hash,
+                    "bot_score":          record.bot_score,
                 })
 
         except Exception as exc:

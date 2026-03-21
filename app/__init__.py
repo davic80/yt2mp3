@@ -53,7 +53,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "1.5.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "1.6.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -82,6 +82,7 @@ def create_app():
             "ALTER TABLE downloads ADD COLUMN bot_score INTEGER",
             "ALTER TABLE downloads ADD COLUMN country_code VARCHAR(2)",
             "ALTER TABLE downloads ADD COLUMN city VARCHAR(128)",
+            "ALTER TABLE downloads ADD COLUMN playlist_url TEXT",
         ):
             try:
                 with db.engine.connect() as conn:
@@ -129,5 +130,32 @@ def create_app():
                 logger.warning("hardware migration failed: %s", exc)
 
     threading.Thread(target=_migrate_hardware, daemon=True).start()
+
+    # ── Background migration: fill country_code / city for old rows ──
+    def _migrate_geo():
+        from app.geo import geolocate
+        logger = logging.getLogger("app")
+        with app.app_context():
+            try:
+                rows = Download.query.filter(
+                    Download.ip_address != None,       # noqa: E711
+                    Download.country_code == None,     # noqa: E711
+                ).all()
+                if not rows:
+                    return
+                updated = 0
+                for r in rows:
+                    geo = geolocate(r.ip_address)
+                    if geo["country_code"] or geo["city"]:
+                        r.country_code = geo["country_code"]
+                        r.city         = geo["city"]
+                        updated += 1
+                if updated:
+                    db.session.commit()
+                logger.info("geo migration: updated %d rows", updated)
+            except Exception as exc:
+                logger.warning("geo migration failed: %s", exc)
+
+    threading.Thread(target=_migrate_geo, daemon=True).start()
 
     return app

@@ -6,6 +6,39 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.0] - 2026-03-21
+
+### Added
+- **YouTube playlist support**: pasting a playlist URL (`?list=PL...`) downloads every
+  track individually. Each track gets its own DB row with `playlist_url` stored for
+  reference. Frontend shows a confirmation banner before starting, then a live
+  `Downloading: X / N` counter as tracks complete.
+- **`playlist_url` DB column** (`TEXT`, nullable) with automatic inline migration on
+  startup. Displayed in the admin table as a `▶` icon link (col 16); full URL also shown
+  in the expanded detail row.
+- **Country column** in the admin table (col 6, after IP): shows `country_code` from
+  MaxMind geo lookup, with city shown on hover.
+- **Retroactive geo migration** (`_migrate_geo` background thread in `__init__.py`):
+  fills `country_code` and `city` for all existing rows that have an `ip_address` but
+  no geo data yet. Runs as a daemon thread on every app start, same pattern as
+  `_migrate_hardware`.
+- **Analytics fix**: replaced `func.strftime` with `func.date` in the downloads-per-day
+  query so Chart.js line chart renders correctly with SQLite's `DateTime` storage format.
+
+### Changed
+- Admin table column order: `date | ip | country | title | browser | os | device | model
+  | identity | language | fingerprint | bot | playlist | url` (17 columns, colspan 17).
+- All admin table column headers renamed to English.
+- Detail row labels also renamed to English.
+- `POST /download` now always returns `{"job_ids": [...]}` (array). Single-video
+  requests return a one-element array; playlist requests return N elements.
+- `app.js` updated to handle `job_ids` array; single-video UX is unchanged.
+- Mailer notification dict updated: removed stale cookie fields (`fb_fbp`, `fb_fbc`,
+  `ga_client`, `ig_did`); added `playlist_url`, `country_code`, `city`, `bot_score`.
+- YouTube URL regex in `routes.py` extended to accept `playlist?list=` URLs.
+
+---
+
 ## [1.5.0] - 2026-03-21
 
 ### Added

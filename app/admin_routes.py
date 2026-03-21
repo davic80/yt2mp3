@@ -173,11 +173,11 @@ def analytics():
     # ── Downloads per day ────────────────────────────────────────────────────
     daily_rows = (
         db.session.query(
-            func.strftime("%Y-%m-%d", Download.created_at).label("day"),
+            func.date(Download.created_at).label("day"),
             func.count(Download.id).label("cnt"),
         )
-        .group_by("day")
-        .order_by("day")
+        .group_by(func.date(Download.created_at))
+        .order_by(func.date(Download.created_at))
         .all()
     )
     daily_labels = [r.day for r in daily_rows]

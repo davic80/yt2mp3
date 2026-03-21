@@ -4,41 +4,44 @@
     <thead>
       <tr>
         <th style="width:2rem; background:#2a2a2a;">
-          <input type="checkbox" id="select-all" title="Seleccionar todos">
+          <input type="checkbox" id="select-all" title="Select all">
         </th>
         <th style="width:2rem"></th>
         <th>#</th>
-        <th>fecha</th>
+        <th>date</th>
         <th>ip</th>
-        <th>url youtube</th>
-        <th>título</th>
-        <th>navegador</th>
+        <th>country</th>
+        <th>title</th>
+        <th>browser</th>
         <th>os</th>
-        <th>dispositivo</th>
-        <th>modelo</th>
+        <th>device</th>
+        <th>model</th>
         <th>identity</th>
-        <th>idioma</th>
+        <th>language</th>
         <th>fingerprint</th>
         <th>bot</th>
+        <th>playlist</th>
+        <th>url</th>
       </tr>
     </thead>
     <tbody>
       {% for row in pagination.items %}
       <tr class="data-row" data-id="{{ row.id }}" data-job="{{ row.job_id }}">
         <td style="vertical-align:middle; background:#333;">
-          <input type="checkbox" class="row-check" value="{{ row.job_id }}" title="Seleccionar">
+          <input type="checkbox" class="row-check" value="{{ row.job_id }}" title="Select">
         </td>
         <td>
-          <button class="btn-expand" onclick="toggleDetail({{ row.id }})" title="expandir">+</button>
+          <button class="btn-expand" onclick="toggleDetail({{ row.id }})" title="expand">+</button>
         </td>
         <td class="mono">{{ row.id }}</td>
         <td class="mono">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
         <td class="mono">{{ row.ip_address or '—' }}</td>
-        <td class="url-cell" title="{{ row.youtube_url }}">
-          <a href="{{ row.youtube_url }}" target="_blank" rel="noopener"
-             style="color: var(--neon); text-decoration: none;">
-            {{ row.youtube_url | truncate(40, True) }}
-          </a>
+        <td class="mono" title="{{ row.city or '' }}{% if row.city and row.country_code %} · {% endif %}{{ row.country_code or '' }}" style="white-space:nowrap;">
+          {% if row.country_code %}
+            {{ row.country_code }}
+          {% else %}
+            <span style="color:var(--muted)">—</span>
+          {% endif %}
         </td>
         <td class="title-cell" title="{{ row.title }}">
           {% if row.title and row.status == 'done' %}
@@ -72,16 +75,44 @@
             <span style="color:var(--muted)">—</span>
           {% endif %}
         </td>
+        <td style="text-align:center;">
+          {% if row.playlist_url %}
+            <a href="{{ row.playlist_url }}" target="_blank" rel="noopener"
+               title="{{ row.playlist_url }}"
+               style="color:var(--neon); text-decoration:none; font-size:1rem;">&#9654;</a>
+          {% else %}
+            <span style="color:var(--muted)">—</span>
+          {% endif %}
+        </td>
+        <td class="url-cell" title="{{ row.youtube_url }}">
+          <a href="{{ row.youtube_url }}" target="_blank" rel="noopener"
+             style="color: var(--neon); text-decoration: none;">
+            {{ row.youtube_url | truncate(40, True) }}
+          </a>
+        </td>
       </tr>
       <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-        <td colspan="15">
+        <td colspan="17">
           <div class="detail-grid">
             <div class="detail-item">
-              <span class="detail-label">URL completa</span>
+              <span class="detail-label">YouTube URL</span>
               <span class="detail-value">{{ row.youtube_url }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">User-Agent raw</span>
+              <span class="detail-label">Playlist URL</span>
+              <span class="detail-value">
+                {% if row.playlist_url %}
+                  <a href="{{ row.playlist_url }}" target="_blank" rel="noopener"
+                     style="color:var(--neon); text-decoration:none;">{{ row.playlist_url }}</a>
+                {% else %}—{% endif %}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Country / City</span>
+              <span class="detail-value">{{ row.country_code or '—' }}{% if row.city %} · {{ row.city }}{% endif %}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">User-Agent</span>
               <span class="detail-value">{{ row.user_agent_raw or '—' }}</span>
             </div>
             <div class="detail-item">
@@ -93,7 +124,7 @@
               <span class="detail-value">{{ row.referrer or '—' }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Modelo hardware</span>
+              <span class="detail-label">Hardware model</span>
               <span class="detail-value">{{ row.hardware_model or '—' }}</span>
             </div>
             <div class="detail-item">
@@ -105,23 +136,23 @@
               <span class="detail-value">{{ row.fingerprint_hash or '—' }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Componentes fingerprint</span>
+              <span class="detail-label">Fingerprint components</span>
               <span class="detail-value">{{ row.fingerprint_components or '—' }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Es bot</span>
-              <span class="detail-value">{{ 'Sí' if row.ua_is_bot else 'No' }}</span>
+              <span class="detail-label">Is bot</span>
+              <span class="detail-value">{{ 'Yes' if row.ua_is_bot else 'No' }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Es móvil</span>
-              <span class="detail-value">{{ 'Sí' if row.ua_is_mobile else 'No' }}</span>
+              <span class="detail-label">Is mobile</span>
+              <span class="detail-value">{{ 'Yes' if row.ua_is_mobile else 'No' }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Archivo MP3</span>
+              <span class="detail-label">MP3 file</span>
               <span class="detail-value">{{ row.file_name or '—' }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Estado job</span>
+              <span class="detail-label">Job status</span>
               <span class="detail-value">{{ row.status }}</span>
             </div>
           </div>
@@ -153,5 +184,5 @@
 {% endif %}
 
 {% else %}
-<div class="empty">No hay registros todavía.</div>
+<div class="empty">No records yet.</div>
 {% endif %}
