@@ -6,6 +6,52 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.0.0] - 2026-03-22
+
+### Added
+- **Auth0 OAuth login (Google + Facebook).** Users can sign in from the public
+  page via Auth0. Login is optional — anonymous downloads still work.
+- **`/auth` blueprint** (`/auth/login`, `/auth/callback`, `/auth/logout`,
+  `/auth/me`) built with Authlib (sync) for compatibility with gunicorn sync
+  workers.
+- **`User` model** — OAuth users are upserted into a `users` table on every
+  login (`email`, `name`, `picture`, `provider`, `created_at`, `last_login`).
+- **`user_email` column on `downloads`** — nullable FK to `users.email`.
+  Anonymous downloads store `NULL`; admin panel shows `anonymous`.
+- **`user_email` column on `playlists`** — nullable; playlists created by a
+  logged-in remote user are scoped to that user.
+- **Auth zone in `index.html` header** — login button (logged-out) or avatar +
+  name + logout link (logged-in); populated by `app.js` calling `/auth/me` on
+  page load.
+- **`/player` is now public-but-authenticated** (`@user_required`). Local
+  (Pi LAN) requests still bypass auth entirely — admin sees all tracks and
+  playlists. Remote users see only their own tracks, playlists, and streams.
+- **`?user=` filter in admin panel** — topbar input debounces and applies a
+  `user_email` filter to the downloads table; clicking a user email in the
+  table also sets the filter. Pagination preserves the filter parameter.
+- **`user` column in admin table** — shows truncated email linked to the
+  `?user=` filter, or `anonymous` for `NULL` rows. Detail panel also shows it.
+  colspan bumped to 18.
+
+### Changed
+- `SESSION_COOKIE_SECURE` default unchanged (still env-driven).
+- `APP_VERSION` default bumped to `3.0.0` in `__init__.py`, `Dockerfile`,
+  and `docker-compose.yml`.
+
+### Notes
+- Auth0 credentials required in `.env` on the Pi:
+  `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`,
+  `AUTH0_CALLBACK_URL=https://diana.f1madrid.win/auth/callback`.
+- Auth0 dashboard must have `https://diana.f1madrid.win/auth/callback` in
+  Allowed Callback URLs and `https://diana.f1madrid.win` in Allowed Logout URLs
+  and Allowed Web Origins.
+- SQLite FK constraints are not enforced at DB level (SQLite limitation);
+  the `user_email` relation is enforced only at the SQLAlchemy ORM level.
+- **NOT in this release**: personal download history `/mis-descargas`
+  and associating anonymous downloads to a user after login (→ v3.1.0).
+
+---
+
 ## [2.0.2] - 2026-03-21
 
 ### Added

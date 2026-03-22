@@ -53,6 +53,15 @@
     }
     .per-page-select:focus { outline: none; border-color: var(--neon); }
 
+    /* user filter */
+    .user-filter-input {
+      background: var(--surface2); color: var(--text); border: 1px solid var(--border2);
+      border-radius: var(--radius); padding: .28rem .6rem; font-size: .78rem;
+      font-family: var(--font); width: 160px;
+    }
+    .user-filter-input:focus { outline: none; border-color: var(--neon); }
+    .user-filter-input::placeholder { color: var(--muted); }
+
     /* ZIP button */
     .btn-zip {
       background: var(--neon); color: #0a0a0a; border: none;
@@ -215,6 +224,15 @@
     <div class="stat-pill">total <span>{{ pagination.total }}</span></div>
     <div class="stat-pill">página <span id="page-indicator">{{ pagination.page }}/{{ pagination.pages or 1 }}</span></div>
 
+    <input
+      type="text"
+      id="user-filter-input"
+      class="user-filter-input"
+      placeholder="filtrar por usuario"
+      value="{{ user_filter }}"
+      title="Filtrar por email de usuario"
+    />
+
     <select class="per-page-select" id="per-page-select" onchange="changePerPage(this.value)" title="Filas por página">
       {% for n in [10, 25, 50, 100] %}
       <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }} / pág</option>
@@ -253,6 +271,7 @@
 const REFRESH_INTERVAL = {{ refresh_interval }};  // seconds (0 = disabled)
 let currentPage    = {{ pagination.page }};
 let currentPerPage = {{ per_page }};
+let currentUser    = {{ user_filter | tojson }};  // '' = no filter
 
 // ── Countdown ───────────────────────────────────────────────────────────────
 let countdown = REFRESH_INTERVAL;
@@ -295,6 +314,7 @@ async function doRefresh() {
   const url = new URL('/db/table-fragment', window.location.origin);
   url.searchParams.set('page', currentPage);
   url.searchParams.set('per_page', currentPerPage);
+  if (currentUser) url.searchParams.set('user', currentUser);
 
   try {
     const resp = await fetch(url);
@@ -403,6 +423,7 @@ function changePerPage(val) {
   const url = new URL(window.location.href);
   url.searchParams.set('per_page', val);
   url.searchParams.set('page', 1);
+  if (currentUser) url.searchParams.set('user', currentUser);
   window.location.href = url.toString();
 }
 
@@ -474,6 +495,27 @@ async function renameTitle(jobId, currentTitle) {
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 initCheckboxes();
+
+// User filter — debounced navigate
+(function () {
+  const input = document.getElementById('user-filter-input');
+  if (!input) return;
+  let timer;
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const url = new URL(window.location.href);
+      const val = input.value.trim();
+      if (val) {
+        url.searchParams.set('user', val);
+      } else {
+        url.searchParams.delete('user');
+      }
+      url.searchParams.set('page', 1);
+      window.location.href = url.toString();
+    }, 600);
+  });
+})();
 </script>
 
 </body>

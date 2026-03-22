@@ -1,6 +1,6 @@
 import re
 import functools
-from flask import request, abort
+from flask import request, abort, session, redirect, url_for
 
 # RFC-1918 + loopback ranges
 _LOCAL_EXACT = {"127.0.0.1", "::1", "localhost"}
@@ -39,3 +39,26 @@ def local_only(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def user_required(f):
+    """Local requests pass through unconditionally (admin sees everything).
+    Remote requests require session['user_email'] — redirects to /auth/login?next=<path>."""
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if _is_local_request():
+            return f(*args, **kwargs)
+        if not session.get("user_email"):
+            return redirect(url_for("auth.login", next=request.path))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def get_current_user_email() -> str | None:
+    """Return the logged-in user's email from session, or None.
+
+    For local (admin) requests this returns None intentionally — callers
+    should apply no user filter when the return value is None AND the
+    request is local.  Use _is_local_request() alongside this helper when
+    you need to distinguish 'local no-filter' from 'anonymous remote'."""
+    return session.get("user_email")

@@ -161,4 +161,36 @@
   function truncate(str, max) {
     return str.length > max ? str.slice(0, max) + '\u2026' : str;
   }
+
+  // ── Auth zone ─────────────────────────────────────────────────────────────
+
+  async function initAuthZone() {
+    const zoneLoggedIn  = document.getElementById('auth-loggedin');
+    const zoneLoggedOut = document.getElementById('auth-loggedout');
+    if (!zoneLoggedIn || !zoneLoggedOut) return;
+
+    try {
+      const resp = await fetch('/auth/me');
+      if (!resp.ok) throw new Error('non-ok');
+      const data = await resp.json();
+
+      if (data && data.email) {
+        const avatar = document.getElementById('auth-avatar');
+        const name   = document.getElementById('auth-name');
+        if (avatar && data.picture) avatar.src = data.picture;
+        if (name)   name.textContent = data.name || data.email;
+        zoneLoggedIn.classList.remove('hidden');
+        zoneLoggedIn.style.display = 'flex';
+      } else {
+        zoneLoggedOut.classList.remove('hidden');
+        zoneLoggedOut.style.display = 'block';
+      }
+    } catch (_) {
+      // Network error or endpoint unavailable — show login button
+      zoneLoggedOut.classList.remove('hidden');
+      zoneLoggedOut.style.display = 'block';
+    }
+  }
+
+  initAuthZone();
 })();

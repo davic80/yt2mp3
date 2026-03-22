@@ -9,6 +9,7 @@ from flask import (
     request,
     send_from_directory,
     abort,
+    session,
 )
 from app import db, limiter
 from app.models import Download
@@ -100,6 +101,7 @@ def download():
         bot_score=bot,
         country_code=geo["country_code"],
         city=geo["city"],
+        user_email=session.get("user_email"),  # None = anonymous
         **meta,
     )
     db.session.add(record)

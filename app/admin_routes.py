@@ -78,12 +78,12 @@ def _get_per_page() -> int:
 def index():
     page = request.args.get("page", 1, type=int)
     per_page = _get_per_page()
-    pagination = (
-        Download.query
-        .order_by(Download.created_at.desc())
-        .paginate(page=page, per_page=per_page, error_out=False)
-    )
-    return render_template("admin/index.html", pagination=pagination, per_page=per_page)
+    user_filter = request.args.get("user", "").strip()
+    query = Download.query.order_by(Download.created_at.desc())
+    if user_filter:
+        query = query.filter(Download.user_email == user_filter)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    return render_template("admin/index.html", pagination=pagination, per_page=per_page, user_filter=user_filter)
 
 
 @admin_bp.route("/table-fragment")
@@ -93,12 +93,12 @@ def table_fragment():
     """Returns only the table HTML fragment for AJAX refresh."""
     page = request.args.get("page", 1, type=int)
     per_page = _get_per_page()
-    pagination = (
-        Download.query
-        .order_by(Download.created_at.desc())
-        .paginate(page=page, per_page=per_page, error_out=False)
-    )
-    return render_template("admin/_table.html", pagination=pagination, per_page=per_page)
+    user_filter = request.args.get("user", "").strip()
+    query = Download.query.order_by(Download.created_at.desc())
+    if user_filter:
+        query = query.filter(Download.user_email == user_filter)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    return render_template("admin/_table.html", pagination=pagination, per_page=per_page, user_filter=user_filter)
 
 
 @admin_bp.route("/login")

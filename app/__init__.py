@@ -7,6 +7,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from authlib.integrations.flask_client import OAuth
 
 db = SQLAlchemy()
 limiter = Limiter(
@@ -14,6 +15,7 @@ limiter = Limiter(
     default_limits=[],
     storage_uri="memory://",
 )
+oauth = OAuth()
 
 
 def create_app():
@@ -53,7 +55,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "2.0.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "3.0.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -69,9 +71,23 @@ def create_app():
     db.init_app(app)
     limiter.init_app(app)
 
+    # ── Auth0 / Authlib OAuth ─────────────────────────────────────────────────
+    auth0_domain = os.environ.get("AUTH0_DOMAIN", "")
+    app.config["AUTH0_CLIENT_ID"]     = os.environ.get("AUTH0_CLIENT_ID", "")
+    app.config["AUTH0_CLIENT_SECRET"] = os.environ.get("AUTH0_CLIENT_SECRET", "")
+    oauth.init_app(app)
+    if auth0_domain:
+        oauth.register(
+            name="auth0",
+            client_id=app.config["AUTH0_CLIENT_ID"],
+            client_secret=app.config["AUTH0_CLIENT_SECRET"],
+            server_metadata_url=f"https://{auth0_domain}/.well-known/openid-configuration",
+            client_kwargs={"scope": "openid profile email"},
+        )
+
     with app.app_context():
         from sqlalchemy import text
-        from app.models import Download  # noqa: F401
+        from app.models import User, Download  # noqa: F401
         from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge  # noqa: F401
         from app.player_models import Playlist, PlaylistTrack  # noqa: F401
         db.create_all()
@@ -85,6 +101,9 @@ def create_app():
             "ALTER TABLE downloads ADD COLUMN city VARCHAR(128)",
             "ALTER TABLE downloads ADD COLUMN file_size INTEGER",
             "ALTER TABLE downloads ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT 0",
+            # v3.0.0 — user association
+            "ALTER TABLE downloads ADD COLUMN user_email VARCHAR(256)",
+            "ALTER TABLE playlists ADD COLUMN user_email VARCHAR(256)",
         ):
             try:
                 with db.engine.connect() as conn:
@@ -96,9 +115,11 @@ def create_app():
     from app.routes import bp
     from app.admin_routes import admin_bp
     from app.player_routes import player_bp
+    from app.auth_routes import auth_bp
     app.register_blueprint(bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(player_bp)
+    app.register_blueprint(auth_bp)
 
     @app.context_processor
     def inject_build_info():

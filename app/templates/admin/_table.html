@@ -22,6 +22,7 @@
         <th>date</th>
         <th>bot</th>
         <th>url</th>
+        <th>user</th>
       </tr>
     </thead>
     <tbody>
@@ -94,9 +95,18 @@
             {{ row.youtube_url | truncate(40, True) }}
           </a>
         </td>
+        <td class="mono" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="{{ row.user_email or 'anonymous' }}">
+          {% if row.user_email %}
+            <a href="?user={{ row.user_email }}" style="color:var(--neon);text-decoration:none;font-size:.78rem;">
+              {{ row.user_email | truncate(22, True) }}
+            </a>
+          {% else %}
+            <span style="color:var(--muted);font-size:.78rem;">anonymous</span>
+          {% endif %}
+        </td>
       </tr>
       <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-        <td colspan="17">
+        <td colspan="18">
           <div class="detail-grid">
             <div class="detail-item">
               <span class="detail-label">YouTube URL</span>
@@ -150,6 +160,10 @@
               <span class="detail-label">Job status</span>
               <span class="detail-value">{{ row.status }}</span>
             </div>
+            <div class="detail-item">
+              <span class="detail-label">User</span>
+              <span class="detail-value">{{ row.user_email or 'anonymous' }}</span>
+            </div>
           </div>
         </td>
       </tr>
@@ -162,19 +176,19 @@
 {% if pagination.pages > 1 %}
 <div class="pagination">
   <a class="page-btn {{ 'disabled' if not pagination.has_prev }}"
-     href="?page={{ pagination.prev_num }}&per_page={{ per_page }}">&#8592;</a>
+     href="?page={{ pagination.prev_num }}&per_page={{ per_page }}{% if user_filter %}&user={{ user_filter }}{% endif %}">&#8592;</a>
 
   {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
     {% if p %}
       <a class="page-btn {{ 'active' if p == pagination.page }}"
-         href="?page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
+         href="?page={{ p }}&per_page={{ per_page }}{% if user_filter %}&user={{ user_filter }}{% endif %}">{{ p }}</a>
     {% else %}
       <span class="page-info">…</span>
     {% endif %}
   {% endfor %}
 
   <a class="page-btn {{ 'disabled' if not pagination.has_next }}"
-     href="?page={{ pagination.next_num }}&per_page={{ per_page }}">&#8594;</a>
+     href="?page={{ pagination.next_num }}&per_page={{ per_page }}{% if user_filter %}&user={{ user_filter }}{% endif %}">&#8594;</a>
 </div>
 {% endif %}
 

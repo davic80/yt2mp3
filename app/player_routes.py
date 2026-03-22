@@ -1,10 +1,10 @@
 import os
 from datetime import datetime, timezone
 
-from flask import Blueprint, Response, jsonify, render_template, request, send_file
+from flask import Blueprint, Response, abort, jsonify, render_template, request, send_file
 
 from app import db
-from app.auth_utils import local_only
+from app.auth_utils import _is_local_request, get_current_user_email, user_required
 from app.models import Download
 from app.player_models import Playlist, PlaylistTrack
 
@@ -14,7 +14,7 @@ player_bp = Blueprint("player", __name__, url_prefix="/player")
 # ── Page ───────────────────────────────────────────────────────────────────────
 
 @player_bp.route("/")
-@local_only
+@user_required
 def index():
     return render_template("player/index.html")
 
@@ -66,23 +66,32 @@ def _stream_mp3(record: Download) -> Response:
 
 
 @player_bp.route("/stream/<job_id>")
-@local_only
+@user_required
 def stream(job_id: str):
     record = Download.query.filter_by(job_id=job_id, status="done").first_or_404()
+
+    # Remote users may only stream their own tracks
+    email = get_current_user_email()
+    if email and record.user_email != email:
+        abort(403)
+
     return _stream_mp3(record)
 
 
 # ── Tracks API ─────────────────────────────────────────────────────────────────
 
 @player_bp.route("/api/tracks")
-@local_only
+@user_required
 def api_tracks():
-    rows = (
-        Download.query
-        .filter_by(status="done")
-        .order_by(Download.created_at.desc())
-        .all()
-    )
+    email = get_current_user_email()
+    query = Download.query.filter_by(status="done")
+
+    # Local (admin) → email is None → sees all tracks
+    # Remote logged-in user → filter to own tracks only
+    if email:
+        query = query.filter_by(user_email=email)
+
+    rows = query.order_by(Download.created_at.desc()).all()
     return jsonify([
         {
             "job_id":      r.job_id,
@@ -97,13 +106,19 @@ def api_tracks():
 
 
 @player_bp.route("/api/favorite", methods=["POST"])
-@local_only
+@user_required
 def api_favorite():
     data   = request.get_json(silent=True) or {}
     job_id = data.get("job_id", "").strip()
     if not job_id:
         return jsonify({"error": "job_id required"}), 400
     record = Download.query.filter_by(job_id=job_id).first_or_404()
+
+    # Ownership check for remote users
+    email = get_current_user_email()
+    if email and record.user_email != email:
+        abort(403)
+
     record.is_favorite = not bool(record.is_favorite)
     db.session.commit()
     return jsonify({"is_favorite": bool(record.is_favorite)})
@@ -112,23 +127,30 @@ def api_favorite():
 # ── Playlists API ──────────────────────────────────────────────────────────────
 
 @player_bp.route("/api/playlists")
-@local_only
+@user_required
 def api_playlists():
-    from sqlalchemy import func, case
-    rows = (
+    from sqlalchemy import case, func
+    email = get_current_user_email()
+
+    query = (
         db.session.query(
             Playlist,
             func.count(PlaylistTrack.id).label("track_count"),
         )
         .outerjoin(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
         .group_by(Playlist.id)
-        .order_by(
-            case((Playlist.last_added.is_(None), 1), else_=0),
-            Playlist.last_added.desc(),
-            Playlist.created_at.desc(),
-        )
-        .all()
     )
+
+    # Remote users see only their own playlists; local sees all
+    if email:
+        query = query.filter(Playlist.user_email == email)
+
+    rows = query.order_by(
+        case((Playlist.last_added.is_(None), 1), else_=0),
+        Playlist.last_added.desc(),
+        Playlist.created_at.desc(),
+    ).all()
+
     return jsonify([
         {
             "id":          pl.id,
@@ -141,31 +163,44 @@ def api_playlists():
 
 
 @player_bp.route("/api/playlists", methods=["POST"])
-@local_only
+@user_required
 def api_create_playlist():
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
     if not name:
         return jsonify({"error": "name required"}), 400
-    pl = Playlist(name=name)
+
+    email = get_current_user_email()
+    pl = Playlist(name=name, user_email=email)
     db.session.add(pl)
     db.session.commit()
     return jsonify({"id": pl.id, "name": pl.name}), 201
 
 
 @player_bp.route("/api/playlists/<int:pid>", methods=["DELETE"])
-@local_only
+@user_required
 def api_delete_playlist(pid: int):
     pl = Playlist.query.get_or_404(pid)
+
+    # Ownership check for remote users
+    email = get_current_user_email()
+    if email and pl.user_email != email:
+        abort(403)
+
     db.session.delete(pl)
     db.session.commit()
     return jsonify({"ok": True})
 
 
 @player_bp.route("/api/playlists/<int:pid>/tracks")
-@local_only
+@user_required
 def api_playlist_tracks(pid: int):
-    Playlist.query.get_or_404(pid)
+    pl = Playlist.query.get_or_404(pid)
+
+    email = get_current_user_email()
+    if email and pl.user_email != email:
+        abort(403)
+
     tracks = (
         PlaylistTrack.query
         .filter_by(playlist_id=pid)
@@ -186,13 +221,18 @@ def api_playlist_tracks(pid: int):
 
 
 @player_bp.route("/api/playlists/<int:pid>/tracks", methods=["POST"])
-@local_only
+@user_required
 def api_add_to_playlist(pid: int):
     pl     = Playlist.query.get_or_404(pid)
     data   = request.get_json(silent=True) or {}
     job_id = data.get("job_id", "").strip()
     if not job_id:
         return jsonify({"error": "job_id required"}), 400
+
+    email = get_current_user_email()
+    if email and pl.user_email != email:
+        abort(403)
+
     Download.query.filter_by(job_id=job_id).first_or_404()
 
     max_pos = db.session.query(
@@ -207,8 +247,14 @@ def api_add_to_playlist(pid: int):
 
 
 @player_bp.route("/api/playlists/<int:pid>/tracks/<job_id>", methods=["DELETE"])
-@local_only
+@user_required
 def api_remove_from_playlist(pid: int, job_id: str):
+    pl = Playlist.query.get_or_404(pid)
+
+    email = get_current_user_email()
+    if email and pl.user_email != email:
+        abort(403)
+
     pt = PlaylistTrack.query.filter_by(playlist_id=pid, job_id=job_id).first_or_404()
     removed_pos = pt.position
     db.session.delete(pt)

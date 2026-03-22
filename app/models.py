@@ -2,6 +2,20 @@ from datetime import datetime, timezone
 from app import db
 
 
+class User(db.Model):
+    """OAuth user — created/updated on every login via Auth0."""
+    __tablename__ = "users"
+
+    email      = db.Column(db.String(256), primary_key=True)
+    name       = db.Column(db.String(256), nullable=True)
+    picture    = db.Column(db.Text, nullable=True)       # avatar URL from provider
+    provider   = db.Column(db.String(16), nullable=True) # 'google' | 'facebook'
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    last_login = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    downloads = db.relationship("Download", back_populates="user", lazy="dynamic")
+
+
 class Download(db.Model):
     __tablename__ = "downloads"
 
@@ -50,6 +64,10 @@ class Download(db.Model):
 
     # Player (v2.0.0)
     is_favorite = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Auth user (v3.0.0) — NULL = anonymous download
+    user_email = db.Column(db.String(256), db.ForeignKey("users.email"), nullable=True, index=True)
+    user = db.relationship("User", back_populates="downloads")
 
     def to_dict(self):
         return {
