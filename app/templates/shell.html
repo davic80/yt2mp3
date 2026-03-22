@@ -86,6 +86,23 @@
     .auth-btn.login { border-color: var(--neon); color: var(--neon); }
     .hidden { display: none !important; }
 
+    /* ── Topbar responsive ── */
+    @media (max-width: 600px) {
+      .topbar { padding: 0 .75rem; gap: .5rem; }
+      .topbar-nav { margin-left: .5rem; gap: .15rem; }
+      .topbar-link { font-size: .75rem; padding: .2rem .4rem; }
+      /* show short labels on narrow screens */
+      .topbar-link .link-full { display: none; }
+      .topbar-link .link-short { display: inline; }
+      .auth-name { display: none; }
+      .lang-toggle { gap: .1rem; }
+      .lang-btn { padding: .2rem .3rem; font-size: .68rem; }
+    }
+    @media (min-width: 601px) {
+      .topbar-link .link-short { display: none; }
+      .topbar-link .link-full  { display: inline; }
+    }
+
     /* ── Page content (swappable area) ── */
     #page-content {
       flex: 1;
@@ -145,6 +162,27 @@
       background: var(--neon); border-radius: 50%;
     }
 
+    /* ── Player bar responsive ── */
+    @media (max-width: 600px) {
+      :root { --player-h: 108px; }
+      .player-bar {
+        flex-wrap: wrap; height: var(--player-h); min-height: var(--player-h);
+        padding: .45rem .75rem; gap: .3rem; align-content: center;
+      }
+      /* Row 1: title full width */
+      .player-info { width: 100%; order: 1; text-align: center; flex-shrink: 0; }
+      /* Row 2: controls centred + progress bar */
+      .player-controls { order: 2; flex-shrink: 0; gap: .6rem; }
+      .player-progress { order: 2; min-width: 0; gap: .4rem; }
+      /* bigger touch targets */
+      .ctrl-btn { padding: .4rem; font-size: 1.2rem; }
+      .ctrl-btn.play-pause { width: 2.6rem; height: 2.6rem; font-size: 1.35rem; }
+      /* hide time labels to save space, keep progress bar */
+      .time-label { display: none; }
+      /* hide volume — OS controls it on mobile */
+      .volume-wrap { display: none; }
+    }
+
     /* ── Version badge ── */
     .version-badge {
       position: fixed; bottom: calc(var(--player-h) + .5rem); right: .75rem;
@@ -164,9 +202,9 @@
     <span>yt</span><span class="sep">2</span><span class="mp3">mp3</span>
   </div>
   <nav class="topbar-nav">
-    <a href="/"              class="topbar-link" data-path="/">→ Descargar</a>
-    <a href="/mis-descargas" class="topbar-link" data-path="/mis-descargas">↓ Mis descargas</a>
-    <a href="/player"        class="topbar-link" data-path="/player">♪ Player</a>
+    <a href="/"              class="topbar-link" data-path="/"><span class="link-full">→ Descargar</span><span class="link-short">→</span></a>
+    <a href="/mis-descargas" class="topbar-link" data-path="/mis-descargas"><span class="link-full">↓ Mis descargas</span><span class="link-short">↓ Mis</span></a>
+    <a href="/player"        class="topbar-link" data-path="/player"><span class="link-full">♪ Player</span><span class="link-short">♪</span></a>
   </nav>
   <!-- Language selector -->
   <div class="lang-toggle" id="lang-toggle">

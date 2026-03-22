@@ -102,6 +102,19 @@
   #toast.show { opacity: 1; }
   #toast.ok  { border-color: rgba(57,255,20,.4); color: var(--neon); }
   #toast.err { border-color: rgba(255,77,77,.4); color: var(--red); }
+
+  /* ── Responsive ≤600px ── */
+  @media (max-width: 600px) {
+    .page { padding: 1rem .75rem; }
+    .search-input { flex-basis: 100%; order: -1; }
+    .btn { padding: .55rem .9rem; font-size: .84rem; }
+    thead th.col-size, thead th.col-date,
+    td.col-size, td.col-date { display: none; }
+    thead th.col-actions { width: 5rem; }
+    tbody tr td { padding: .72rem .5rem; }
+    .row-btn { padding: .35rem .5rem; font-size: .85rem; }
+    .row-btn.edit .edit-label { display: none; }
+  }
 </style>
 
 <div class="page">
@@ -217,7 +230,7 @@
         <td class="col-date">${date}</td>
         <td class="col-actions">
           <button class="row-btn play" onclick="window.Player && window.Player.playTrack('${t.job_id}')" title="${I.t('md.play')}">▶</button>
-          <button class="row-btn edit" onclick="startRename('${t.job_id}')" title="${I.t('md.rename')}">${I.t('md.rename')}</button>
+          <button class="row-btn edit" onclick="startRename('${t.job_id}')" title="${I.t('md.rename')}">✎ <span class="edit-label">${I.t('md.rename').replace(/^✎\s*/, '')}</span></button>
           <a class="row-btn dl" href="/files/${t.job_id}.mp3" download title="${I.t('md.download')}">↓</a>
           <button class="row-btn del" onclick="deleteSingle('${t.job_id}')" title="${I.t('md.delete')}">✕</button>
         </td>

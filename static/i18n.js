@@ -178,15 +178,30 @@ window.I18n = (function () {
   function _applyShell() {
     const lang = getLang();
 
-    // Topbar nav links
+    // Topbar nav links — update both .link-full and .link-short spans
     const nav = {
       '/':              'nav.download',
       '/mis-descargas': 'nav.mydownloads',
       '/player':        'nav.player',
     };
+    // Short labels (mobile): strip leading arrow/symbol, keep only the word(s)
+    const navShort = {
+      '/':              '→',
+      '/mis-descargas': '↓ Mis',
+      '/player':        '♪',
+    };
+    const navShortEn = {
+      '/':              '→',
+      '/mis-descargas': '↓ My',
+      '/player':        '♪',
+    };
     document.querySelectorAll('.topbar-link[data-path]').forEach(a => {
       const key = nav[a.dataset.path];
-      if (key) a.textContent = t(key);
+      if (!key) return;
+      const full  = a.querySelector('.link-full');
+      const short = a.querySelector('.link-short');
+      if (full)  full.textContent  = t(key);
+      if (short) short.textContent = (lang === 'en' ? navShortEn : navShort)[a.dataset.path] || t(key);
     });
 
     // Auth buttons

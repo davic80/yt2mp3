@@ -1,6 +1,6 @@
 <style>
   .layout {
-    height: 100%; display: flex; overflow: hidden;
+    height: 100%; display: flex; overflow: hidden; position: relative;
   }
   /* ── Sidebar ── */
   .sidebar {
@@ -43,11 +43,26 @@
     transition: color .12s;
   }
   .sidebar-pl-del:hover { color: #ff4d4d; }
+  /* ── Hamburger button (hidden on desktop) ── */
+  .btn-sidebar-toggle {
+    display: none;
+    background: none; border: none; cursor: pointer;
+    color: var(--muted2); padding: .4rem .5rem; border-radius: var(--radius);
+    font-size: 1.15rem; line-height: 1;
+    transition: color .12s, background .12s; flex-shrink: 0;
+  }
+  .btn-sidebar-toggle:hover { color: var(--text); background: var(--surface2); }
+  /* ── Drawer overlay ── */
+  .sidebar-overlay {
+    display: none; position: absolute; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 40;
+  }
+  .sidebar-overlay.open { display: block; }
   /* ── Main ── */
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .search-bar { padding: .85rem 1.25rem .6rem; flex-shrink: 0; }
+  .search-bar { padding: .85rem 1.25rem .6rem; flex-shrink: 0; display: flex; align-items: center; gap: .5rem; }
   .search-input {
-    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    flex: 1; background: var(--surface2); border: 1px solid var(--border2);
     border-radius: var(--radius); color: var(--text);
     font-family: var(--font); font-size: .84rem;
     padding: .45rem .8rem; outline: none; transition: border-color .15s;
@@ -109,10 +124,43 @@
   .dropdown-item.remove:hover { background: rgba(255,77,77,.1); color: #ff4d4d; }
   .dropdown-div { border-top: 1px solid var(--border); margin: .25rem 0; }
   .empty-msg { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: .9rem; }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    /* Sidebar becomes an off-canvas drawer */
+    .sidebar {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      width: 80%; max-width: 280px; min-width: 0;
+      z-index: 50; border-right: 1px solid var(--border2);
+      transform: translateX(-100%);
+      transition: transform .22s ease;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay { display: none; }
+    .sidebar-overlay.open { display: block; }
+    /* Show hamburger */
+    .btn-sidebar-toggle { display: flex; }
+    /* Bigger touch targets in track list */
+    .track-list td { padding: .75rem .5rem; }
+    .menu-btn { padding: .35rem .55rem; font-size: 1.25rem; }
+    .fav-btn  { font-size: 1.15rem; padding: .1rem; }
+    /* Hide size and date columns */
+    .col-size, .col-date,
+    .track-list thead th.col-size,
+    .track-list thead th.col-date { display: none; }
+    /* Reduce search bar padding */
+    .search-bar { padding: .6rem .75rem .4rem; }
+    .track-list-wrap { padding: 0 .5rem .75rem; }
+    /* Dropdown items bigger for touch */
+    .dropdown-item { padding: .7rem 1rem; font-size: .9rem; }
+  }
 </style>
 
 <!-- Layout -->
 <div class="layout">
+
+  <!-- Drawer overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeDrawer()"></div>
 
   <!-- Sidebar -->
   <nav class="sidebar" id="sidebar">
@@ -137,6 +185,7 @@
   <!-- Main -->
   <div class="main">
     <div class="search-bar">
+      <button class="btn-sidebar-toggle" onclick="openDrawer()" aria-label="Menu">☰</button>
       <input class="search-input" type="search" id="search-input"
              oninput="renderTracks()" />
     </div>
@@ -235,6 +284,7 @@
 
   // ── View switching ───────────────────────────────────────────────────────────
   async function setView(view) {
+    closeDrawer();
     state.view = view;
     document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
     if (view === 'all')            document.getElementById('view-all').classList.add('active');
@@ -468,6 +518,16 @@
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── Drawer (mobile sidebar) ──────────────────────────────────────────────────
+  function openDrawer() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebar-overlay').classList.add('open');
+  }
+  function closeDrawer() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+
   // Expose to onclick attrs in generated HTML
   window.setView             = setView;
   window.playTrack           = playTrack;
@@ -479,6 +539,8 @@
   window.removeFromPlaylist  = removeFromPlaylist;
   window.deletePlaylist      = deletePlaylist;
   window.renderTracks        = renderTracks;
+  window.openDrawer          = openDrawer;
+  window.closeDrawer         = closeDrawer;
 
   // Re-render when language changes
   document.addEventListener('i18n:change', () => {
