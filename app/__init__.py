@@ -55,7 +55,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "3.0.1")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "3.1.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -116,10 +116,12 @@ def create_app():
     from app.admin_routes import admin_bp
     from app.player_routes import player_bp
     from app.auth_routes import auth_bp
+    from app.mis_descargas_routes import mis_bp
     app.register_blueprint(bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(player_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(mis_bp)
 
     @app.context_processor
     def inject_build_info():

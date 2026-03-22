@@ -107,6 +107,11 @@ def download():
     db.session.add(record)
     db.session.flush()
 
+    # v3.1.0 — remember the anonymous browser fingerprint so we can associate
+    # these downloads with a user if they log in later in the same session.
+    if not session.get("user_email") and identity:
+        session["anon_identity_hash"] = identity
+
     job_id = start_download(app_obj, clean_url, download_dir)
     record.job_id = job_id
     db.session.commit()

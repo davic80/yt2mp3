@@ -6,6 +6,29 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.1.0] - 2026-03-22
+
+### Added
+- **`/mis-descargas`** — personal download history page for logged-in users.
+  - Full list of the user's completed downloads with title, size, and date.
+  - **Rename** any track inline (sanitised for filesystem safety); updates both
+    `title` and `file_name` in the DB so the download link uses the new name.
+  - **Delete** a track record. File on disk is removed only when no other
+    `downloads` row references the same `file_path` (reference-counted).
+  - **Individual download** button per track (`/files/<job_id>.mp3`).
+  - **ZIP download** — select any subset (or all) and download a single ZIP
+    with deduplicated filenames inside the archive.
+  - Multi-select with header checkbox and "select all" toggle.
+  - Search/filter bar.
+- **Anonymous → user association on login** — downloads made anonymously in
+  the same browser session (matched by `identity_hash`) are automatically
+  claimed by the user on their first login.
+- **Header "mis descargas" link** — shown in the auth zone when logged in
+  (next to the player name and logout button).
+- **Player topbar "↓ Mis descargas" link** — quick navigation from the player.
+
+---
+
 ## [3.0.1] - 2026-03-22
 
 ### Fixed

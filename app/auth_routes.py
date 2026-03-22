@@ -79,6 +79,21 @@ def callback():
     session["user_picture"] = picture
     session.permanent = True
 
+    # v3.1.0 — associate anonymous downloads made in this browser session
+    # (identified by the session fingerprint stored before login) to this user.
+    # We use the identity_hash stored on records that share the same browser
+    # fingerprint from the pre-login session cookie.
+    anon_identity = session.pop("anon_identity_hash", None)
+    if anon_identity:
+        from app.models import Download
+        updated = (
+            Download.query
+            .filter_by(user_email=None, identity_hash=anon_identity)
+            .update({"user_email": email}, synchronize_session=False)
+        )
+        if updated:
+            db.session.commit()
+
     return redirect(session.pop("next", "/"))
 
 
