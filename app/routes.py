@@ -84,7 +84,9 @@ def _extract_video_id(url: str) -> str | None:
 
 @bp.route("/")
 def index():
-    return render_template("index.html")
+    if request.args.get("fragment"):
+        return render_template("fragments/home.html")
+    return render_template("shell.html", initial_fragment="home")
 
 
 # ─── API ──────────────────────────────────────────────────────────────────────

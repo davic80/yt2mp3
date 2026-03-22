@@ -44,7 +44,9 @@ def _own_done_track(job_id: str, email: str) -> Download:
 @mis_bp.route("/")
 @user_required
 def index():
-    return render_template("mis_descargas.html")
+    if request.args.get("fragment"):
+        return render_template("fragments/mis_descargas.html")
+    return render_template("shell.html", initial_fragment="mis_descargas")
 
 
 # ── List ──────────────────────────────────────────────────────────────────────

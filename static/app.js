@@ -1,168 +1,7 @@
 (function () {
   'use strict';
 
-  const form          = document.getElementById('form');
-  const urlInput      = document.getElementById('url-input');
-  const btnMagic      = document.getElementById('btn-magic');
-  const progressArea  = document.getElementById('progress-area');
-  const progressFill  = document.getElementById('progress-fill');
-  const progressLabel = document.getElementById('progress-label');
-  const resultArea    = document.getElementById('result-area');
-  const downloadLink  = document.getElementById('download-link');
-  const downloadLabel = document.getElementById('download-label');
-  const errorArea     = document.getElementById('error-area');
-  const errorMsg      = document.getElementById('error-msg');
-
-  document.getElementById('btn-reset').addEventListener('click', reset);
-  document.getElementById('btn-reset-err').addEventListener('click', reset);
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function reset() {
-    resultArea.classList.add('hidden');
-    errorArea.classList.add('hidden');
-    progressArea.classList.add('hidden');
-    form.classList.remove('hidden');
-    urlInput.disabled = false;
-    btnMagic.disabled = false;
-    urlInput.value = '';
-    urlInput.focus();
-    setProgress(0, 'preparando...');
-  }
-
-  function setProgress(pct, label) {
-    progressFill.style.width = pct + '%';
-    if (label) progressLabel.textContent = label;
-  }
-
-  function showError(msg) {
-    form.classList.remove('hidden');
-    progressArea.classList.add('hidden');
-    resultArea.classList.add('hidden');
-    errorArea.classList.remove('hidden');
-    errorMsg.textContent = msg;
-    urlInput.disabled = false;
-    btnMagic.disabled = false;
-  }
-
-  // ── Form submit ───────────────────────────────────────────────────────────
-
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    const url = urlInput.value.trim();
-    if (!url) { urlInput.focus(); return; }
-
-    urlInput.disabled = true;
-    btnMagic.disabled = true;
-    errorArea.classList.add('hidden');
-    resultArea.classList.add('hidden');
-
-    submitDownload(url);
-  });
-
-  async function submitDownload(url) {
-    progressArea.classList.remove('hidden');
-    setProgress(5, 'enviando...');
-
-    const fpData = window._fpData || {};
-
-    let jobId;
-    try {
-      const resp = await fetch('/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, fingerprint: JSON.stringify(fpData) }),
-      });
-
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        showError(data.error || 'Error desconocido');
-        return;
-      }
-
-      jobId = data.job_id || (data.job_ids && data.job_ids[0]);
-    } catch (err) {
-      showError('Error de conexión. ¿Estás conectado?');
-      return;
-    }
-
-    if (!jobId) {
-      showError('El servidor no devolvió ninguna tarea.');
-      return;
-    }
-
-    setProgress(10, 'descargando...');
-    await pollSingle(jobId);
-  }
-
-  // ── Single-track polling ──────────────────────────────────────────────────
-
-  async function pollSingle(jobId) {
-    const POLL_MS   = 1500;
-    const MAX_POLLS = 200;
-    let polls = 0;
-
-    return new Promise((resolve) => {
-      const interval = setInterval(async () => {
-        polls++;
-        if (polls > MAX_POLLS) {
-          clearInterval(interval);
-          showError('Tiempo de espera agotado. Inténtalo de nuevo.');
-          resolve();
-          return;
-        }
-
-        let data;
-        try {
-          const resp = await fetch(`/status/${jobId}`);
-          data = await resp.json();
-        } catch (_) { return; }
-
-        const pct    = data.progress || 0;
-        const status = data.status;
-
-        if (status === 'pending' || status === 'downloading') {
-          const label = pct < 20 ? 'analizando...'
-                      : pct < 60 ? 'descargando...'
-                      : pct < 90 ? 'convirtiendo a mp3...'
-                      : 'casi listo...';
-          setProgress(Math.max(pct, 10), label);
-
-        } else if (status === 'done') {
-          clearInterval(interval);
-          setProgress(100, '¡listo!');
-
-          setTimeout(() => {
-            progressArea.classList.add('hidden');
-            resultArea.classList.remove('hidden');
-            downloadLink.style.display = '';
-            downloadLink.href = `/files/${jobId}`;
-            const title = data.title || 'audio';
-            let label = `↓ ${truncate(title, 40)}.mp3`;
-            if (data.file_size) {
-              const mb = (data.file_size / 1048576).toFixed(1);
-              label += ` · ${mb} MB`;
-            }
-            downloadLabel.textContent = label;
-          }, 400);
-          resolve();
-
-        } else if (status === 'error') {
-          clearInterval(interval);
-          showError(data.error_message || 'Error procesando el vídeo.');
-          resolve();
-        }
-      }, POLL_MS);
-    });
-  }
-
-  function truncate(str, max) {
-    return str.length > max ? str.slice(0, max) + '\u2026' : str;
-  }
-
-  // ── Auth zone ─────────────────────────────────────────────────────────────
+  // ── Auth zone (runs once when shell loads) ────────────────────────────────
 
   async function initAuthZone() {
     const zoneLoggedIn  = document.getElementById('auth-loggedin');
@@ -186,11 +25,169 @@
         zoneLoggedOut.style.display = 'block';
       }
     } catch (_) {
-      // Network error or endpoint unavailable — show login button
-      zoneLoggedOut.classList.remove('hidden');
-      zoneLoggedOut.style.display = 'block';
+      const zlo = document.getElementById('auth-loggedout');
+      if (zlo) { zlo.classList.remove('hidden'); zlo.style.display = 'block'; }
     }
   }
 
+  // ── Download form (called each time the home fragment is mounted) ─────────
+
+  function initDownloadForm() {
+    const form          = document.getElementById('form');
+    if (!form) return;   // not on the home page — bail out
+
+    const urlInput      = document.getElementById('url-input');
+    const btnMagic      = document.getElementById('btn-magic');
+    const progressArea  = document.getElementById('progress-area');
+    const progressFill  = document.getElementById('progress-bar-fill');
+    const progressLabel = document.getElementById('progress-label');
+    const resultArea    = document.getElementById('result-area');
+    const downloadLink  = document.getElementById('download-link');
+    const downloadLabel = document.getElementById('download-label');
+    const errorArea     = document.getElementById('error-area');
+    const errorMsg      = document.getElementById('error-msg');
+    const btnReset      = document.getElementById('btn-reset');
+    const btnResetErr   = document.getElementById('btn-reset-err');
+
+    if (btnReset)    btnReset.addEventListener('click', reset);
+    if (btnResetErr) btnResetErr.addEventListener('click', reset);
+
+    function reset() {
+      if (resultArea)   resultArea.classList.add('hidden');
+      if (errorArea)    errorArea.classList.add('hidden');
+      if (progressArea) progressArea.classList.add('hidden');
+      form.classList.remove('hidden');
+      if (urlInput)  urlInput.disabled  = false;
+      if (btnMagic)  btnMagic.disabled  = false;
+      if (urlInput)  urlInput.value     = '';
+      if (urlInput)  urlInput.focus();
+      setProgress(0, 'preparando...');
+    }
+
+    function setProgress(pct, label) {
+      if (progressFill)  progressFill.style.width    = pct + '%';
+      if (label && progressLabel) progressLabel.textContent = label;
+    }
+
+    function showError(msg) {
+      form.classList.remove('hidden');
+      if (progressArea) progressArea.classList.add('hidden');
+      if (resultArea)   resultArea.classList.add('hidden');
+      if (errorArea)    errorArea.classList.remove('hidden');
+      if (errorMsg)     errorMsg.textContent = msg;
+      if (urlInput)  urlInput.disabled  = false;
+      if (btnMagic)  btnMagic.disabled  = false;
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const url = urlInput ? urlInput.value.trim() : '';
+      if (!url) { if (urlInput) urlInput.focus(); return; }
+
+      if (urlInput) urlInput.disabled = true;
+      if (btnMagic) btnMagic.disabled = true;
+      if (errorArea)  errorArea.classList.add('hidden');
+      if (resultArea) resultArea.classList.add('hidden');
+
+      submitDownload(url);
+    });
+
+    async function submitDownload(url) {
+      if (progressArea) progressArea.classList.remove('hidden');
+      setProgress(5, 'enviando...');
+
+      const fpData = window._fpData || {};
+
+      let jobId;
+      try {
+        const resp = await fetch('/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, fingerprint: JSON.stringify(fpData) }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { showError(data.error || 'Error desconocido'); return; }
+        jobId = data.job_id || (data.job_ids && data.job_ids[0]);
+      } catch (err) {
+        showError('Error de conexión. ¿Estás conectado?');
+        return;
+      }
+
+      if (!jobId) { showError('El servidor no devolvió ninguna tarea.'); return; }
+
+      setProgress(10, 'descargando...');
+      await pollSingle(jobId);
+    }
+
+    async function pollSingle(jobId) {
+      const POLL_MS   = 1500;
+      const MAX_POLLS = 200;
+      let polls = 0;
+
+      return new Promise((resolve) => {
+        const interval = setInterval(async () => {
+          polls++;
+          if (polls > MAX_POLLS) {
+            clearInterval(interval);
+            showError('Tiempo de espera agotado. Inténtalo de nuevo.');
+            resolve();
+            return;
+          }
+
+          let data;
+          try {
+            const resp = await fetch(`/status/${jobId}`);
+            data = await resp.json();
+          } catch (_) { return; }
+
+          const pct    = data.progress || 0;
+          const status = data.status;
+
+          if (status === 'pending' || status === 'downloading') {
+            const label = pct < 20 ? 'analizando...'
+                        : pct < 60 ? 'descargando...'
+                        : pct < 90 ? 'convirtiendo a mp3...'
+                        : 'casi listo...';
+            setProgress(Math.max(pct, 10), label);
+
+          } else if (status === 'done') {
+            clearInterval(interval);
+            setProgress(100, '¡listo!');
+            setTimeout(() => {
+              if (progressArea) progressArea.classList.add('hidden');
+              if (resultArea)   resultArea.classList.remove('hidden');
+              if (downloadLink) {
+                downloadLink.style.display = '';
+                downloadLink.href = `/files/${jobId}`;
+              }
+              const title = data.title || 'audio';
+              let label = `↓ ${truncate(title, 40)}.mp3`;
+              if (data.file_size) {
+                const mb = (data.file_size / 1048576).toFixed(1);
+                label += ` · ${mb} MB`;
+              }
+              if (downloadLabel) downloadLabel.textContent = label;
+            }, 400);
+            resolve();
+
+          } else if (status === 'error') {
+            clearInterval(interval);
+            showError(data.error_message || 'Error procesando el vídeo.');
+            resolve();
+          }
+        }, POLL_MS);
+      });
+    }
+  }
+
+  function truncate(str, max) {
+    return str.length > max ? str.slice(0, max) + '\u2026' : str;
+  }
+
+  // Expose so home fragment can re-init after SPA swap
+  window._initDownloadForm = initDownloadForm;
+
+  // Run once on shell load
   initAuthZone();
+  initDownloadForm();   // no-op if form not present on initial page
 })();

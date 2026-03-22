@@ -6,6 +6,49 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.0.0] - 2026-03-22
+
+### Added
+- **Persistent player bar (SPA architecture).** Audio now keeps playing when
+  navigating between pages. A single `shell.html` outer shell owns the topbar,
+  `#page-content` swap area, `<audio>` element, and player bar — none of these
+  are ever destroyed on navigation.
+- **`static/player.js`** — global `window.Player` module. Owns the `<audio>` DOM
+  node and all playback logic (`playTrack`, `togglePlay`, `prevTrack`,
+  `nextTrack`, `toggleShuffle`, `cycleRepeat`, `toggleMute`, `loadTracks`,
+  `setQueue`, `onTrackChange`, `offTrackChange`, `getState`).
+- **`static/spa.js`** — SPA navigation engine. Intercepts internal `<a>` clicks,
+  fetches `?fragment=1` from the server, swaps `#page-content` innerHTML, calls
+  `runScripts()` to re-execute inline scripts, updates `history.pushState`, and
+  highlights the active topbar link. Back/forward via `popstate` is also handled.
+  Auth redirects (`/auth/…`) trigger a full-page reload so the login flow works.
+- **Fragment templates** (`app/templates/fragments/`):
+  - `home.html` — download form + fingerprint script.
+  - `mis_descargas.html` — downloads table with ▶ play button per row calling
+    `window.Player.playTrack(jobId)`.
+  - `player.html` — sidebar + track list, calls `Player.loadTracks()` and
+    registers `Player.onTrackChange()` for row highlighting.
+- **Auth zone** moved from `index.html` body into the persistent shell topbar.
+- **Active topbar-link** highlighting via `data-path` attribute and
+  `.topbar-link-active` CSS class, updated on every SPA navigation.
+- **Version badge** repositioned with `bottom: calc(var(--player-h) + .5rem)`
+  so it clears the persistent player bar.
+
+### Changed
+- `app/routes.py`, `app/mis_descargas_routes.py`, `app/player_routes.py`:
+  page routes now return `shell.html` on first load and `fragments/*.html` when
+  `?fragment=1` is present (SPA subsequent navigations).
+- `static/app.js` refactored: download form logic wrapped in `initDownloadForm()`
+  with null guards, exposed as `window._initDownloadForm` for re-init after SPA
+  swaps. `initAuthZone()` runs once on shell load only.
+
+### Removed
+- `app/templates/index.html` — replaced by `shell.html` + `fragments/home.html`.
+- `app/templates/mis_descargas.html` — replaced by `fragments/mis_descargas.html`.
+- `app/templates/player/index.html` — replaced by `fragments/player.html`.
+
+---
+
 ## [3.2.0] - 2026-03-22
 
 ### Added

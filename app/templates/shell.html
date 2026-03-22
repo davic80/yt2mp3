@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>yt2mp3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1c1c1c; --surface: #222; --surface2: #2a2a2a; --surface3: #303030;
+      --border: #333; --border2: #3a3a3a;
+      --neon: #39FF14; --neon-dim: rgba(57,255,20,.12);
+      --text: #e0e0e0; --muted: #666; --muted2: #888;
+      --radius: 6px; --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --topbar-h: 52px; --player-h: 80px;
+    }
+
+    html, body {
+      height: 100%; overflow: hidden;
+      background: var(--bg); color: var(--text);
+      font-family: var(--font); font-size: 14px;
+    }
+    body { display: flex; flex-direction: column; }
+
+    /* ── Topbar ── */
+    .topbar {
+      height: var(--topbar-h); min-height: var(--topbar-h);
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.25rem; gap: 1rem; flex-shrink: 0; z-index: 10;
+    }
+    .topbar-logo { font-size: 1.05rem; font-weight: 600; letter-spacing: -.5px; flex-shrink: 0; }
+    .topbar-logo .sep { color: #27a008; }
+    .topbar-logo .mp3 { color: var(--neon); }
+
+    .topbar-nav { display: flex; align-items: center; gap: .4rem; flex: 1; margin-left: 1.2rem; }
+    .topbar-link {
+      color: var(--muted2); text-decoration: none; font-size: .82rem;
+      padding: .22rem .6rem; border-radius: var(--radius);
+      transition: color .15s, background .15s; white-space: nowrap;
+    }
+    .topbar-link:hover { color: var(--text); background: var(--surface2); }
+    .topbar-link-active { color: var(--neon) !important; background: var(--neon-dim) !important; }
+
+    /* ── Auth zone (top-right) ── */
+    .auth-zone {
+      display: flex; align-items: center; gap: .6rem; flex-shrink: 0;
+    }
+    .auth-avatar {
+      width: 2rem; height: 2rem; border-radius: 50%;
+      object-fit: cover; border: 1px solid var(--neon);
+    }
+    .auth-name {
+      font-size: .78rem; color: #aaa; max-width: 120px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      text-decoration: none; transition: color .15s;
+    }
+    .auth-name:hover { color: var(--neon); }
+    .auth-btn {
+      background: none; border: 1px solid #444; border-radius: var(--radius);
+      color: #aaa; font-family: var(--font);
+      font-size: .75rem; padding: .25rem .65rem; cursor: pointer;
+      text-decoration: none; transition: border-color .15s, color .15s; white-space: nowrap;
+    }
+    .auth-btn:hover { border-color: var(--neon); color: var(--neon); }
+    .auth-btn.login { border-color: var(--neon); color: var(--neon); }
+    .hidden { display: none !important; }
+
+    /* ── Page content (swappable area) ── */
+    #page-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ── Player bar ── */
+    .player-bar {
+      height: var(--player-h); min-height: var(--player-h);
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0 1.25rem; flex-shrink: 0; z-index: 10;
+    }
+    .player-info { width: 200px; min-width: 0; flex-shrink: 0; }
+    .player-title {
+      font-size: .84rem; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; color: var(--text);
+    }
+    .player-title-empty { color: var(--muted); font-size: .82rem; }
+    .player-controls { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+    .ctrl-btn {
+      background: none; border: none; cursor: pointer; color: var(--muted2);
+      font-size: 1.1rem; padding: .3rem; border-radius: 50%;
+      transition: color .12s, background .12s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ctrl-btn:hover { color: var(--text); background: var(--surface2); }
+    .ctrl-btn.active { color: var(--neon); }
+    .ctrl-btn.play-pause {
+      width: 2.4rem; height: 2.4rem; font-size: 1.3rem;
+      background: var(--neon-dim); border: 1px solid rgba(57,255,20,.3);
+      color: var(--neon);
+    }
+    .ctrl-btn.play-pause:hover { background: rgba(57,255,20,.2); }
+    .player-progress { flex: 1; display: flex; align-items: center; gap: .65rem; min-width: 0; }
+    .time-label { font-size: .75rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+    .progress-wrap {
+      flex: 1; height: 4px; background: var(--surface3); border-radius: 2px;
+      cursor: pointer; position: relative;
+    }
+    .progress-fill {
+      height: 100%; background: var(--neon); border-radius: 2px;
+      width: 0%; pointer-events: none; transition: width .1s linear;
+    }
+    .progress-wrap:hover .progress-fill { background: #4fff25; }
+    .volume-wrap { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; }
+    .vol-icon { font-size: .95rem; color: var(--muted2); cursor: pointer; user-select: none; }
+    input[type=range].vol-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 80px; height: 4px; background: var(--surface3); border-radius: 2px;
+      outline: none; cursor: pointer;
+    }
+    input[type=range].vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 12px; height: 12px;
+      background: var(--neon); border-radius: 50%;
+    }
+
+    /* ── Version badge ── */
+    .version-badge {
+      position: fixed; bottom: calc(var(--player-h) + .5rem); right: .75rem;
+      font-size: .65rem; color: var(--muted); letter-spacing: .04em;
+      pointer-events: none; z-index: 5;
+    }
+    .version-badge a { color: var(--muted); text-decoration: none; pointer-events: all; }
+    .version-badge a:hover { color: var(--text); }
+    @media (max-width: 480px) { .version-badge { display: none; } }
+  </style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <span>yt</span><span class="sep">2</span><span class="mp3">mp3</span>
+  </div>
+  <nav class="topbar-nav">
+    <a href="/"              class="topbar-link" data-path="/">→ Download</a>
+    <a href="/mis-descargas" class="topbar-link" data-path="/mis-descargas">↓ Mis descargas</a>
+    <a href="/player"        class="topbar-link" data-path="/player">♪ Player</a>
+  </nav>
+  <!-- Auth zone -->
+  <div class="auth-zone" id="auth-zone">
+    <div id="auth-loggedin" class="hidden" style="display:flex;align-items:center;gap:.6rem;">
+      <img id="auth-avatar" class="auth-avatar" src="" alt="avatar" />
+      <a id="auth-name" class="auth-name" href="/player" title="ir al player"></a>
+      <a href="/auth/logout" class="auth-btn">salir</a>
+    </div>
+    <div id="auth-loggedout" class="hidden">
+      <a href="/auth/login?next=/player" class="auth-btn login">entrar</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Page content (fragments swap here) ── -->
+<div id="page-content">
+  {% include 'fragments/' + initial_fragment + '.html' %}
+</div>
+
+<!-- ── Player bar (persistent) ── -->
+<div class="player-bar">
+  <div class="player-info">
+    <div class="player-title player-title-empty" id="player-title">Sin reproducción</div>
+  </div>
+  <div class="player-controls">
+    <button class="ctrl-btn" id="btn-shuffle" onclick="_playerToggleShuffle()" title="Aleatorio">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line>
+        <polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line>
+      </svg>
+    </button>
+    <button class="ctrl-btn" onclick="_playerPrev()" title="Anterior">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="19 20 9 12 19 4 19 20"></polygon>
+        <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line>
+      </svg>
+    </button>
+    <button class="ctrl-btn play-pause" id="btn-play" onclick="_playerTogglePlay()" title="Play/Pausa">
+      <span id="play-icon">▶</span>
+    </button>
+    <button class="ctrl-btn" onclick="_playerNext()" title="Siguiente">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 4 15 12 5 20 5 4"></polygon>
+        <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line>
+      </svg>
+    </button>
+    <button class="ctrl-btn" id="btn-repeat" onclick="_playerCycleRepeat()" title="Repetir">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+        <polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="player-progress">
+    <span class="time-label" id="time-current">0:00</span>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <span class="time-label" id="time-total">0:00</span>
+  </div>
+  <div class="volume-wrap">
+    <span class="vol-icon" onclick="_playerToggleMute()">🔊</span>
+    <input type="range" class="vol-slider" id="vol-slider" min="0" max="1" step="0.02" value="1" />
+  </div>
+</div>
+
+<audio id="audio"></audio>
+
+<div class="version-badge">
+  v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
+</div>
+
+<script src="/static/player.js"></script>
+<script src="/static/spa.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

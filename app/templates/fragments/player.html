@@ -1,0 +1,465 @@
+<style>
+  .layout {
+    height: 100%; display: flex; overflow: hidden;
+  }
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px; min-width: 220px;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto; flex-shrink: 0;
+  }
+  .sidebar-section { padding: .75rem .85rem .4rem; }
+  .sidebar-label {
+    font-size: .68rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .08em; margin-bottom: .35rem;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .42rem .6rem; border-radius: var(--radius); cursor: pointer;
+    font-size: .84rem; color: var(--muted2); transition: background .12s, color .12s;
+    user-select: none; gap: .5rem;
+  }
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: var(--neon-dim); color: var(--neon); }
+  .sidebar-item .pl-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar-item .pl-count {
+    font-size: .72rem; color: var(--muted); background: var(--surface2);
+    border-radius: 10px; padding: .05rem .45rem; flex-shrink: 0;
+  }
+  .sidebar-item.active .pl-count { background: rgba(57,255,20,.15); color: var(--neon); }
+  .sidebar-div { border-top: 1px solid var(--border); margin: .4rem .85rem; }
+  .btn-new-pl {
+    display: flex; align-items: center; gap: .4rem;
+    padding: .42rem .6rem; border-radius: var(--radius); cursor: pointer;
+    font-size: .82rem; color: var(--muted2); transition: background .12s, color .12s;
+    background: none; border: none; font-family: var(--font); width: 100%; text-align: left;
+  }
+  .btn-new-pl:hover { background: var(--surface2); color: var(--neon); }
+  .btn-new-pl .plus { font-size: 1rem; line-height: 1; color: var(--neon); }
+  .sidebar-pl-del {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: .85rem; padding: 0 .2rem; line-height: 1; flex-shrink: 0;
+    transition: color .12s;
+  }
+  .sidebar-pl-del:hover { color: #ff4d4d; }
+  /* ── Main ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .search-bar { padding: .85rem 1.25rem .6rem; flex-shrink: 0; }
+  .search-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font); font-size: .84rem;
+    padding: .45rem .8rem; outline: none; transition: border-color .15s;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--neon); }
+  .track-list-wrap { flex: 1; overflow-y: auto; padding: 0 1.25rem 1rem; }
+  .track-list { width: 100%; border-collapse: collapse; }
+  .track-list thead th {
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    color: var(--muted); font-weight: 600; font-size: .72rem;
+    text-transform: uppercase; letter-spacing: .05em;
+    padding: .5rem .6rem; text-align: left; position: sticky; top: 0; z-index: 2;
+  }
+  .track-list tbody tr {
+    border-bottom: 1px solid var(--border); transition: background .1s; cursor: pointer;
+  }
+  .track-list tbody tr:last-child { border-bottom: none; }
+  .track-list tbody tr:hover    { background: var(--neon-dim); }
+  .track-list tbody tr.playing  { background: rgba(57,255,20,.08); }
+  .track-list tbody tr.playing td.col-title { color: var(--neon); }
+  .track-list td { padding: .55rem .6rem; vertical-align: middle; }
+  .col-fav   { width: 2rem; text-align: center; }
+  .col-title { max-width: 340px; }
+  .col-size  { width: 6rem; color: var(--muted); font-size: .78rem; text-align: right; white-space: nowrap; }
+  .col-date  { width: 9rem; color: var(--muted); font-size: .78rem; white-space: nowrap; }
+  .col-menu  { width: 2.5rem; text-align: center; }
+  .title-text {
+    font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: block; max-width: 100%;
+  }
+  .fav-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; line-height: 1; padding: 0;
+    color: var(--muted); transition: color .12s, transform .12s;
+  }
+  .fav-btn:hover { transform: scale(1.2); }
+  .fav-btn.on { color: #ff4d8e; }
+  .menu-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 1.1rem; line-height: 1;
+    padding: .1rem .3rem; border-radius: 4px;
+    transition: color .12s, background .12s;
+  }
+  .menu-btn:hover { color: var(--text); background: var(--surface2); }
+  /* ── Dropdown ── */
+  .dropdown {
+    position: fixed; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: .35rem 0; min-width: 170px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5); z-index: 100; display: none;
+  }
+  .dropdown.open { display: block; }
+  .dropdown-item {
+    padding: .45rem .9rem; font-size: .84rem; cursor: pointer;
+    color: var(--text); white-space: nowrap; transition: background .1s, color .1s;
+  }
+  .dropdown-item:hover { background: var(--neon-dim); color: var(--neon); }
+  .dropdown-item.remove { color: #ff4d4d; }
+  .dropdown-item.remove:hover { background: rgba(255,77,77,.1); color: #ff4d4d; }
+  .dropdown-div { border-top: 1px solid var(--border); margin: .25rem 0; }
+  .empty-msg { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: .9rem; }
+</style>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-item active" id="view-all" onclick="setView('all')">
+        <span class="pl-name">Todas</span>
+      </div>
+      <div class="sidebar-item" id="view-favorites" onclick="setView('favorites')">
+        <span class="pl-name">♥ Favoritos</span>
+      </div>
+    </div>
+    <div class="sidebar-div"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Playlists</div>
+      <button class="btn-new-pl" onclick="createPlaylist()">
+        <span class="plus">+</span> Nueva playlist
+      </button>
+      <div id="playlist-list"></div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="search-bar">
+      <input class="search-input" type="search" id="search-input"
+             placeholder="Buscar..." oninput="renderTracks()" />
+    </div>
+    <div class="track-list-wrap">
+      <div id="track-container"><div class="empty-msg">Cargando...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Dropdown (shared) -->
+<div class="dropdown" id="dropdown"></div>
+
+<script>
+(function () {
+  // ── State ───────────────────────────────────────────────────────────────────
+  const state = {
+    view:       'all',
+    tracks:     [],
+    playlists:  [],
+    plTracks:   {},
+    queue:      [],
+    queueIndex: 0,
+    currentJob: null,
+  };
+
+  // ── API ─────────────────────────────────────────────────────────────────────
+  async function loadAll() {
+    const [tracksRes, plRes] = await Promise.all([
+      fetch('/player/api/tracks'),
+      fetch('/player/api/playlists'),
+    ]);
+    state.tracks    = await tracksRes.json();
+    state.playlists = await plRes.json();
+
+    // Hand the full track list to the global player
+    if (window.Player) window.Player.loadTracks(state.tracks);
+
+    renderSidebar();
+    renderTracks();
+
+    // Register row-highlight callback
+    if (window.Player) {
+      window.Player.onTrackChange(function (jobId) {
+        state.currentJob = jobId;
+        highlightRow(jobId);
+      });
+      // Highlight immediately if something is already playing
+      const ps = window.Player.getState();
+      if (ps.currentJob) {
+        state.currentJob = ps.currentJob;
+        highlightRow(ps.currentJob);
+      }
+    }
+  }
+
+  async function loadPlaylistTracks(pid) {
+    if (state.plTracks[pid]) return state.plTracks[pid];
+    const res = await fetch(`/player/api/playlists/${pid}/tracks`);
+    state.plTracks[pid] = await res.json();
+    return state.plTracks[pid];
+  }
+
+  // ── Sidebar ─────────────────────────────────────────────────────────────────
+  function renderSidebar() {
+    const el = document.getElementById('playlist-list');
+    if (!state.playlists.length) { el.innerHTML = ''; return; }
+    el.innerHTML = state.playlists.map(pl => `
+      <div class="sidebar-item ${state.view == pl.id ? 'active' : ''}"
+           onclick="setView(${pl.id})" data-plid="${pl.id}">
+        <span class="pl-name">${esc(pl.name)}</span>
+        <span class="pl-count">${pl.track_count}</span>
+        <button class="sidebar-pl-del" onclick="event.stopPropagation();deletePlaylist(${pl.id})"
+                title="Eliminar playlist">×</button>
+      </div>
+    `).join('');
+  }
+
+  // ── View switching ───────────────────────────────────────────────────────────
+  async function setView(view) {
+    state.view = view;
+    document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+    if (view === 'all')            document.getElementById('view-all').classList.add('active');
+    else if (view === 'favorites') document.getElementById('view-favorites').classList.add('active');
+    else {
+      const el = document.querySelector(`.sidebar-item[data-plid="${view}"]`);
+      if (el) el.classList.add('active');
+    }
+    if (typeof view === 'number') await loadPlaylistTracks(view);
+    renderTracks();
+  }
+
+  // ── Track list ───────────────────────────────────────────────────────────────
+  function getViewTracks() {
+    if (state.view === 'all')       return state.tracks;
+    if (state.view === 'favorites') return state.tracks.filter(t => t.is_favorite);
+    const pl = state.plTracks[state.view];
+    if (!pl) return [];
+    return pl.map(pt => {
+      const full = state.tracks.find(t => t.job_id === pt.job_id);
+      return full || pt;
+    });
+  }
+
+  function getFilteredTracks() {
+    const q = document.getElementById('search-input').value.trim().toLowerCase();
+    const base = getViewTracks();
+    if (!q) return base;
+    return base.filter(t => (t.title || '').toLowerCase().includes(q));
+  }
+
+  function renderTracks() {
+    const tracks = getFilteredTracks();
+    const container = document.getElementById('track-container');
+
+    // Update queue in global player
+    const jobIds = tracks.map(t => t.job_id);
+    if (window.Player) window.Player.setQueue(jobIds);
+
+    if (!tracks.length) {
+      container.innerHTML = '<div class="empty-msg">No hay canciones.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="track-list">
+        <thead>
+          <tr>
+            <th class="col-fav">♥</th>
+            <th>Título</th>
+            <th class="col-size">Tamaño</th>
+            <th class="col-date">Fecha</th>
+            <th class="col-menu"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tracks.map((t, i) => `
+            <tr data-job="${t.job_id}" data-idx="${i}"
+                class="${state.currentJob === t.job_id ? 'playing' : ''}"
+                onclick="playTrack('${t.job_id}', ${i})">
+              <td class="col-fav" onclick="event.stopPropagation()">
+                <button class="fav-btn ${t.is_favorite ? 'on' : ''}"
+                        onclick="toggleFav('${t.job_id}', this)"
+                        title="${t.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}">
+                  ${t.is_favorite ? '♥' : '♡'}
+                </button>
+              </td>
+              <td class="col-title">
+                <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
+              </td>
+              <td class="col-size">${fmtSize(t.file_size)}</td>
+              <td class="col-date">${fmtDate(t.created_at)}</td>
+              <td class="col-menu" onclick="event.stopPropagation()">
+                <button class="menu-btn" onclick="openMenu(event, '${t.job_id}')" title="Opciones">⋮</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    // Re-highlight current track after re-render
+    if (state.currentJob) highlightRow(state.currentJob);
+  }
+
+  // ── Playback via global player ────────────────────────────────────────────────
+  function playTrack(jobId, idx) {
+    if (window.Player) {
+      window.Player.setQueue(getFilteredTracks().map(t => t.job_id), idx);
+      window.Player.playTrack(jobId);
+    }
+  }
+
+  function highlightRow(jobId) {
+    document.querySelectorAll('.track-list tbody tr').forEach(row => {
+      row.classList.toggle('playing', row.dataset.job === jobId);
+    });
+  }
+
+  // ── Favorites ────────────────────────────────────────────────────────────────
+  async function toggleFav(jobId, btn) {
+    const res  = await fetch('/player/api/favorite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId }),
+    });
+    const data  = await res.json();
+    const isFav = data.is_favorite;
+    const track = state.tracks.find(t => t.job_id === jobId);
+    if (track) track.is_favorite = isFav;
+    btn.classList.toggle('on', isFav);
+    btn.textContent = isFav ? '♥' : '♡';
+    btn.title = isFav ? 'Quitar de favoritos' : 'Agregar a favoritos';
+    if (state.view === 'favorites') renderTracks();
+  }
+
+  // ── Context menu ─────────────────────────────────────────────────────────────
+  let _menuJob = null;
+  function openMenu(e, jobId) {
+    _menuJob = jobId;
+    const dd = document.getElementById('dropdown');
+    let html = '';
+    if (typeof state.view === 'number') {
+      html += `<div class="dropdown-item remove" onclick="removeFromPlaylist(${state.view},'${jobId}')">Quitar de esta playlist</div>`;
+      html += '<div class="dropdown-div"></div>';
+    }
+    html += `<div class="dropdown-item" onclick="createAndAddPlaylist('${jobId}')">+ Nueva playlist</div>`;
+    if (state.playlists.length) {
+      html += '<div class="dropdown-div"></div>';
+      html += state.playlists.map(pl =>
+        `<div class="dropdown-item" onclick="addToPlaylist(${pl.id},'${jobId}')">${esc(pl.name)}</div>`
+      ).join('');
+    }
+    dd.innerHTML = html;
+    const rect = e.currentTarget.getBoundingClientRect();
+    dd.style.top  = (rect.bottom + 4) + 'px';
+    dd.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+    dd.classList.add('open');
+    e.stopPropagation();
+  }
+
+  document.addEventListener('click', () => {
+    const dd = document.getElementById('dropdown');
+    if (dd) dd.classList.remove('open');
+  });
+
+  // ── Playlist operations ───────────────────────────────────────────────────────
+  async function createPlaylist() {
+    const name = prompt('Nombre de la playlist:');
+    if (!name || !name.trim()) return;
+    const res = await fetch('/player/api/playlists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    const pl = await res.json();
+    state.playlists.unshift({ id: pl.id, name: pl.name, track_count: 0, last_added: null });
+    renderSidebar();
+  }
+
+  async function createAndAddPlaylist(jobId) {
+    const name = prompt('Nombre de la nueva playlist:');
+    if (!name || !name.trim()) return;
+    const res = await fetch('/player/api/playlists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    const pl = await res.json();
+    state.playlists.unshift({ id: pl.id, name: pl.name, track_count: 0, last_added: null });
+    await addToPlaylist(pl.id, jobId);
+  }
+
+  async function addToPlaylist(pid, jobId) {
+    const dd = document.getElementById('dropdown');
+    if (dd) dd.classList.remove('open');
+    await fetch(`/player/api/playlists/${pid}/tracks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId }),
+    });
+    delete state.plTracks[pid];
+    const pl = state.playlists.find(p => p.id === pid);
+    if (pl) {
+      pl.track_count++;
+      pl.last_added = new Date().toISOString();
+      state.playlists.sort((a, b) => {
+        if (!a.last_added && !b.last_added) return 0;
+        if (!a.last_added) return 1;
+        if (!b.last_added) return -1;
+        return new Date(b.last_added) - new Date(a.last_added);
+      });
+    }
+    renderSidebar();
+  }
+
+  async function removeFromPlaylist(pid, jobId) {
+    const dd = document.getElementById('dropdown');
+    if (dd) dd.classList.remove('open');
+    await fetch(`/player/api/playlists/${pid}/tracks/${jobId}`, { method: 'DELETE' });
+    delete state.plTracks[pid];
+    const pl = state.playlists.find(p => p.id === pid);
+    if (pl && pl.track_count > 0) pl.track_count--;
+    renderSidebar();
+    if (state.view === pid) await setView(pid);
+  }
+
+  async function deletePlaylist(pid) {
+    if (!confirm('¿Eliminar esta playlist?')) return;
+    await fetch(`/player/api/playlists/${pid}`, { method: 'DELETE' });
+    state.playlists = state.playlists.filter(p => p.id !== pid);
+    delete state.plTracks[pid];
+    if (state.view === pid) setView('all');
+    else renderSidebar();
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function fmtSize(bytes) {
+    if (!bytes) return '';
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+    return Math.round(bytes / 1024) + ' KB';
+  }
+  function fmtDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('es', { year:'numeric', month:'2-digit', day:'2-digit' });
+  }
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Expose to onclick attrs in generated HTML
+  window.setView             = setView;
+  window.playTrack           = playTrack;
+  window.toggleFav           = toggleFav;
+  window.openMenu            = openMenu;
+  window.createPlaylist      = createPlaylist;
+  window.createAndAddPlaylist = createAndAddPlaylist;
+  window.addToPlaylist       = addToPlaylist;
+  window.removeFromPlaylist  = removeFromPlaylist;
+  window.deletePlaylist      = deletePlaylist;
+  window.renderTracks        = renderTracks;
+
+  loadAll();
+})();
+</script>

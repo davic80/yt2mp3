@@ -16,7 +16,9 @@ player_bp = Blueprint("player", __name__, url_prefix="/player")
 @player_bp.route("/")
 @user_required
 def index():
-    return render_template("player/index.html")
+    if request.args.get("fragment"):
+        return render_template("fragments/player.html")
+    return render_template("shell.html", initial_fragment="player")
 
 
 # ── Streaming ──────────────────────────────────────────────────────────────────

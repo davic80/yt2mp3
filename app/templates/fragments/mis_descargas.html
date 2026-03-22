@@ -1,0 +1,380 @@
+<style>
+  .page {
+    display: flex; flex-direction: column;
+    max-width: 960px; width: 100%; margin: 0 auto;
+    padding: 1.5rem 1.25rem;
+    height: 100%;
+  }
+  .toolbar {
+    display: flex; align-items: center; gap: .75rem;
+    flex-wrap: wrap; margin-bottom: 1rem; flex-shrink: 0;
+  }
+  .search-input {
+    flex: 1; min-width: 160px;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font); font-size: .84rem;
+    padding: .42rem .8rem; outline: none;
+    transition: border-color .15s;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--neon); }
+  .btn {
+    display: inline-flex; align-items: center; gap: .35rem;
+    border: none; border-radius: var(--radius); cursor: pointer;
+    font-family: var(--font); font-size: .82rem; padding: .42rem .8rem;
+    transition: background .12s, color .12s, opacity .12s;
+    text-decoration: none; white-space: nowrap;
+  }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-ghost  { background: var(--surface2); color: var(--muted2); border: 1px solid var(--border2); }
+  .btn-ghost:hover:not(:disabled)  { color: var(--text); border-color: var(--border); }
+  .btn-neon   { background: var(--neon-dim); color: var(--neon); border: 1px solid rgba(57,255,20,.3); }
+  .btn-neon:hover:not(:disabled)   { background: rgba(57,255,20,.2); }
+  .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,77,77,.25); }
+  .btn-danger:hover:not(:disabled) { background: rgba(255,77,77,.2); }
+  .select-count { font-size: .8rem; color: var(--muted); margin-left: auto; }
+  .table-wrap { flex: 1; overflow-x: auto; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    color: var(--muted); font-weight: 600; font-size: .72rem;
+    text-transform: uppercase; letter-spacing: .05em;
+    padding: .5rem .6rem; text-align: left;
+    position: sticky; top: 0; z-index: 2;
+  }
+  thead th.col-check  { width: 2.2rem; text-align: center; }
+  thead th.col-actions { width: 9.5rem; text-align: center; }
+  thead th.col-size   { width: 6rem; text-align: right; }
+  thead th.col-date   { width: 9rem; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover    { background: var(--neon-dim); }
+  tbody tr.selected { background: rgba(57,255,20,.06); }
+  td { padding: .55rem .6rem; vertical-align: middle; }
+  td.col-check   { text-align: center; }
+  td.col-actions { text-align: center; white-space: nowrap; }
+  td.col-size    { color: var(--muted); font-size: .78rem; text-align: right; white-space: nowrap; }
+  td.col-date    { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+  input[type=checkbox] { accent-color: var(--neon); width: 14px; height: 14px; cursor: pointer; }
+  .title-cell { display: flex; align-items: center; gap: .5rem; max-width: 420px; }
+  .title-text {
+    flex: 1; font-size: .88rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .title-edit-wrap { display: none; flex: 1; gap: .35rem; align-items: center; }
+  .title-edit-input {
+    flex: 1; background: var(--surface3); border: 1px solid var(--neon);
+    border-radius: 4px; color: var(--text); font-family: var(--font);
+    font-size: .85rem; padding: .2rem .5rem; outline: none;
+  }
+  .title-save-btn, .title-cancel-btn {
+    background: none; border: none; cursor: pointer; font-size: .85rem;
+    padding: .1rem .3rem; border-radius: 3px; line-height: 1;
+  }
+  .title-save-btn   { color: var(--neon); }
+  .title-save-btn:hover   { background: var(--neon-dim); }
+  .title-cancel-btn { color: var(--muted); }
+  .title-cancel-btn:hover { color: var(--red); }
+  .row-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: .8rem; padding: .2rem .45rem; border-radius: 4px;
+    font-family: var(--font); transition: background .1s, color .1s;
+    white-space: nowrap;
+  }
+  .row-btn.play { color: var(--neon); }
+  .row-btn.play:hover { background: var(--neon-dim); }
+  .row-btn.edit { color: var(--muted2); }
+  .row-btn.edit:hover { color: var(--text); background: var(--surface2); }
+  .row-btn.dl   { color: var(--neon); }
+  .row-btn.dl:hover   { background: var(--neon-dim); }
+  .row-btn.del  { color: var(--muted); }
+  .row-btn.del:hover  { color: var(--red); background: var(--red-dim); }
+  .empty-msg { text-align: center; color: var(--muted); padding: 4rem 1rem; font-size: .9rem; }
+  #toast {
+    position: fixed; bottom: calc(var(--player-h) + 1rem); left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--text); padding: .55rem 1.2rem; border-radius: var(--radius);
+    font-size: .84rem; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+    white-space: nowrap; z-index: 200;
+  }
+  #toast.show { opacity: 1; }
+  #toast.ok  { border-color: rgba(57,255,20,.4); color: var(--neon); }
+  #toast.err { border-color: rgba(255,77,77,.4); color: var(--red); }
+</style>
+
+<div class="page">
+  <div class="toolbar">
+    <input class="search-input" type="search" id="search-input"
+           placeholder="Buscar..." oninput="render()" />
+    <button class="btn btn-ghost" id="btn-select-all" onclick="toggleSelectAll()">
+      Seleccionar todo
+    </button>
+    <button class="btn btn-neon" id="btn-zip" onclick="downloadZip()" disabled>
+      ↓ ZIP
+    </button>
+    <button class="btn btn-danger" id="btn-delete-sel" onclick="deleteSelected()" disabled>
+      ✕ Eliminar selección
+    </button>
+    <span class="select-count" id="select-count"></span>
+  </div>
+  <div class="table-wrap">
+    <div id="container"><div class="empty-msg">Cargando...</div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  // ── State ───────────────────────────────────────────────────────────────────
+  let tracks   = [];
+  let selected = new Set();
+
+  // ── Boot ────────────────────────────────────────────────────────────────────
+  async function load() {
+    const res = await fetch('/mis-descargas/api/tracks');
+    if (!res.ok) { toast('Error cargando descargas', 'err'); return; }
+    tracks = await res.json();
+    render();
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  function render() {
+    const q = document.getElementById('search-input').value.trim().toLowerCase();
+    const visible = q
+      ? tracks.filter(t => (t.title || '').toLowerCase().includes(q))
+      : tracks;
+
+    const container = document.getElementById('container');
+
+    if (!visible.length) {
+      container.innerHTML = '<div class="empty-msg">No hay canciones.</div>';
+      updateToolbar();
+      return;
+    }
+
+    container.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th class="col-check">
+              <input type="checkbox" id="chk-all" onchange="selectAll(this.checked)" />
+            </th>
+            <th>Título</th>
+            <th class="col-size">Tamaño</th>
+            <th class="col-date">Fecha</th>
+            <th class="col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${visible.map(t => rowHtml(t)).join('')}
+        </tbody>
+      </table>
+    `;
+    updateToolbar();
+  }
+
+  function rowHtml(t) {
+    const chk   = selected.has(t.job_id) ? 'checked' : '';
+    const sel   = selected.has(t.job_id) ? 'selected' : '';
+    const title = esc(t.title || t.job_id);
+    const size  = fmtSize(t.file_size);
+    const date  = fmtDate(t.created_at);
+    return `
+      <tr data-job="${t.job_id}" class="${sel}">
+        <td class="col-check">
+          <input type="checkbox" ${chk}
+                 onchange="toggleSelect('${t.job_id}', this.checked)" />
+        </td>
+        <td>
+          <div class="title-cell">
+            <span class="title-text" id="title-text-${t.job_id}" title="${title}">${title}</span>
+            <div class="title-edit-wrap" id="title-edit-${t.job_id}">
+              <input class="title-edit-input" id="title-input-${t.job_id}"
+                     value="${title}"
+                     onkeydown="onEditKey(event,'${t.job_id}')" />
+              <button class="title-save-btn"   onclick="saveRename('${t.job_id}')">✓</button>
+              <button class="title-cancel-btn" onclick="cancelRename('${t.job_id}')">✕</button>
+            </div>
+          </div>
+        </td>
+        <td class="col-size">${size}</td>
+        <td class="col-date">${date}</td>
+        <td class="col-actions">
+          <button class="row-btn play" onclick="window.Player && window.Player.playTrack('${t.job_id}')" title="Reproducir">▶</button>
+          <button class="row-btn edit" onclick="startRename('${t.job_id}')" title="Renombrar">✎ renombrar</button>
+          <a class="row-btn dl" href="/files/${t.job_id}.mp3" download title="Descargar">↓</a>
+          <button class="row-btn del" onclick="deleteSingle('${t.job_id}')" title="Eliminar">✕</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  // ── Selection ────────────────────────────────────────────────────────────────
+  function toggleSelect(jobId, checked) {
+    if (checked) selected.add(jobId);
+    else         selected.delete(jobId);
+    const row = document.querySelector(`tr[data-job="${jobId}"]`);
+    if (row) row.classList.toggle('selected', checked);
+    updateToolbar();
+  }
+
+  function selectAll(checked) {
+    const visible = getVisible();
+    visible.forEach(t => {
+      if (checked) selected.add(t.job_id);
+      else         selected.delete(t.job_id);
+    });
+    render();
+  }
+
+  function toggleSelectAll() {
+    const visible     = getVisible();
+    const allSelected = visible.every(t => selected.has(t.job_id));
+    selectAll(!allSelected);
+  }
+
+  function getVisible() {
+    const q = document.getElementById('search-input').value.trim().toLowerCase();
+    return q ? tracks.filter(t => (t.title || '').toLowerCase().includes(q)) : tracks;
+  }
+
+  function updateToolbar() {
+    const n = selected.size;
+    document.getElementById('btn-zip').disabled        = n === 0;
+    document.getElementById('btn-delete-sel').disabled = n === 0;
+    document.getElementById('select-count').textContent = n ? `${n} seleccionada${n > 1 ? 's' : ''}` : '';
+    const chkAll = document.getElementById('chk-all');
+    if (chkAll) {
+      const visible = getVisible();
+      chkAll.checked       = visible.length > 0 && visible.every(t => selected.has(t.job_id));
+      chkAll.indeterminate = !chkAll.checked && visible.some(t => selected.has(t.job_id));
+    }
+  }
+
+  // ── Rename ───────────────────────────────────────────────────────────────────
+  function startRename(jobId) {
+    document.getElementById(`title-text-${jobId}`).style.display = 'none';
+    const wrap = document.getElementById(`title-edit-${jobId}`);
+    wrap.style.display = 'flex';
+    const input = document.getElementById(`title-input-${jobId}`);
+    input.focus(); input.select();
+  }
+
+  function cancelRename(jobId) {
+    document.getElementById(`title-edit-${jobId}`).style.display = 'none';
+    document.getElementById(`title-text-${jobId}`).style.display = '';
+  }
+
+  function onEditKey(e, jobId) {
+    if (e.key === 'Enter')  { e.preventDefault(); saveRename(jobId); }
+    if (e.key === 'Escape') { cancelRename(jobId); }
+  }
+
+  async function saveRename(jobId) {
+    const input    = document.getElementById(`title-input-${jobId}`);
+    const newTitle = input.value.trim();
+    if (!newTitle) return;
+    const res = await fetch(`/mis-descargas/api/tracks/${jobId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast(err.error || 'Error al renombrar', 'err');
+      return;
+    }
+    const data = await res.json();
+    const track = tracks.find(t => t.job_id === jobId);
+    if (track) { track.title = data.title; track.file_name = data.file_name; }
+    const span = document.getElementById(`title-text-${jobId}`);
+    span.textContent = esc(data.title);
+    span.title       = esc(data.title);
+    cancelRename(jobId);
+    toast('Renombrado', 'ok');
+  }
+
+  // ── Delete ───────────────────────────────────────────────────────────────────
+  async function deleteSingle(jobId) {
+    if (!confirm('¿Eliminar esta canción?')) return;
+    const ok = await apiDelete(jobId);
+    if (ok) {
+      tracks = tracks.filter(t => t.job_id !== jobId);
+      selected.delete(jobId);
+      render();
+      toast('Eliminado', 'ok');
+    }
+  }
+
+  async function deleteSelected() {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!confirm(`¿Eliminar ${ids.length} canción${ids.length > 1 ? 'es' : ''}?`)) return;
+    let failed = 0;
+    for (const id of ids) {
+      const ok = await apiDelete(id);
+      if (ok) { tracks = tracks.filter(t => t.job_id !== id); selected.delete(id); }
+      else     failed++;
+    }
+    render();
+    if (failed) toast(`${failed} error${failed > 1 ? 'es' : ''} al eliminar`, 'err');
+    else        toast(`${ids.length} eliminada${ids.length > 1 ? 's' : ''}`, 'ok');
+  }
+
+  async function apiDelete(jobId) {
+    const res = await fetch(`/mis-descargas/api/tracks/${jobId}`, { method: 'DELETE' });
+    return res.ok;
+  }
+
+  // ── ZIP ──────────────────────────────────────────────────────────────────────
+  function downloadZip() {
+    const ids = [...selected];
+    if (!ids.length) return;
+    const qs = ids.length === tracks.length ? '' : `?job_ids=${ids.join(',')}`;
+    window.location.href = `/mis-descargas/api/tracks/zip${qs}`;
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function fmtSize(bytes) {
+    if (!bytes) return '';
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+    return Math.round(bytes / 1024) + ' KB';
+  }
+  function fmtDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('es', { year:'numeric', month:'2-digit', day:'2-digit' });
+  }
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let _toastTimer = null;
+  function toast(msg, type = 'ok') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = `show ${type}`;
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.className = ''; }, 2800);
+  }
+
+  // Make functions available as globals for inline onclick in generated HTML
+  window.toggleSelect    = toggleSelect;
+  window.selectAll       = selectAll;
+  window.toggleSelectAll = toggleSelectAll;
+  window.startRename     = startRename;
+  window.cancelRename    = cancelRename;
+  window.onEditKey       = onEditKey;
+  window.saveRename      = saveRename;
+  window.deleteSingle    = deleteSingle;
+  window.deleteSelected  = deleteSelected;
+  window.downloadZip     = downloadZip;
+  window.render          = render;
+
+  load();
+})();
+</script>
