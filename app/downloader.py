@@ -1,3 +1,4 @@
+import hashlib
 import os
 import uuid
 import threading
@@ -34,12 +35,54 @@ def _progress_hook(job_id: str):
     return hook
 
 
-def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
-    """Background thread: download audio and update DB + in-memory job store."""
+def _sha256(path: str) -> str:
+    """Return the hex SHA-256 digest of a file, reading in 1 MB chunks."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
+                  video_id: str | None = None):
+    """Background thread: download audio (or reuse deduped file) and update DB."""
     from app import db
     from app.models import Download
 
     with app.app_context():
+
+        # ── v3.2.0: deduplication check ──────────────────────────────────────
+        if video_id:
+            existing = (
+                Download.query
+                .filter_by(video_id=video_id, status="done")
+                .filter(Download.audio_hash.isnot(None))
+                .order_by(Download.id.asc())
+                .first()
+            )
+            if existing and existing.file_path and os.path.isfile(existing.file_path):
+                # Reuse the existing file — no download needed
+                with _jobs_lock:
+                    _jobs[job_id]["status"]    = "done"
+                    _jobs[job_id]["progress"]  = 100
+                    _jobs[job_id]["file_name"] = existing.file_name
+                    _jobs[job_id]["title"]     = existing.title
+                    _jobs[job_id]["file_size"] = existing.file_size
+
+                record = Download.query.filter_by(job_id=job_id).first()
+                if record:
+                    record.status     = "done"
+                    record.file_path  = existing.file_path
+                    record.file_name  = existing.file_name
+                    record.title      = existing.title
+                    record.file_size  = existing.file_size
+                    record.audio_hash = existing.audio_hash
+                    # video_id already set by routes.py before the flush
+                    db.session.commit()
+                return  # ← skip yt-dlp entirely
+
+        # ── Normal download path ──────────────────────────────────────────────
         out_template = os.path.join(download_dir, f"{job_id}.%(ext)s")
 
         ydl_opts = {
@@ -63,29 +106,30 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                 info = ydl.extract_info(youtube_url, download=True)
                 title = info.get("title", job_id)
 
-            mp3_path = os.path.join(download_dir, f"{job_id}.mp3")
+            mp3_path  = os.path.join(download_dir, f"{job_id}.mp3")
             file_name = f"{title}.mp3"
+            file_size = os.path.getsize(mp3_path)
+            audio_hash = _sha256(mp3_path)
 
             # Update in-memory
             with _jobs_lock:
-                _jobs[job_id]["status"] = "done"
-                _jobs[job_id]["progress"] = 100
+                _jobs[job_id]["status"]    = "done"
+                _jobs[job_id]["progress"]  = 100
                 _jobs[job_id]["file_name"] = file_name
-                _jobs[job_id]["title"] = title
-                _jobs[job_id]["file_size"] = os.path.getsize(mp3_path)
+                _jobs[job_id]["title"]     = title
+                _jobs[job_id]["file_size"] = file_size
 
-            # Update DB — capture all fields BEFORE commit so that post-commit
-            # attribute expiry (SQLAlchemy default) never causes a lazy-reload
-            # failure when we pass values to the mailer thread.
+            # Update DB — snapshot before commit to avoid post-expiry reloads
             record = Download.query.filter_by(job_id=job_id).first()
             if record:
-                record.status    = "done"
-                record.file_path = mp3_path
-                record.file_name = file_name
-                record.title     = title
-                record.file_size = os.path.getsize(mp3_path)
+                record.status     = "done"
+                record.file_path  = mp3_path
+                record.file_name  = file_name
+                record.title      = title
+                record.file_size  = file_size
+                record.audio_hash = audio_hash
+                # video_id already set by routes.py
 
-                # Snapshot every field we need while the session is still live
                 mail_data = {
                     "job_id":             record.job_id,
                     "title":              title,
@@ -104,7 +148,7 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
                     "bot_score":          record.bot_score,
                 }
 
-                db.session.commit()  # expires ORM attrs — safe, we already snapshotted
+                db.session.commit()
 
                 from app.mailer import send_download_notification
                 send_download_notification(mail_data)
@@ -113,22 +157,20 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str):
             err = str(exc)
             with _jobs_lock:
                 _jobs[job_id]["status"] = "error"
-                _jobs[job_id]["error"] = err
+                _jobs[job_id]["error"]  = err
 
-            # Guard against a broken/rolled-back session in the error path —
-            # an uncaught secondary exception here would leave the job stuck
-            # at "pending" forever in the in-memory store.
             try:
                 record = Download.query.filter_by(job_id=job_id).first()
                 if record:
-                    record.status = "error"
+                    record.status        = "error"
                     record.error_message = err
                     db.session.commit()
             except Exception:
                 pass
 
 
-def start_download(app, youtube_url: str, download_dir: str) -> str:
+def start_download(app, youtube_url: str, download_dir: str,
+                   video_id: str | None = None) -> str:
     """Create a job, start background thread, return job_id."""
     job_id = str(uuid.uuid4())
 
@@ -138,6 +180,7 @@ def start_download(app, youtube_url: str, download_dir: str) -> str:
     t = threading.Thread(
         target=_run_download,
         args=(app, job_id, youtube_url, download_dir),
+        kwargs={"video_id": video_id},
         daemon=True,
     )
     t.start()

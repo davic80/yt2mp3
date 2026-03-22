@@ -69,6 +69,13 @@ class Download(db.Model):
     user_email = db.Column(db.String(256), db.ForeignKey("users.email"), nullable=True, index=True)
     user = db.relationship("User", back_populates="downloads")
 
+    # Deduplication (v3.2.0)
+    # video_id: YouTube video ID extracted from the URL (e.g. "dQw4w9WgXcQ")
+    # audio_hash: SHA-256 hex digest of the MP3 file, computed after download
+    # Multiple Download rows may share the same file_path when deduplicated.
+    video_id   = db.Column(db.String(32),  nullable=True, index=True)
+    audio_hash = db.Column(db.String(64),  nullable=True, index=True)
+
     def to_dict(self):
         return {
             "job_id": self.job_id,

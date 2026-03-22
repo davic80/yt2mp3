@@ -6,6 +6,37 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.2.0] - 2026-03-22
+
+### Added
+- **Video-ID deduplication.** Before invoking yt-dlp, the downloader now checks
+  whether a completed download with the same YouTube `video_id` (and a confirmed
+  `audio_hash`) already exists on disk. If found, the new `Download` row reuses
+  `file_path`, `file_name`, `title`, `file_size`, and `audio_hash` from the
+  existing record — no network request, no conversion, instant progress bar.
+- **`video_id` column on `downloads`** (`VARCHAR(32)`, nullable). Extracted from
+  the cleaned URL (handles `watch?v=`, `youtu.be/`, `shorts/`, `embed/`) in
+  `routes.py` via `_extract_video_id()` and stored before the background thread
+  starts.
+- **`audio_hash` column on `downloads`** (`VARCHAR(64)`, nullable). SHA-256 hex
+  digest of the MP3 file, computed in 1 MB chunks after every new download via
+  `_sha256()` in `downloader.py`. Used as a sentinel to confirm the original
+  download completed fully.
+- **Reference-counted file deletion** (already in `mis_descargas_routes.py`):
+  the physical MP3 is only removed when no other `downloads` row references the
+  same `file_path`, so shared files are never orphaned.
+
+### Changed
+- `start_download()` now accepts an optional `video_id=` keyword argument and
+  passes it to `_run_download` via `kwargs=` so the dedup check can run in the
+  background thread without touching the DB from the request thread.
+- `APP_VERSION` default bumped to `3.2.0` in `__init__.py`, `Dockerfile`, and
+  `docker-compose.yml`.
+- Inline migrations in `__init__.py` extended with `ALTER TABLE downloads ADD
+  COLUMN video_id` and `ALTER TABLE downloads ADD COLUMN audio_hash`.
+
+---
+
 ## [3.1.0] - 2026-03-22
 
 ### Added

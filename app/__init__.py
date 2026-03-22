@@ -55,7 +55,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "3.1.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "3.2.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -104,6 +104,9 @@ def create_app():
             # v3.0.0 — user association
             "ALTER TABLE downloads ADD COLUMN user_email VARCHAR(256)",
             "ALTER TABLE playlists ADD COLUMN user_email VARCHAR(256)",
+            # v3.2.0 — deduplication
+            "ALTER TABLE downloads ADD COLUMN video_id VARCHAR(32)",
+            "ALTER TABLE downloads ADD COLUMN audio_hash VARCHAR(64)",
         ):
             try:
                 with db.engine.connect() as conn:

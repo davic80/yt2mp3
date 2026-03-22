@@ -52,6 +52,34 @@ def _strip_playlist_params(url: str):
         return url
 
 
+def _extract_video_id(url: str) -> str | None:
+    """Return the YouTube video ID from a URL, or None if not parseable.
+
+    Handles:
+      https://www.youtube.com/watch?v=XXXXXXXXXXX
+      https://youtu.be/XXXXXXXXXXX
+      https://www.youtube.com/shorts/XXXXXXXXXXX
+      https://www.youtube.com/embed/XXXXXXXXXXX
+    """
+    try:
+        parsed = urlparse(url)
+        # youtu.be/<id>
+        if parsed.netloc in ("youtu.be", "www.youtu.be"):
+            vid = parsed.path.lstrip("/").split("/")[0].split("?")[0]
+            return vid or None
+        # youtube.com/watch?v=<id>
+        params = parse_qs(parsed.query)
+        if "v" in params:
+            return params["v"][0] or None
+        # youtube.com/shorts/<id>  or  /embed/<id>
+        parts = [p for p in parsed.path.split("/") if p]
+        if len(parts) >= 2 and parts[0] in ("shorts", "embed"):
+            return parts[1] or None
+    except Exception:
+        pass
+    return None
+
+
 # ─── Pages ────────────────────────────────────────────────────────────────────
 
 @bp.route("/")
@@ -93,6 +121,8 @@ def download():
     app_obj = current_app._get_current_object()
     download_dir = current_app.config["DOWNLOAD_DIR"]
 
+    video_id = _extract_video_id(clean_url)
+
     record = Download(
         job_id="placeholder",
         youtube_url=youtube_url,
@@ -102,6 +132,7 @@ def download():
         country_code=geo["country_code"],
         city=geo["city"],
         user_email=session.get("user_email"),  # None = anonymous
+        video_id=video_id,
         **meta,
     )
     db.session.add(record)
@@ -112,7 +143,7 @@ def download():
     if not session.get("user_email") and identity:
         session["anon_identity_hash"] = identity
 
-    job_id = start_download(app_obj, clean_url, download_dir)
+    job_id = start_download(app_obj, clean_url, download_dir, video_id=video_id)
     record.job_id = job_id
     db.session.commit()
 
