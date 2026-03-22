@@ -178,7 +178,7 @@
         const avatar = document.getElementById('auth-avatar');
         const name   = document.getElementById('auth-name');
         if (avatar && data.picture) avatar.src = data.picture;
-        if (name)   name.textContent = data.name || data.email;
+        if (name)   name.textContent = (data.name || data.email) + ' \u266a';
         zoneLoggedIn.classList.remove('hidden');
         zoneLoggedIn.style.display = 'flex';
       } else {
