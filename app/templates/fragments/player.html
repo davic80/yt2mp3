@@ -118,17 +118,17 @@
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-section">
       <div class="sidebar-item active" id="view-all" onclick="setView('all')">
-        <span class="pl-name">Todas</span>
+        <span class="pl-name" id="sidebar-all-label"></span>
       </div>
       <div class="sidebar-item" id="view-favorites" onclick="setView('favorites')">
-        <span class="pl-name">♥ Favoritos</span>
+        <span class="pl-name" id="sidebar-fav-label"></span>
       </div>
     </div>
     <div class="sidebar-div"></div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Playlists</div>
+      <div class="sidebar-label" id="sidebar-pl-label"></div>
       <button class="btn-new-pl" onclick="createPlaylist()">
-        <span class="plus">+</span> Nueva playlist
+        <span class="plus">+</span> <span id="sidebar-newpl-label"></span>
       </button>
       <div id="playlist-list"></div>
     </div>
@@ -138,10 +138,10 @@
   <div class="main">
     <div class="search-bar">
       <input class="search-input" type="search" id="search-input"
-             placeholder="Buscar..." oninput="renderTracks()" />
+             oninput="renderTracks()" />
     </div>
     <div class="track-list-wrap">
-      <div id="track-container"><div class="empty-msg">Cargando...</div></div>
+      <div id="track-container"><div class="empty-msg" id="track-loading"></div></div>
     </div>
   </div>
 
@@ -163,8 +163,26 @@
     currentJob: null,
   };
 
+  // ── i18n shell strings ───────────────────────────────────────────────────────
+  function applyStaticStrings() {
+    const I = window.I18n;
+    const allLabel  = document.getElementById('sidebar-all-label');
+    const favLabel  = document.getElementById('sidebar-fav-label');
+    const plLabel   = document.getElementById('sidebar-pl-label');
+    const newPlSpan = document.getElementById('sidebar-newpl-label');
+    const searchEl  = document.getElementById('search-input');
+    const loadingEl = document.getElementById('track-loading');
+    if (allLabel)  allLabel.textContent  = I.t('player.all');
+    if (favLabel)  favLabel.textContent  = I.t('player.favorites');
+    if (plLabel)   plLabel.textContent   = I.t('player.playlists_label');
+    if (newPlSpan) newPlSpan.textContent = I.t('player.new_playlist').replace(/^\+\s*/, '');
+    if (searchEl)  searchEl.placeholder  = I.t('player.search');
+    if (loadingEl) loadingEl.textContent = I.t('player.loading');
+  }
+
   // ── API ─────────────────────────────────────────────────────────────────────
   async function loadAll() {
+    applyStaticStrings();
     const [tracksRes, plRes] = await Promise.all([
       fetch('/player/api/tracks'),
       fetch('/player/api/playlists'),
@@ -210,7 +228,7 @@
         <span class="pl-name">${esc(pl.name)}</span>
         <span class="pl-count">${pl.track_count}</span>
         <button class="sidebar-pl-del" onclick="event.stopPropagation();deletePlaylist(${pl.id})"
-                title="Eliminar playlist">×</button>
+                title="×">×</button>
       </div>
     `).join('');
   }
@@ -251,13 +269,14 @@
   function renderTracks() {
     const tracks = getFilteredTracks();
     const container = document.getElementById('track-container');
+    const I = window.I18n;
 
     // Update queue in global player
     const jobIds = tracks.map(t => t.job_id);
     if (window.Player) window.Player.setQueue(jobIds);
 
     if (!tracks.length) {
-      container.innerHTML = '<div class="empty-msg">No hay canciones.</div>';
+      container.innerHTML = `<div class="empty-msg">${I.t('player.empty')}</div>`;
       return;
     }
 
@@ -265,10 +284,10 @@
       <table class="track-list">
         <thead>
           <tr>
-            <th class="col-fav">♥</th>
-            <th>Título</th>
-            <th class="col-size">Tamaño</th>
-            <th class="col-date">Fecha</th>
+            <th class="col-fav">${I.t('player.col_fav')}</th>
+            <th>${I.t('player.col_title')}</th>
+            <th class="col-size">${I.t('player.col_size')}</th>
+            <th class="col-date">${I.t('player.col_date')}</th>
             <th class="col-menu"></th>
           </tr>
         </thead>
@@ -280,7 +299,7 @@
               <td class="col-fav" onclick="event.stopPropagation()">
                 <button class="fav-btn ${t.is_favorite ? 'on' : ''}"
                         onclick="toggleFav('${t.job_id}', this)"
-                        title="${t.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}">
+                        title="${t.is_favorite ? I.t('player.fav_remove') : I.t('player.fav_add')}">
                   ${t.is_favorite ? '♥' : '♡'}
                 </button>
               </td>
@@ -290,7 +309,7 @@
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-date">${fmtDate(t.created_at)}</td>
               <td class="col-menu" onclick="event.stopPropagation()">
-                <button class="menu-btn" onclick="openMenu(event, '${t.job_id}')" title="Opciones">⋮</button>
+                <button class="menu-btn" onclick="openMenu(event, '${t.job_id}')" title="${I.t('player.options')}">⋮</button>
               </td>
             </tr>
           `).join('')}
@@ -328,7 +347,7 @@
     if (track) track.is_favorite = isFav;
     btn.classList.toggle('on', isFav);
     btn.textContent = isFav ? '♥' : '♡';
-    btn.title = isFav ? 'Quitar de favoritos' : 'Agregar a favoritos';
+    btn.title = isFav ? window.I18n.t('player.fav_remove') : window.I18n.t('player.fav_add');
     if (state.view === 'favorites') renderTracks();
   }
 
@@ -338,11 +357,12 @@
     _menuJob = jobId;
     const dd = document.getElementById('dropdown');
     let html = '';
+    const I = window.I18n;
     if (typeof state.view === 'number') {
-      html += `<div class="dropdown-item remove" onclick="removeFromPlaylist(${state.view},'${jobId}')">Quitar de esta playlist</div>`;
+      html += `<div class="dropdown-item remove" onclick="removeFromPlaylist(${state.view},'${jobId}')">${I.t('player.remove_from_pl')}</div>`;
       html += '<div class="dropdown-div"></div>';
     }
-    html += `<div class="dropdown-item" onclick="createAndAddPlaylist('${jobId}')">+ Nueva playlist</div>`;
+    html += `<div class="dropdown-item" onclick="createAndAddPlaylist('${jobId}')">${I.t('player.add_new_pl')}</div>`;
     if (state.playlists.length) {
       html += '<div class="dropdown-div"></div>';
       html += state.playlists.map(pl =>
@@ -364,7 +384,7 @@
 
   // ── Playlist operations ───────────────────────────────────────────────────────
   async function createPlaylist() {
-    const name = prompt('Nombre de la playlist:');
+    const name = prompt(window.I18n.t('player.prompt_pl_name'));
     if (!name || !name.trim()) return;
     const res = await fetch('/player/api/playlists', {
       method: 'POST',
@@ -377,7 +397,7 @@
   }
 
   async function createAndAddPlaylist(jobId) {
-    const name = prompt('Nombre de la nueva playlist:');
+    const name = prompt(window.I18n.t('player.prompt_pl_name2'));
     if (!name || !name.trim()) return;
     const res = await fetch('/player/api/playlists', {
       method: 'POST',
@@ -424,7 +444,7 @@
   }
 
   async function deletePlaylist(pid) {
-    if (!confirm('¿Eliminar esta playlist?')) return;
+    if (!confirm(window.I18n.t('player.confirm_del_pl'))) return;
     await fetch(`/player/api/playlists/${pid}`, { method: 'DELETE' });
     state.playlists = state.playlists.filter(p => p.id !== pid);
     delete state.plTracks[pid];
@@ -459,6 +479,13 @@
   window.removeFromPlaylist  = removeFromPlaylist;
   window.deletePlaylist      = deletePlaylist;
   window.renderTracks        = renderTracks;
+
+  // Re-render when language changes
+  document.addEventListener('i18n:change', () => {
+    applyStaticStrings();
+    renderSidebar();
+    renderTracks();
+  });
 
   loadAll();
 })();

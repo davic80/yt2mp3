@@ -57,8 +57,12 @@
     // Re-run <script> tags — innerHTML doesn't execute them
     runScripts(container);
 
-    // Resume playback if the DOM swap caused the browser to pause the audio
-    if (_wasPlaying && _audio.paused) _audio.play().catch(() => {});
+    // Resume playback if the DOM swap caused the browser to pause the audio.
+    // Deferred to next tick so the browser finishes processing the DOM mutation
+    // before we check paused state (Chrome can pause media asynchronously).
+    if (_wasPlaying) {
+      setTimeout(() => { if (_audio.paused) _audio.play().catch(() => {}); }, 0);
+    }
 
     updateTopbarActive(url.pathname);
 

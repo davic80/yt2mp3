@@ -61,7 +61,7 @@
       if (btnMagic)  btnMagic.disabled  = false;
       if (urlInput)  urlInput.value     = '';
       if (urlInput)  urlInput.focus();
-      setProgress(0, 'preparando...');
+      setProgress(0, window.I18n ? window.I18n.t('home.preparing') : 'preparando...');
     }
 
     function setProgress(pct, label) {
@@ -94,7 +94,8 @@
 
     async function submitDownload(url) {
       if (progressArea) progressArea.classList.remove('hidden');
-      setProgress(5, 'enviando...');
+      const en = window.I18n && window.I18n.getLang() === 'en';
+      setProgress(5, en ? 'sending...' : 'enviando...');
 
       const fpData = window._fpData || {};
 
@@ -106,16 +107,16 @@
           body: JSON.stringify({ url, fingerprint: JSON.stringify(fpData) }),
         });
         const data = await resp.json();
-        if (!resp.ok) { showError(data.error || 'Error desconocido'); return; }
+        if (!resp.ok) { showError(data.error || (en ? 'Unknown error' : 'Error desconocido')); return; }
         jobId = data.job_id || (data.job_ids && data.job_ids[0]);
       } catch (err) {
-        showError('Error de conexión. ¿Estás conectado?');
+        showError(en ? 'Connection error. Are you online?' : 'Error de conexión. ¿Estás conectado?');
         return;
       }
 
-      if (!jobId) { showError('El servidor no devolvió ninguna tarea.'); return; }
+      if (!jobId) { showError(en ? 'Server returned no task.' : 'El servidor no devolvió ninguna tarea.'); return; }
 
-      setProgress(10, 'descargando...');
+      setProgress(10, en ? 'downloading...' : 'descargando...');
       await pollSingle(jobId);
     }
 
@@ -129,7 +130,8 @@
           polls++;
           if (polls > MAX_POLLS) {
             clearInterval(interval);
-            showError('Tiempo de espera agotado. Inténtalo de nuevo.');
+            const en = window.I18n && window.I18n.getLang() === 'en';
+            showError(en ? 'Timed out. Please try again.' : 'Tiempo de espera agotado. Inténtalo de nuevo.');
             resolve();
             return;
           }
@@ -142,17 +144,17 @@
 
           const pct    = data.progress || 0;
           const status = data.status;
+          const en = window.I18n && window.I18n.getLang() === 'en';
 
           if (status === 'pending' || status === 'downloading') {
-            const label = pct < 20 ? 'analizando...'
-                        : pct < 60 ? 'descargando...'
-                        : pct < 90 ? 'convirtiendo a mp3...'
-                        : 'casi listo...';
+            const label = en
+              ? (pct < 20 ? 'analyzing...'  : pct < 60 ? 'downloading...' : pct < 90 ? 'converting to mp3...' : 'almost done...')
+              : (pct < 20 ? 'analizando...' : pct < 60 ? 'descargando...' : pct < 90 ? 'convirtiendo a mp3...' : 'casi listo...');
             setProgress(Math.max(pct, 10), label);
 
           } else if (status === 'done') {
             clearInterval(interval);
-            setProgress(100, '¡listo!');
+            setProgress(100, en ? 'done!' : '¡listo!');
             setTimeout(() => {
               if (progressArea) progressArea.classList.add('hidden');
               if (resultArea)   resultArea.classList.remove('hidden');
@@ -172,7 +174,8 @@
 
           } else if (status === 'error') {
             clearInterval(interval);
-            showError(data.error_message || 'Error procesando el vídeo.');
+            const en2 = window.I18n && window.I18n.getLang() === 'en';
+            showError(data.error_message || (en2 ? 'Error processing the video.' : 'Error procesando el vídeo.'));
             resolve();
           }
         }, POLL_MS);

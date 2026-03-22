@@ -18,7 +18,7 @@
     <div class="logo">
       <span class="logo-yt">yt</span><span class="logo-sep">2</span><span class="logo-mp3">mp3</span>
     </div>
-    <p class="tagline">pega, pulsa, descarga</p>
+    <p class="tagline" id="home-tagline"></p>
   </header>
 
   <main>
@@ -27,12 +27,11 @@
         <input
           id="url-input"
           type="url"
-          placeholder="https://youtube.com/watch?v=..."
           spellcheck="false"
           required
         />
       </div>
-      <button type="submit" id="btn-magic">magia</button>
+      <button type="submit" id="btn-magic"></button>
     </form>
 
     <!-- Progress area -->
@@ -40,7 +39,7 @@
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progress-bar-fill"></div>
       </div>
-      <p class="progress-label" id="progress-label">preparando...</p>
+      <p class="progress-label" id="progress-label"></p>
     </div>
 
     <!-- Result area -->
@@ -52,15 +51,15 @@
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
-        <span id="download-label">descargar mp3</span>
+        <span id="download-label"></span>
       </a>
-      <button class="reset-btn" id="btn-reset">convertir otro</button>
+      <button class="reset-btn" id="btn-reset"></button>
     </div>
 
     <!-- Error area -->
     <div id="error-area" class="hidden">
       <p id="error-msg" class="error-msg"></p>
-      <button class="reset-btn" id="btn-reset-err">reintentar</button>
+      <button class="reset-btn" id="btn-reset-err"></button>
     </div>
   </main>
 </div>
@@ -129,6 +128,22 @@
 </script>
 
 <script>
-// Re-init the download form (app.js is already loaded in shell, call initDownloadForm)
-if (window._initDownloadForm) window._initDownloadForm();
+(function () {
+  function applyStrings() {
+    const I = window.I18n;
+    document.getElementById('home-tagline').textContent       = I.t('home.tagline');
+    document.getElementById('url-input').placeholder          = I.t('home.placeholder');
+    document.getElementById('btn-magic').textContent          = I.t('home.btn_magic');
+    document.getElementById('progress-label').textContent     = I.t('home.preparing');
+    document.getElementById('download-label').textContent     = I.t('home.download_mp3');
+    document.getElementById('btn-reset').textContent          = I.t('home.convert_another');
+    document.getElementById('btn-reset-err').textContent      = I.t('home.retry');
+  }
+
+  applyStrings();
+  document.addEventListener('i18n:change', applyStrings);
+
+  // Re-init the download form (app.js is already loaded in shell)
+  if (window._initDownloadForm) window._initDownloadForm();
+})();
 </script>

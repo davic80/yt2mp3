@@ -15,6 +15,7 @@
       --border: #333; --border2: #3a3a3a;
       --neon: #39FF14; --neon-dim: rgba(57,255,20,.12);
       --text: #e0e0e0; --muted: #666; --muted2: #888;
+      --red: #ff4d4d; --red-dim: rgba(255,77,77,.1);
       --radius: 6px; --font: 'Inter', system-ui, sans-serif;
       --mono: 'JetBrains Mono', monospace;
       --topbar-h: 52px; --player-h: 80px;
@@ -46,6 +47,20 @@
     }
     .topbar-link:hover { color: var(--text); background: var(--surface2); }
     .topbar-link-active { color: var(--neon) !important; background: var(--neon-dim) !important; }
+
+    /* ── Lang toggle ── */
+    .lang-toggle {
+      display: flex; align-items: center; gap: .2rem; flex-shrink: 0;
+    }
+    .lang-btn {
+      background: none; border: none; cursor: pointer;
+      font-family: var(--font); font-size: .72rem; font-weight: 600;
+      color: var(--muted); padding: .2rem .4rem; border-radius: 4px;
+      letter-spacing: .04em; transition: color .12s, background .12s;
+    }
+    .lang-btn:hover { color: var(--text); }
+    .lang-btn.active { color: var(--neon); }
+    .lang-sep { color: var(--border2); font-size: .75rem; user-select: none; }
 
     /* ── Auth zone (top-right) ── */
     .auth-zone {
@@ -149,10 +164,16 @@
     <span>yt</span><span class="sep">2</span><span class="mp3">mp3</span>
   </div>
   <nav class="topbar-nav">
-    <a href="/"              class="topbar-link" data-path="/">→ Download</a>
+    <a href="/"              class="topbar-link" data-path="/">→ Descargar</a>
     <a href="/mis-descargas" class="topbar-link" data-path="/mis-descargas">↓ Mis descargas</a>
     <a href="/player"        class="topbar-link" data-path="/player">♪ Player</a>
   </nav>
+  <!-- Language selector -->
+  <div class="lang-toggle" id="lang-toggle">
+    <button class="lang-btn" data-lang="es" onclick="I18n.setLang('es')">ES</button>
+    <span class="lang-sep">|</span>
+    <button class="lang-btn" data-lang="en" onclick="I18n.setLang('en')">EN</button>
+  </div>
   <!-- Auth zone -->
   <div class="auth-zone" id="auth-zone">
     <div id="auth-loggedin" class="hidden" style="display:flex;align-items:center;gap:.6rem;">
@@ -224,8 +245,13 @@
   v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
 </div>
 
+<script src="/static/i18n.js"></script>
 <script src="/static/player.js"></script>
 <script src="/static/spa.js"></script>
 <script src="/static/app.js"></script>
+<script>
+  // Apply i18n to shell elements once DOM and i18n.js are ready
+  I18n.init();
+</script>
 </body>
 </html>
