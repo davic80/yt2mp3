@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.0.1] - 2026-03-22
+
+### Fixed
+- **Player topbar** — "→ Admin" link replaced with "→ Download" so remote users
+  are directed back to the public download page, not the local-only admin panel.
+- **Header auth zone** — logged-in user's name now links to `/player` and has a
+  musical note (♪) appended, making it a clear shortcut to the player page.
+
+---
+
 ## [3.0.0] - 2026-03-22
 
 ### Added
