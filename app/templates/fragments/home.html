@@ -11,6 +11,11 @@
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
+  @media (max-width: 600px) {
+    .container {
+      padding-top: clamp(1.5rem, calc(35vh - 150px), 8rem);
+    }
+  }
 </style>
 
 <div class="container">
@@ -140,7 +145,11 @@
     document.getElementById('btn-reset-err').textContent      = I.t('home.retry');
   }
 
-  applyStrings();
+  if (window.I18n) {
+    applyStrings();
+  } else {
+    window.addEventListener('load', applyStrings);
+  }
   document.addEventListener('i18n:change', applyStrings);
 
   // Re-init the download form (app.js is already loaded in shell)
