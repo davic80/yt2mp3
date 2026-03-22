@@ -137,6 +137,7 @@
     const res = await fetch('/mis-descargas/api/tracks');
     if (!res.ok) { toast('Error cargando descargas', 'err'); return; }
     tracks = await res.json();
+    if (window.Player) window.Player.loadTracks(tracks);
     render();
   }
 

@@ -46,12 +46,19 @@
     // Clear trackChange listeners registered by the previous fragment
     if (window.Player) window.Player.offTrackChange();
 
+    // Remember if audio was playing so we can resume if the DOM swap interrupts it
+    const _audio = document.getElementById('audio');
+    const _wasPlaying = _audio && !_audio.paused;
+
     container.innerHTML = html;
 
     if (pushState) history.pushState({ href }, '', href);
 
     // Re-run <script> tags — innerHTML doesn't execute them
     runScripts(container);
+
+    // Resume playback if the DOM swap caused the browser to pause the audio
+    if (_wasPlaying && _audio.paused) _audio.play().catch(() => {});
 
     updateTopbarActive(url.pathname);
 

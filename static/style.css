@@ -19,19 +19,10 @@
   --font:      'Inter', system-ui, sans-serif;
 }
 
-html, body {
-  height: 100%;
-}
-
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 100vh;
-  padding: clamp(3rem, calc(40vh - 150px), 20rem) 1.5rem 1.5rem;
 }
 
 /* ── Container ─────────────────────────────────────────── */
@@ -245,36 +236,6 @@ main {
   pointer-events: all;
 }
 .version-badge a:hover { color: #888; }
-
-/* ── Footer bar (cookie free + donate) ──────────────────── */
-.footer-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.55rem 1rem;
-  font-size: 0.72rem;
-  color: #555;
-  letter-spacing: 0.03em;
-  pointer-events: none;
-}
-.footer-sep { color: #444; }
-.footer-cookie { color: #555; }
-.footer-donate {
-  color: #555;
-  text-decoration: none;
-  pointer-events: all;
-  transition: color 0.15s;
-}
-.footer-donate:hover { color: #888; }
-
-@media (max-width: 480px) {
-  .footer-bar { display: none; }
-}
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 480px) {

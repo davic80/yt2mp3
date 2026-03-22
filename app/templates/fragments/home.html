@@ -1,3 +1,18 @@
+<style>
+  /* Vertically centre the home container within #page-content */
+  #page-content:has(> .container) {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .container {
+    padding-top: clamp(3rem, calc(40vh - 150px), 20rem);
+    padding-bottom: 1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+</style>
+
 <div class="container">
   <header>
     <div class="logo">
