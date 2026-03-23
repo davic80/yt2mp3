@@ -50,12 +50,12 @@
 
     /* ── Lang toggle ── */
     .lang-toggle {
-      display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
+      display: flex; align-items: center; gap: .25rem; flex-shrink: 0;
     }
     .lang-btn {
       background: none; border: none; cursor: pointer;
       font-family: var(--font); font-size: .72rem; font-weight: 600;
-      color: var(--muted); padding: .2rem .4rem; border-radius: 4px;
+      color: var(--muted); padding: .2rem .25rem; border-radius: 4px;
       letter-spacing: .04em; transition: color .12s, background .12s;
     }
     .lang-btn:hover { color: var(--text); }
@@ -123,7 +123,7 @@
       display: flex; align-items: center; gap: 1rem;
       padding: 0 1.25rem; flex-shrink: 0; z-index: 10;
     }
-    .player-info { width: 200px; min-width: 0; flex-shrink: 0; }
+    .player-info { flex: 1; min-width: 0; }
     .player-title {
       font-size: .84rem; white-space: nowrap; overflow: hidden;
       text-overflow: ellipsis; color: var(--text);
@@ -145,7 +145,8 @@
     }
     .ctrl-btn.play-pause:hover { background: rgba(57,255,20,.2); }
     /* optical centering handled by SVG viewBox — no padding needed */
-    .player-progress { flex: 1; display: flex; align-items: center; gap: .65rem; min-width: 0; }
+    .player-right { flex: 1; display: flex; align-items: center; gap: .65rem; min-width: 0; justify-content: flex-end; }
+    .player-progress { flex: 1; display: flex; align-items: center; gap: .65rem; min-width: 0; max-width: 480px; }
     .time-label { font-size: .75rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
     .progress-wrap {
       flex: 1; height: 4px; background: var(--surface3); border-radius: 2px;
@@ -193,10 +194,14 @@
       /* Show all buttons in compact state */
       .player-controls > button { display: flex; }
       /* Row 2: progress bar spans full width */
-      .player-progress {
+      .player-right {
         order: 2; width: 100%; flex: none;
         display: flex; align-items: center; gap: .35rem;
         padding: 0 .1rem;
+      }
+      .player-progress {
+        flex: 1; max-width: none;
+        display: flex; align-items: center; gap: .35rem;
       }
       .volume-wrap { display: flex; }   /* show mute button */
       .vol-icon    { display: flex; }    /* keep mute icon */
@@ -324,27 +329,29 @@
       </svg>
     </button>
   </div>
-  <div class="player-progress">
-    <span class="time-label" id="time-current">0:00</span>
-    <div class="progress-wrap" id="progress-wrap">
-      <div class="progress-fill" id="progress-fill"></div>
+  <div class="player-right">
+    <div class="player-progress">
+      <span class="time-label" id="time-current">0:00</span>
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <span class="time-label" id="time-total">0:00</span>
     </div>
-    <span class="time-label" id="time-total">0:00</span>
-  </div>
-  <div class="volume-wrap">
-    <button class="ctrl-btn vol-btn" onclick="_playerToggleMute()" title="Silenciar">
-      <svg id="icon-vol" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-      </svg>
-      <svg id="icon-mute" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-        <line x1="23" y1="9" x2="17" y2="15"></line>
-        <line x1="17" y1="9" x2="23" y2="15"></line>
-      </svg>
-    </button>
-    <input type="range" class="vol-slider" id="vol-slider" min="0" max="1" step="0.02" value="1" />
+    <div class="volume-wrap">
+      <button class="ctrl-btn vol-btn" onclick="_playerToggleMute()" title="Silenciar">
+        <svg id="icon-vol" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+        </svg>
+        <svg id="icon-mute" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <line x1="23" y1="9" x2="17" y2="15"></line>
+          <line x1="17" y1="9" x2="23" y2="15"></line>
+        </svg>
+      </button>
+      <input type="range" class="vol-slider" id="vol-slider" min="0" max="1" step="0.02" value="1" />
+    </div>
   </div>
 </div>
 
