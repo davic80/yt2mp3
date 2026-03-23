@@ -166,7 +166,7 @@ def create_app():
                 with db.engine.connect() as conn:
                     conn.execute(text(create_sql))
                     conn.commit()
-             except Exception:
+            except Exception:
                 pass
 
         # v4.4.1 — share_enabled feature flag
