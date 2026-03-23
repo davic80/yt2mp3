@@ -144,8 +144,7 @@
       color: var(--neon);
     }
     .ctrl-btn.play-pause:hover { background: rgba(57,255,20,.2); }
-    /* optical centering for the ▶ glyph (has a natural left offset in most fonts) */
-    #play-icon { display: inline-block; padding-left: 2px; color: var(--neon); }
+    /* optical centering handled by SVG viewBox — no padding needed */
     .player-progress { flex: 1; display: flex; align-items: center; gap: .65rem; min-width: 0; }
     .time-label { font-size: .75rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
     .progress-wrap {
@@ -158,7 +157,7 @@
     }
     .progress-wrap:hover .progress-fill { background: #4fff25; }
     .volume-wrap { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; }
-    .vol-icon { font-size: .95rem; color: var(--muted2); cursor: pointer; user-select: none; }
+    .vol-btn { color: var(--muted2); }
     input[type=range].vol-slider {
       -webkit-appearance: none; appearance: none;
       width: 80px; height: 4px; background: var(--surface3); border-radius: 2px;
@@ -201,10 +200,12 @@
       }
       .volume-wrap { display: flex; }   /* show mute button */
       .vol-icon    { display: flex; }    /* keep mute icon */
-      #vol-slider  { display: none; }    /* hide slider — doesn't work on mobile */
+      #vol-slider  { display: none !important; }    /* hide slider — doesn't work on mobile */
       .time-label  { display: none; }
-      .ctrl-btn { padding: .35rem; font-size: 1.1rem; }
-      .ctrl-btn.play-pause { width: 2.5rem; height: 2.5rem; font-size: 1.3rem; }
+      .ctrl-btn { padding: .5rem; font-size: 1.25rem; }
+      .ctrl-btn svg { width: 20px; height: 20px; }
+      .ctrl-btn.play-pause { width: 3rem; height: 3rem; }
+      .ctrl-btn.play-pause svg { width: 20px; height: 20px; }
       /* fix: hamburger button for player sidebar — force visible */
       .btn-sidebar-toggle { display: flex !important; }
 
@@ -302,7 +303,13 @@
       </svg>
     </button>
     <button class="ctrl-btn play-pause" id="btn-play" onclick="_playerTogglePlay()" title="Play/Pausa">
-      <span id="play-icon">▶</span>
+      <svg id="icon-play" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+      <svg id="icon-pause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+        <rect x="6" y="4" width="4" height="16"></rect>
+        <rect x="14" y="4" width="4" height="16"></rect>
+      </svg>
     </button>
     <button class="ctrl-btn" onclick="_playerNext()" title="Siguiente">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -325,7 +332,18 @@
     <span class="time-label" id="time-total">0:00</span>
   </div>
   <div class="volume-wrap">
-    <span class="vol-icon" onclick="_playerToggleMute()">🔊</span>
+    <button class="ctrl-btn vol-btn" onclick="_playerToggleMute()" title="Silenciar">
+      <svg id="icon-vol" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+      </svg>
+      <svg id="icon-mute" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="9" x2="17" y2="15"></line>
+        <line x1="17" y1="9" x2="23" y2="15"></line>
+      </svg>
+    </button>
     <input type="range" class="vol-slider" id="vol-slider" min="0" max="1" step="0.02" value="1" />
   </div>
 </div>

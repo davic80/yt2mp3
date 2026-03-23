@@ -24,7 +24,10 @@ window.Player = (function () {
   // ── DOM refs (always present in shell) ─────────────────────────────────────
   const audio        = document.getElementById('audio');
   const elTitle      = document.getElementById('player-title');
-  const elPlayIcon   = document.getElementById('play-icon');
+  const elIconPlay   = document.getElementById('icon-play');
+  const elIconPause  = document.getElementById('icon-pause');
+  const elIconVol    = document.getElementById('icon-vol');
+  const elIconMute   = document.getElementById('icon-mute');
   const elTimeCur    = document.getElementById('time-current');
   const elTimeTotal  = document.getElementById('time-total');
   const elFill       = document.getElementById('progress-fill');
@@ -32,7 +35,6 @@ window.Player = (function () {
   const elShuffle    = document.getElementById('btn-shuffle');
   const elRepeat     = document.getElementById('btn-repeat');
   const elVolSlider  = document.getElementById('vol-slider');
-  const elVolIcon    = document.querySelector('.vol-icon');
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   function fmtTime(s) {
@@ -48,11 +50,13 @@ window.Player = (function () {
 
   // ── Audio events ────────────────────────────────────────────────────────────
   audio.addEventListener('play',  () => {
-    if (elPlayIcon) elPlayIcon.textContent = '⏸';
+    if (elIconPlay)  elIconPlay.style.display  = 'none';
+    if (elIconPause) elIconPause.style.display = 'block';
     document.body.classList.add('is-playing');
   });
   audio.addEventListener('pause', () => {
-    if (elPlayIcon) elPlayIcon.textContent = '▶';
+    if (elIconPlay)  elIconPlay.style.display  = 'block';
+    if (elIconPause) elIconPause.style.display = 'none';
     document.body.classList.remove('is-playing');
   });
 
@@ -167,7 +171,8 @@ window.Player = (function () {
 
   function toggleMute() {
     audio.muted = !audio.muted;
-    if (elVolIcon) elVolIcon.textContent = audio.muted ? '🔇' : '🔊';
+    if (elIconVol)  elIconVol.style.display  = audio.muted ? 'none'  : 'block';
+    if (elIconMute) elIconMute.style.display = audio.muted ? 'block' : 'none';
   }
 
   /** Called by app.js once /auth/me confirms a logged-in session. */
