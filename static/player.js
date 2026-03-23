@@ -296,6 +296,56 @@ window.Player = (function () {
   window._playerPrev          = prevTrack;
   window._playerNext          = nextTrack;
 
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    // Ignore when focus is inside a text input, textarea or contenteditable
+    const tag = (e.target.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+    // Ignore if any modifier key is held (except Shift for +/-)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        togglePlay();
+        break;
+      case 'm':
+      case 'M':
+        toggleMute();
+        // Keep slider in sync
+        if (elVolSlider) elVolSlider.value = audio.muted ? 0 : audio.volume;
+        break;
+      case '+':
+      case '=': // = is the unshifted + on most keyboards
+        audio.volume = Math.min(1, +(audio.volume + 0.1).toFixed(2));
+        audio.muted  = false;
+        if (elVolSlider) elVolSlider.value = audio.volume;
+        if (elIconVol)  elIconVol.style.display  = 'block';
+        if (elIconMute) elIconMute.style.display = 'none';
+        break;
+      case '-':
+        audio.volume = Math.max(0, +(audio.volume - 0.1).toFixed(2));
+        if (elVolSlider) elVolSlider.value = audio.volume;
+        break;
+      case 'n':
+      case 'N':
+        nextTrack();
+        break;
+      case 'p':
+      case 'P':
+        prevTrack();
+        break;
+      case 'r':
+      case 'R':
+        toggleShuffle();
+        break;
+      case 'l':
+      case 'L':
+        window._playerToggleLyrics?.();
+        break;
+    }
+  });
+
   return {
     playTrack,
     togglePlay,
