@@ -6,6 +6,29 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.0] - 2026-03-23
+
+### Fixed
+- **Login redirect dinámico.** El botón "entrar" ya no envía siempre `?next=/player`
+  hardcodeado. Ahora captura la ruta SPA actual en el momento del click, de modo que
+  tras hacer login el usuario vuelve exactamente a la página desde la que inició sesión
+  (`/`, `/player`, `/mis-descargas`, etc.).
+
+### Changed
+- **Google OAuth activo en producción.** El `.env` de la Raspberry actualizado con
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` apuntando a
+  `https://yt2mp3.f1madrid.win/auth/callback`. Variables `AUTH0_*` comentadas.
+- **`WEBAUTHN_ORIGIN`** actualizado a `https://yt2mp3.f1madrid.win`.
+- **`SESSION_COOKIE_SECURE=true`** activo en producción.
+
+### Notes — Cloudflare Redirect Rule (manual)
+Para redirigir `diana.f1madrid.win` → `yt2mp3.f1madrid.win`:
+1. `dash.cloudflare.com` → zona `f1madrid.win` → Rules → Redirect Rules → Create rule
+2. Condition: Hostname equals `diana.f1madrid.win`
+3. Action: Static redirect → `https://yt2mp3.f1madrid.win` → 301 Permanent
+
+---
+
 ## [4.5.0] - 2026-03-23
 
 ### Changed
