@@ -43,6 +43,12 @@
     transition: color .12s;
   }
   .sidebar-pl-del:hover { color: #ff4d4d; }
+  .sidebar-pl-share {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: .8rem; padding: 0 .2rem; line-height: 1; flex-shrink: 0;
+    transition: color .12s;
+  }
+  .sidebar-pl-share:hover { color: var(--neon); }
   /* ── Hamburger button (hidden on desktop) ── */
   .btn-sidebar-toggle {
     display: none;
@@ -154,6 +160,102 @@
     /* Dropdown items bigger for touch */
     .dropdown-item { padding: .7rem 1rem; font-size: .9rem; }
   }
+
+  /* ── Share modal ── */
+  .share-modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 200; align-items: center; justify-content: center;
+  }
+  .share-modal-overlay.open { display: flex; }
+  .share-modal {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 1.4rem 1.6rem;
+    min-width: 320px; max-width: 480px; width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6);
+  }
+  .share-modal-title {
+    font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 1rem;
+  }
+  .share-modal-url {
+    font-size: .78rem; color: var(--neon); background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: var(--radius);
+    padding: .55rem .75rem; word-break: break-all; margin-bottom: 1rem;
+    font-family: monospace; cursor: text; user-select: all;
+  }
+  .share-modal-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .share-modal-actions button {
+    flex: 1; min-width: 80px;
+    background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--text); border-radius: var(--radius);
+    font-family: var(--font); font-size: .82rem;
+    padding: .45rem .75rem; cursor: pointer; transition: background .12s, color .12s;
+  }
+  .share-modal-actions button:hover { background: var(--neon-dim); color: var(--neon); }
+  .share-modal-actions button.danger:hover { background: rgba(255,77,77,.1); color: #ff4d4d; }
+  .share-modal-actions button.primary { border-color: var(--neon); color: var(--neon); }
+
+  /* ── Shared view header ── */
+  .shared-header {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem 1.25rem; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: var(--surface);
+  }
+  .shared-header-name { font-size: .9rem; font-weight: 600; color: var(--neon); }
+  .shared-header-sub  { font-size: .75rem; color: var(--muted); }
+  .col-claim { width: 5.5rem; text-align: center; }
+  .claim-btn {
+    background: none; border: 1px solid var(--border2); border-radius: var(--radius);
+    color: var(--muted2); font-size: .75rem; padding: .2rem .5rem; cursor: pointer;
+    font-family: var(--font); transition: all .12s; white-space: nowrap;
+  }
+  .claim-btn:hover { border-color: var(--neon); color: var(--neon); }
+  .claim-btn.claimed { border-color: transparent; color: var(--muted); cursor: default; }
+
+  /* ── Lyrics panel ── */
+  .lyrics-panel {
+    width: 260px; min-width: 260px; flex-shrink: 0;
+    background: var(--surface); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .lyrics-panel.hidden { display: none; }
+  .lyrics-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .65rem .9rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .lyrics-title { font-size: .78rem; font-weight: 600; color: var(--muted2); text-transform: uppercase; letter-spacing: .06em; }
+  .lyrics-close {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 1rem; line-height: 1; padding: 0 .2rem; transition: color .12s;
+  }
+  .lyrics-close:hover { color: var(--text); }
+  .lyrics-body { flex: 1; overflow-y: auto; padding: .75rem .9rem; }
+  .lyrics-loading { color: var(--muted); font-size: .82rem; text-align: center; padding: 2rem 0; }
+  .lyrics-plain { font-size: .82rem; line-height: 1.7; color: var(--muted2); white-space: pre-wrap; }
+  .lyrics-line {
+    display: block; font-size: .82rem; line-height: 1.7; color: var(--muted);
+    transition: color .2s, font-size .15s; padding: .05rem 0;
+    cursor: default;
+  }
+  .lyrics-line.active {
+    color: var(--neon); font-weight: 600;
+  }
+  .lyrics-not-found { color: var(--muted); font-size: .82rem; text-align: center; padding: 2rem 0; }
+  .col-lyrics { width: 2rem; text-align: center; }
+  .lyrics-btn {
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    font-size: .9rem; padding: 0; line-height: 1; transition: color .12s;
+  }
+  .lyrics-btn:hover { color: var(--neon); }
+  .lyrics-btn.active { color: var(--neon); }
+  @media (max-width: 600px) {
+    .lyrics-panel {
+      position: absolute; top: 0; right: 0; bottom: 0;
+      width: 85%; max-width: 300px; z-index: 50;
+      border-left: 1px solid var(--border2);
+      transform: translateX(100%); transition: transform .22s ease;
+    }
+    .lyrics-panel.open { transform: translateX(0); }
+  }
 </style>
 
 <!-- Layout -->
@@ -194,22 +296,45 @@
     </div>
   </div>
 
+  <!-- Lyrics panel -->
+  <div class="lyrics-panel hidden" id="lyrics-panel">
+    <div class="lyrics-header">
+      <span class="lyrics-title" id="lyrics-panel-title"></span>
+      <button class="lyrics-close" onclick="closeLyrics()">✕</button>
+    </div>
+    <div class="lyrics-body" id="lyrics-body"></div>
+  </div>
+
 </div>
 
 <!-- Dropdown (shared) -->
 <div class="dropdown" id="dropdown"></div>
 
+<!-- Share modal -->
+<div class="share-modal-overlay" id="share-modal-overlay" onclick="closeShareModal()">
+  <div class="share-modal" onclick="event.stopPropagation()">
+    <div class="share-modal-title" id="share-modal-title"></div>
+    <div class="share-modal-url" id="share-modal-url"></div>
+    <div class="share-modal-actions">
+      <button class="primary" onclick="copyShareUrl()" id="share-copy-btn"></button>
+      <button class="danger"  onclick="revokeShare()"  id="share-revoke-btn"></button>
+      <button                 onclick="closeShareModal()" id="share-close-btn"></button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   // ── State ───────────────────────────────────────────────────────────────────
   const state = {
-    view:       'all',
-    tracks:     [],
-    playlists:  [],
-    plTracks:   {},
-    queue:      [],
-    queueIndex: 0,
-    currentJob: null,
+    view:         'all',
+    tracks:       [],
+    playlists:    [],
+    plTracks:     {},
+    queue:        [],
+    queueIndex:   0,
+    currentJob:   null,
+    lyricsEnabled: false,
   };
 
   // ── i18n shell strings ───────────────────────────────────────────────────────
@@ -232,18 +357,28 @@
   // ── API ─────────────────────────────────────────────────────────────────────
   async function loadAll() {
     applyStaticStrings();
-    const [tracksRes, plRes] = await Promise.all([
+    const [tracksRes, plRes, featRes] = await Promise.all([
       fetch('/player/api/tracks'),
       fetch('/player/api/playlists'),
+      fetch('/player/api/me/features'),
     ]);
-    state.tracks    = await tracksRes.json();
-    state.playlists = await plRes.json();
+    state.tracks      = await tracksRes.json();
+    state.playlists   = await plRes.json();
+    const feat        = await featRes.json();
+    state.lyricsEnabled = Boolean(feat.lyrics_enabled);
 
     // Hand the full track list to the global player
     if (window.Player) window.Player.loadTracks(state.tracks);
 
-    renderSidebar();
-    renderTracks();
+    // Check for shared view mode
+    const sharedToken = new URLSearchParams(location.search).get('shared');
+    if (sharedToken) {
+      renderSidebar();
+      await loadSharedView(sharedToken);
+    } else {
+      renderSidebar();
+      renderTracks();
+    }
 
     // Register row-highlight callback
     if (window.Player) {
@@ -276,6 +411,8 @@
            onclick="setView(${pl.id})" data-plid="${pl.id}">
         <span class="pl-name">${esc(pl.name)}</span>
         <span class="pl-count">${pl.track_count}</span>
+        <button class="sidebar-pl-share" onclick="event.stopPropagation();sharePlaylist(${pl.id},'${esc(pl.name)}')"
+                title="${window.I18n.t('player.share')}">⇗</button>
         <button class="sidebar-pl-del" onclick="event.stopPropagation();deletePlaylist(${pl.id})"
                 title="×">×</button>
       </div>
@@ -338,6 +475,7 @@
             <th>${I.t('player.col_title')}</th>
             <th class="col-size">${I.t('player.col_size')}</th>
             <th class="col-date">${I.t('player.col_date')}</th>
+            ${state.lyricsEnabled ? `<th class="col-lyrics"></th>` : ''}
             <th class="col-menu"></th>
           </tr>
         </thead>
@@ -358,6 +496,11 @@
               </td>
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-date">${fmtDate(t.created_at)}</td>
+              ${state.lyricsEnabled ? `
+              <td class="col-lyrics" onclick="event.stopPropagation()">
+                <button class="lyrics-btn" onclick="openLyrics('${t.job_id}')"
+                        id="lyrbtn-${t.job_id}" title="${I.t('player.lyrics')}">♪</button>
+              </td>` : ''}
               <td class="col-menu" onclick="event.stopPropagation()">
                 <button class="menu-btn" onclick="openMenu(event, '${t.job_id}')" title="${I.t('player.options')}">⋮</button>
               </td>
@@ -530,6 +673,313 @@
     document.getElementById('sidebar-overlay').classList.remove('open');
   }
 
+  // ── Lyrics ──────────────────────────────────────────────────────────────────
+  let _lyricsJob   = null;
+  let _lrcLines    = [];   // [{time, text}] for synced
+  let _lrcInterval = null;
+
+  async function openLyrics(jobId) {
+    if (!state.lyricsEnabled) return;
+
+    // If already open for same track, close
+    if (_lyricsJob === jobId && !document.getElementById('lyrics-panel').classList.contains('hidden')) {
+      closeLyrics();
+      return;
+    }
+
+    _lyricsJob = jobId;
+    const panel = document.getElementById('lyrics-panel');
+    const body  = document.getElementById('lyrics-body');
+    const title = document.getElementById('lyrics-panel-title');
+
+    // Mark button active
+    document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(`lyrbtn-${jobId}`);
+    if (btn) btn.classList.add('active');
+
+    const I = window.I18n;
+    title.textContent = I.t('player.lyrics');
+    body.innerHTML = `<div class="lyrics-loading">${I.t('player.lyrics_loading')}</div>`;
+    panel.classList.remove('hidden', 'open');
+    // mobile
+    setTimeout(() => panel.classList.add('open'), 10);
+
+    try {
+      const res  = await fetch(`/player/api/lyrics/${jobId}`);
+      if (!res.ok) {
+        body.innerHTML = `<div class="lyrics-not-found">${I.t('player.lyrics_not_found')}</div>`;
+        return;
+      }
+      const data = await res.json();
+
+      if (data.synced && data.content) {
+        _lrcLines = _parseLrc(data.content);
+        _renderLrcLines();
+        _startLrcSync();
+      } else {
+        _lrcLines = [];
+        _stopLrcSync();
+        body.innerHTML = `<pre class="lyrics-plain">${esc(data.plain || data.content || '')}</pre>`;
+      }
+    } catch (_) {
+      body.innerHTML = `<div class="lyrics-not-found">${I.t('player.lyrics_not_found')}</div>`;
+    }
+  }
+
+  function closeLyrics() {
+    _lyricsJob = null;
+    _lrcLines  = [];
+    _stopLrcSync();
+    document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
+    const panel = document.getElementById('lyrics-panel');
+    panel.classList.remove('open');
+    setTimeout(() => panel.classList.add('hidden'), 240);
+  }
+
+  function _parseLrc(lrc) {
+    const lines = [];
+    for (const line of lrc.split('\n')) {
+      const m = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+      if (m) {
+        const time = parseInt(m[1]) * 60 + parseFloat(m[2]);
+        lines.push({ time, text: m[3].trim() });
+      }
+    }
+    return lines;
+  }
+
+  function _renderLrcLines() {
+    const body = document.getElementById('lyrics-body');
+    if (!body) return;
+    body.innerHTML = _lrcLines.map((l, i) =>
+      `<span class="lyrics-line" id="lrc-${i}">${esc(l.text) || '&nbsp;'}</span>`
+    ).join('');
+  }
+
+  function _startLrcSync() {
+    _stopLrcSync();
+    const audio = document.getElementById('player-audio');
+    if (!audio) return;
+    _lrcInterval = setInterval(() => {
+      const t = audio.currentTime;
+      let active = -1;
+      for (let i = 0; i < _lrcLines.length; i++) {
+        if (_lrcLines[i].time <= t) active = i;
+        else break;
+      }
+      document.querySelectorAll('.lyrics-line').forEach((el, i) => {
+        el.classList.toggle('active', i === active);
+      });
+      // Auto-scroll active line into view
+      if (active >= 0) {
+        const el = document.getElementById(`lrc-${active}`);
+        if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }, 250);
+  }
+
+  function _stopLrcSync() {
+    if (_lrcInterval) { clearInterval(_lrcInterval); _lrcInterval = null; }
+  }
+
+  // ── Play tracking ────────────────────────────────────────────────────────────
+  let _playTimer    = null;
+  let _playStart    = null;
+  let _playJob      = null;
+  let _playReported = false;
+
+  function _startPlayTracking(jobId) {
+    _stopPlayTracking();
+    _playJob      = jobId;
+    _playStart    = Date.now();
+    _playReported = false;
+
+    // Report after 30 s
+    _playTimer = setTimeout(() => {
+      _reportPlay(jobId, 30);
+      _playReported = true;
+    }, 30000);
+  }
+
+  function _stopPlayTracking() {
+    if (_playTimer) { clearTimeout(_playTimer); _playTimer = null; }
+  }
+
+  function _reportPlay(jobId, seconds) {
+    fetch('/player/api/plays', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId, seconds_played: seconds }),
+    }).catch(() => {});
+  }
+
+  // Hook into global player events for tracking and lyrics sync
+  if (window.Player) {
+    window.Player.onTrackChange(function (jobId) {
+      // If previous track was playing and not yet reported, send actual seconds
+      if (_playJob && !_playReported && _playStart) {
+        const secs = Math.round((Date.now() - _playStart) / 1000);
+        if (secs >= 10) _reportPlay(_playJob, secs);
+      }
+      _startPlayTracking(jobId);
+
+      // Re-open lyrics for new track if panel is visible
+      if (_lyricsJob && !document.getElementById('lyrics-panel').classList.contains('hidden')) {
+        openLyrics(jobId);
+      }
+    });
+  }
+
+  // Also hook audio ended event for accurate seconds
+  const _audioEl = document.getElementById('player-audio');
+  if (_audioEl) {
+    _audioEl.addEventListener('ended', () => {
+      if (_playJob && _playStart) {
+        const secs = Math.round((Date.now() - _playStart) / 1000);
+        _reportPlay(_playJob, secs);
+        _playReported = true;
+      }
+    });
+  }
+
+  // ── Share ────────────────────────────────────────────────────────────────────
+  let _sharePid   = null;
+  let _shareToken = null;
+
+  async function sharePlaylist(pid, name) {
+    const res  = await fetch(`/player/api/playlists/${pid}/share`, { method: 'POST' });
+    const data = await res.json();
+    _sharePid   = pid;
+    _shareToken = data.token;
+    const url   = `${location.origin}/player?shared=${data.token}`;
+    const I = window.I18n;
+    document.getElementById('share-modal-title').textContent  = I.t('player.share_title') + ': ' + name;
+    document.getElementById('share-modal-url').textContent    = url;
+    document.getElementById('share-copy-btn').textContent     = I.t('player.share_copy');
+    document.getElementById('share-revoke-btn').textContent   = I.t('player.share_revoke');
+    document.getElementById('share-close-btn').textContent    = I.t('player.share_close');
+    document.getElementById('share-modal-overlay').classList.add('open');
+  }
+
+  function closeShareModal() {
+    document.getElementById('share-modal-overlay').classList.remove('open');
+    _sharePid = null; _shareToken = null;
+  }
+
+  async function copyShareUrl() {
+    const url = document.getElementById('share-modal-url').textContent;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (_) {
+      // fallback: select text
+      const el = document.getElementById('share-modal-url');
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    }
+    const btn = document.getElementById('share-copy-btn');
+    const orig = btn.textContent;
+    btn.textContent = window.I18n.t('player.share_copied');
+    setTimeout(() => { btn.textContent = orig; }, 1800);
+  }
+
+  async function revokeShare() {
+    if (!_sharePid) return;
+    await fetch(`/player/api/playlists/${_sharePid}/share`, { method: 'DELETE' });
+    closeShareModal();
+  }
+
+  // ── Shared view (recipient) ───────────────────────────────────────────────────
+  async function loadSharedView(token) {
+    const res  = await fetch(`/player/api/shared/${token}`);
+    const data = await res.json();
+    const I    = window.I18n;
+
+    // Hide sidebar, show shared header above main
+    document.getElementById('sidebar').style.display = 'none';
+    const main = document.querySelector('.main');
+
+    const header = document.createElement('div');
+    header.className = 'shared-header';
+    header.innerHTML = `
+      <div>
+        <div class="shared-header-name">${data.name ? esc(data.name) : I.t('player.shared_invalid')}</div>
+        <div class="shared-header-sub">${I.t('player.shared_view')}</div>
+      </div>`;
+    main.prepend(header);
+
+    if (!data.name) {
+      document.getElementById('track-container').innerHTML =
+        `<div class="empty-msg">${I.t('player.shared_invalid')}</div>`;
+      return;
+    }
+
+    // Build track list — mark which ones the current user already owns
+    const ownedIds = new Set(state.tracks.map(t => t.job_id));
+    const tracks = data.tracks;
+
+    if (window.Player) window.Player.setQueue(tracks.map(t => t.job_id));
+
+    if (!tracks.length) {
+      document.getElementById('track-container').innerHTML =
+        `<div class="empty-msg">${I.t('player.empty')}</div>`;
+      return;
+    }
+
+    document.getElementById('track-container').innerHTML = `
+      <table class="track-list">
+        <thead>
+          <tr>
+            <th class="col-claim"></th>
+            <th>${I.t('player.col_title')}</th>
+            <th class="col-size">${I.t('player.col_size')}</th>
+            <th class="col-menu"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tracks.map((t, i) => {
+            const owned = ownedIds.has(t.job_id);
+            return `
+            <tr data-job="${t.job_id}" data-idx="${i}"
+                class="${state.currentJob === t.job_id ? 'playing' : ''}"
+                onclick="playTrack('${t.job_id}', ${i})">
+              <td class="col-claim" onclick="event.stopPropagation()">
+                <button class="claim-btn ${owned ? 'claimed' : ''}"
+                        id="claim-${t.job_id}"
+                        onclick="${owned ? '' : `claimTrack('${token}','${t.job_id}',this)`}"
+                        ${owned ? 'disabled' : ''}>
+                  ${owned ? I.t('player.claimed') : I.t('player.claim')}
+                </button>
+              </td>
+              <td class="col-title">
+                <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
+              </td>
+              <td class="col-size">${fmtSize(t.file_size)}</td>
+              <td class="col-menu"></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+
+    // Load shared tracks into player track registry so titles work
+    if (window.Player) window.Player.loadTracks(tracks);
+  }
+
+  async function claimTrack(token, jobId, btn) {
+    btn.disabled = true;
+    btn.textContent = '…';
+    const res  = await fetch(`/player/api/shared/${token}/claim/${jobId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      btn.textContent = window.I18n.t('player.claimed');
+      btn.classList.add('claimed');
+    } else {
+      btn.disabled = false;
+      btn.textContent = window.I18n.t('player.claim');
+    }
+  }
+
   // Expose to onclick attrs in generated HTML
   window.setView             = setView;
   window.playTrack           = playTrack;
@@ -543,6 +993,13 @@
   window.renderTracks        = renderTracks;
   window.openDrawer          = openDrawer;
   window.closeDrawer         = closeDrawer;
+  window.sharePlaylist       = sharePlaylist;
+  window.copyShareUrl        = copyShareUrl;
+  window.revokeShare         = revokeShare;
+  window.closeShareModal     = closeShareModal;
+  window.claimTrack          = claimTrack;
+  window.openLyrics          = openLyrics;
+  window.closeLyrics         = closeLyrics;
 
   // Re-render when language changes
   document.addEventListener('i18n:change', () => {

@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime, timezone
 
 from flask import Blueprint, Response, abort, jsonify, render_template, request, send_file
@@ -6,7 +7,7 @@ from flask import Blueprint, Response, abort, jsonify, render_template, request,
 from app import db
 from app.auth_utils import _is_local_request, get_current_user_email, user_required
 from app.models import Download
-from app.player_models import Playlist, PlaylistTrack
+from app.player_models import Playlist, PlaylistShare, PlaylistTrack, UserFeature, PlayEvent
 
 player_bp = Blueprint("player", __name__, url_prefix="/player")
 
@@ -72,10 +73,18 @@ def _stream_mp3(record: Download) -> Response:
 def stream(job_id: str):
     record = Download.query.filter_by(job_id=job_id, status="done").first_or_404()
 
-    # Remote users may only stream their own tracks
+    # Remote users may only stream their own tracks OR tracks in any shared playlist
     email = get_current_user_email()
     if email and record.user_email != email:
-        abort(403)
+        shared_accessible = (
+            db.session.query(PlaylistShare)
+            .join(Playlist, PlaylistShare.playlist_id == Playlist.id)
+            .join(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
+            .filter(PlaylistTrack.job_id == job_id)
+            .first()
+        )
+        if not shared_accessible:
+            abort(403)
 
     return _stream_mp3(record)
 
@@ -275,3 +284,301 @@ def api_remove_from_playlist(pid: int, job_id: str):
 
     db.session.commit()
     return jsonify({"ok": True})
+
+
+# ── Playlist sharing API ───────────────────────────────────────────────────────
+
+@player_bp.route("/api/playlists/<int:pid>/share", methods=["POST"])
+@user_required
+def api_share_playlist(pid: int):
+    """Create (or return existing) share token for a playlist."""
+    pl = Playlist.query.get_or_404(pid)
+
+    email = get_current_user_email()
+    if email and pl.user_email != email:
+        abort(403)
+
+    share = PlaylistShare.query.filter_by(playlist_id=pid).first()
+    if not share:
+        share = PlaylistShare(playlist_id=pid, token=str(uuid.uuid4()))
+        db.session.add(share)
+        db.session.commit()
+
+    return jsonify({"token": share.token})
+
+
+@player_bp.route("/api/playlists/<int:pid>/share", methods=["DELETE"])
+@user_required
+def api_revoke_share(pid: int):
+    """Revoke (delete) the share token for a playlist."""
+    pl = Playlist.query.get_or_404(pid)
+
+    email = get_current_user_email()
+    if email and pl.user_email != email:
+        abort(403)
+
+    share = PlaylistShare.query.filter_by(playlist_id=pid).first()
+    if share:
+        db.session.delete(share)
+        db.session.commit()
+
+    return jsonify({"ok": True})
+
+
+@player_bp.route("/api/shared/<token>")
+@user_required
+def api_shared_playlist(token: str):
+    """Return playlist name + tracks for a shared token (login required)."""
+    share = PlaylistShare.query.filter_by(token=token).first()
+    if not share:
+        return jsonify({"name": None, "tracks": []})
+
+    pl = share.playlist
+    tracks = (
+        PlaylistTrack.query
+        .filter_by(playlist_id=pl.id)
+        .order_by(PlaylistTrack.position)
+        .all()
+    )
+    return jsonify({
+        "name": pl.name,
+        "tracks": [
+            {
+                "job_id":    t.job_id,
+                "position":  t.position,
+                "title":     t.download.title or t.job_id,
+                "file_name": t.download.file_name,
+                "file_size": t.download.file_size,
+            }
+            for t in tracks
+        ],
+    })
+
+
+@player_bp.route("/api/shared/<token>/claim/<job_id>", methods=["POST"])
+@user_required
+def api_claim_track(token: str, job_id: str):
+    """Copy a shared track's Download record to the requesting user."""
+    email = get_current_user_email()
+    if not email:
+        abort(403)  # local/admin users don't need to claim
+
+    share = PlaylistShare.query.filter_by(token=token).first()
+    if not share:
+        return jsonify({"error": "invalid token"}), 404
+
+    # Verify the job_id is actually in this shared playlist
+    pt = PlaylistTrack.query.filter_by(
+        playlist_id=share.playlist_id, job_id=job_id
+    ).first()
+    if not pt:
+        abort(404)
+
+    original = Download.query.filter_by(job_id=job_id, status="done").first_or_404()
+
+    # Already owns it
+    existing = Download.query.filter_by(
+        job_id=job_id, user_email=email
+    ).first()
+    if existing:
+        return jsonify({"ok": True, "already_owned": True})
+
+    # Check by video_id to avoid duplicating if they already have same video
+    if original.video_id:
+        dup = Download.query.filter_by(
+            video_id=original.video_id, user_email=email, status="done"
+        ).first()
+        if dup:
+            return jsonify({"ok": True, "already_owned": True})
+
+    new_record = Download(
+        job_id       = str(uuid.uuid4()),
+        user_email   = email,
+        title        = original.title,
+        file_name    = original.file_name,
+        file_path    = original.file_path,   # shared file, no re-download
+        file_size    = original.file_size,
+        youtube_url  = original.youtube_url,
+        status       = "done",
+        video_id     = original.video_id,
+        audio_hash   = original.audio_hash,
+        created_at   = datetime.now(timezone.utc),
+        is_favorite  = False,
+    )
+    db.session.add(new_record)
+    db.session.commit()
+    return jsonify({"ok": True, "new_job_id": new_record.job_id})
+
+
+# ── User features API ─────────────────────────────────────────────────────────
+
+@player_bp.route("/api/me/features")
+@user_required
+def api_me_features():
+    """Return feature flags for the current user."""
+    email = get_current_user_email()
+    if not email:
+        # Local/admin — all features on
+        return jsonify({"lyrics_enabled": True})
+    feat = UserFeature.query.filter_by(user_email=email).first()
+    return jsonify({"lyrics_enabled": bool(feat.lyrics_enabled) if feat else False})
+
+
+# ── Play tracking API ─────────────────────────────────────────────────────────
+
+@player_bp.route("/api/plays", methods=["POST"])
+@user_required
+def api_record_play():
+    """Record a confirmed play event (>30 s listened or track ended)."""
+    email = get_current_user_email()
+    if not email:
+        return jsonify({"ok": True})  # local/admin — no tracking needed
+
+    data           = request.get_json(silent=True) or {}
+    job_id         = data.get("job_id", "").strip()
+    seconds_played = int(data.get("seconds_played", 0))
+
+    if not job_id:
+        return jsonify({"error": "job_id required"}), 400
+
+    # Dedup: ignore if same user played same track in last 60 s
+    from sqlalchemy import func
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None)
+    from datetime import timedelta
+    cutoff = cutoff - timedelta(seconds=60)
+    recent = PlayEvent.query.filter(
+        PlayEvent.user_email == email,
+        PlayEvent.job_id     == job_id,
+        PlayEvent.played_at  >= cutoff,
+    ).first()
+    if recent:
+        return jsonify({"ok": True, "deduped": True})
+
+    ev = PlayEvent(
+        user_email     = email,
+        job_id         = job_id,
+        seconds_played = max(0, seconds_played),
+        played_at      = datetime.now(timezone.utc),
+    )
+    db.session.add(ev)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ── Lyrics API ────────────────────────────────────────────────────────────────
+
+@player_bp.route("/api/lyrics/<job_id>")
+@user_required
+def api_lyrics(job_id: str):
+    """Fetch lyrics for a track. Checks cache first, then LRCLIB, then Lyrics.ovh."""
+    import urllib.request
+    import urllib.parse
+    import json as _json
+
+    # Check feature flag
+    email = get_current_user_email()
+    if email:
+        feat = UserFeature.query.filter_by(user_email=email).first()
+        if not feat or not feat.lyrics_enabled:
+            return jsonify({"error": "lyrics not enabled"}), 403
+
+    record = Download.query.filter_by(job_id=job_id, status="done").first_or_404()
+
+    # Ownership / shared-access check (reuse stream logic)
+    if email and record.user_email != email:
+        shared_accessible = (
+            db.session.query(PlaylistShare)
+            .join(Playlist, PlaylistShare.playlist_id == Playlist.id)
+            .join(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
+            .filter(PlaylistTrack.job_id == job_id)
+            .first()
+        )
+        if not shared_accessible:
+            abort(403)
+
+    # Check lyrics cache
+    from app.player_models import LyricsCache
+    cached = None
+    if record.video_id:
+        cached = LyricsCache.query.filter_by(video_id=record.video_id).first()
+    if cached:
+        return jsonify({
+            "source":      cached.source,
+            "synced":      cached.synced,
+            "content":     cached.content,
+            "plain":       cached.plain,
+        })
+
+    title = record.title or ""
+    # Strip common suffixes to improve match rate
+    import re
+    clean_title = re.sub(
+        r'\s*[\(\[].*(official|video|audio|lyric|hd|4k|mv).*[\)\]]',
+        '', title, flags=re.IGNORECASE
+    ).strip()
+
+    # -- Try LRCLIB (synced lyrics) --
+    def _try_lrclib(q):
+        url = "https://lrclib.net/api/search?q=" + urllib.parse.quote(q)
+        req = urllib.request.Request(url, headers={"User-Agent": "yt2mp3/4.4.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                results = _json.loads(r.read())
+            if results:
+                best = results[0]
+                return {
+                    "synced":  bool(best.get("syncedLyrics")),
+                    "content": best.get("syncedLyrics") or best.get("plainLyrics") or "",
+                    "plain":   best.get("plainLyrics") or "",
+                }
+        except Exception:
+            pass
+        return None
+
+    # -- Try Lyrics.ovh (plain) --
+    def _try_ovh(title_str):
+        # Lyrics.ovh needs artist + title; try splitting on " - "
+        parts = title_str.split(" - ", 1)
+        if len(parts) == 2:
+            artist, song = parts[0].strip(), parts[1].strip()
+        else:
+            return None
+        url = "https://api.lyrics.ovh/v1/{}/{}".format(
+            urllib.parse.quote(artist), urllib.parse.quote(song)
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "yt2mp3/4.4.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                data = _json.loads(r.read())
+            if data.get("lyrics"):
+                return {"synced": False, "content": data["lyrics"], "plain": data["lyrics"]}
+        except Exception:
+            pass
+        return None
+
+    result = _try_lrclib(clean_title) or _try_lrclib(title) or _try_ovh(clean_title) or _try_ovh(title)
+
+    source  = "lrclib" if result and (result.get("synced") or _try_lrclib(clean_title)) else "ovh"
+    content = result["content"] if result else ""
+    plain   = result["plain"]   if result else ""
+    synced  = result["synced"]  if result else False
+
+    # Save to cache
+    if record.video_id and (content or plain):
+        cache_row = LyricsCache(
+            video_id = record.video_id,
+            source   = source,
+            synced   = synced,
+            content  = content,
+            plain    = plain,
+        )
+        db.session.add(cache_row)
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    if not content and not plain:
+        return jsonify({"error": "not_found"}), 404
+
+    return jsonify({"source": source, "synced": synced, "content": content, "plain": plain})

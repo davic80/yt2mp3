@@ -56,6 +56,23 @@ window.I18n = (function () {
       'player.prompt_pl_name2':'Nombre de la nueva playlist:',
       'player.options':        'Opciones',
 
+      // ── Player — share ──
+      'player.share':          'Compartir',
+      'player.share_title':    'Compartir playlist',
+      'player.share_copy':     'Copiar enlace',
+      'player.share_revoke':   'Revocar enlace',
+      'player.share_close':    'Cerrar',
+      'player.share_copied':   '¡Copiado!',
+      'player.shared_view':    'Playlist compartida',
+      'player.claim':          '+ Agregar',
+      'player.claimed':        'Agregado ✓',
+      'player.shared_invalid': 'Este enlace no está disponible.',
+
+      // ── Player — lyrics ──
+      'player.lyrics':           'Letras',
+      'player.lyrics_loading':   'Buscando letras...',
+      'player.lyrics_not_found': 'Letra no encontrada.',
+
       // ── Mis descargas fragment ──
       'md.search':          'Buscar...',
       'md.select_all':      'Seleccionar todo',
@@ -122,6 +139,23 @@ window.I18n = (function () {
       'player.prompt_pl_name': 'Playlist name:',
       'player.prompt_pl_name2':'New playlist name:',
       'player.options':        'Options',
+
+      // ── Player — share ──
+      'player.share':          'Share',
+      'player.share_title':    'Share playlist',
+      'player.share_copy':     'Copy link',
+      'player.share_revoke':   'Revoke link',
+      'player.share_close':    'Close',
+      'player.share_copied':   'Copied!',
+      'player.shared_view':    'Shared playlist',
+      'player.claim':          '+ Add',
+      'player.claimed':        'Added ✓',
+      'player.shared_invalid': 'This link is no longer available.',
+
+      // ── Player — lyrics ──
+      'player.lyrics':           'Lyrics',
+      'player.lyrics_loading':   'Looking up lyrics...',
+      'player.lyrics_not_found': 'Lyrics not found.',
 
       // ── Mis descargas fragment ──
       'md.search':          'Search...',

@@ -26,7 +26,7 @@ from flask import (
 )
 from app import db
 from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge
-from app.models import Download
+from app.models import Download, User
 from app.auth_utils import _client_ip, _is_local_request, local_only
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/db")
@@ -357,3 +357,67 @@ def auth_complete():
     session["admin_authenticated"] = True
     session.permanent = True
     return jsonify({"ok": True})
+
+
+# ── Users management ──────────────────────────────────────────────────────────
+
+@admin_bp.route("/users")
+@login_required
+def admin_users():
+    return render_template("admin/users.html")
+
+
+@admin_bp.route("/api/users")
+@login_required
+def api_users():
+    from app.player_models import UserFeature, PlayEvent
+    from sqlalchemy import func
+
+    rows = (
+        db.session.query(
+            User,
+            func.count(Download.job_id.distinct()).label("track_count"),
+            func.count(PlayEvent.id).label("play_count"),
+            func.sum(PlayEvent.seconds_played).label("seconds_total"),
+            func.max(PlayEvent.played_at).label("last_play"),
+            UserFeature.lyrics_enabled,
+        )
+        .outerjoin(Download,  Download.user_email  == User.email)
+        .outerjoin(PlayEvent, PlayEvent.user_email == User.email)
+        .outerjoin(UserFeature, UserFeature.user_email == User.email)
+        .group_by(User.email)
+        .order_by(func.count(PlayEvent.id).desc())
+        .all()
+    )
+
+    return jsonify([
+        {
+            "email":           u.email,
+            "name":            u.name or "",
+            "created_at":      u.created_at.isoformat() if u.created_at else None,
+            "track_count":     tc or 0,
+            "play_count":      pc or 0,
+            "minutes_played":  round((sec or 0) / 60, 1),
+            "last_play":       lp.isoformat() if lp else None,
+            "lyrics_enabled":  bool(le) if le is not None else False,
+        }
+        for u, tc, pc, sec, lp, le in rows
+    ])
+
+
+@admin_bp.route("/api/users/<path:email>/features", methods=["POST"])
+@login_required
+def api_set_user_features(email: str):
+    from app.player_models import UserFeature
+
+    data = request.get_json(silent=True) or {}
+    feat = UserFeature.query.filter_by(user_email=email).first()
+    if not feat:
+        feat = UserFeature(user_email=email, lyrics_enabled=False)
+        db.session.add(feat)
+
+    if "lyrics_enabled" in data:
+        feat.lyrics_enabled = bool(data["lyrics_enabled"])
+
+    db.session.commit()
+    return jsonify({"ok": True, "lyrics_enabled": feat.lyrics_enabled})

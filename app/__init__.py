@@ -89,7 +89,7 @@ def create_app():
         from sqlalchemy import text
         from app.models import User, Download  # noqa: F401
         from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge  # noqa: F401
-        from app.player_models import Playlist, PlaylistTrack  # noqa: F401
+        from app.player_models import Playlist, PlaylistTrack, PlaylistShare, UserFeature, PlayEvent, LyricsCache  # noqa: F401
         db.create_all()
 
         # ── Inline migrations: add new columns if they don't exist yet ──
@@ -114,6 +114,60 @@ def create_app():
                     conn.commit()
             except Exception:
                 pass  # column already exists — safe to ignore
+
+        # v4.3.0 — playlist shares (new table, use CREATE TABLE IF NOT EXISTS)
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS playlist_shares ("
+                    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    "  playlist_id INTEGER NOT NULL,"
+                    "  token VARCHAR(36) UNIQUE NOT NULL,"
+                    "  created_at DATETIME,"
+                    "  FOREIGN KEY (playlist_id) REFERENCES playlists(id)"
+                    ")"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
+        # v4.4.0 — user feature flags + play events
+        for create_sql in (
+            (
+                "CREATE TABLE IF NOT EXISTS user_features ("
+                "  user_email VARCHAR(256) PRIMARY KEY,"
+                "  lyrics_enabled BOOLEAN NOT NULL DEFAULT 0,"
+                "  FOREIGN KEY (user_email) REFERENCES users(email)"
+                ")"
+            ),
+            (
+                "CREATE TABLE IF NOT EXISTS play_events ("
+                "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "  user_email VARCHAR(256) NOT NULL,"
+                "  job_id VARCHAR(64) NOT NULL,"
+                "  played_at DATETIME NOT NULL,"
+                "  seconds_played INTEGER NOT NULL DEFAULT 0,"
+                "  FOREIGN KEY (user_email) REFERENCES users(email),"
+                "  FOREIGN KEY (job_id) REFERENCES downloads(job_id)"
+                ")"
+            ),
+            (
+                "CREATE TABLE IF NOT EXISTS lyrics_cache ("
+                "  video_id VARCHAR(32) PRIMARY KEY,"
+                "  source VARCHAR(16) NOT NULL,"
+                "  synced BOOLEAN NOT NULL DEFAULT 0,"
+                "  content TEXT,"
+                "  plain TEXT,"
+                "  fetched_at DATETIME"
+                ")"
+            ),
+        ):
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text(create_sql))
+                    conn.commit()
+            except Exception:
+                pass
 
     from app.routes import bp
     from app.admin_routes import admin_bp
