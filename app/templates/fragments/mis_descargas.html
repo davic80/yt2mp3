@@ -4,6 +4,7 @@
     max-width: 960px; width: 100%; margin: 0 auto;
     padding: 1.5rem 1.25rem;
     height: 100%;
+    position: relative; /* needed for absolute-positioned lyrics panel */
   }
   .toolbar {
     display: flex; align-items: center; gap: .75rem;
@@ -131,6 +132,19 @@
   <div class="table-wrap">
     <div id="container"><div class="empty-msg" id="md-loading"></div></div>
   </div>
+
+  <!-- Lyrics panel (engine in static/lyrics.js) -->
+  <div class="lyrics-panel hidden" id="lyrics-panel">
+    <div class="lyrics-header">
+      <span class="lyrics-title" id="lyrics-panel-title"></span>
+      <div class="lyrics-header-actions">
+        <button class="lyrics-size-btn" onclick="window.Lyrics?.shrink()" title="Texto más pequeño">A−</button>
+        <button class="lyrics-size-btn" onclick="window.Lyrics?.grow()"   title="Texto más grande">A+</button>
+        <button class="lyrics-close"    onclick="window.Lyrics?.close()">✕</button>
+      </div>
+    </div>
+    <div class="lyrics-body" id="lyrics-body"></div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -138,8 +152,9 @@
 <script>
 (function () {
   // ── State ───────────────────────────────────────────────────────────────────
-  let tracks   = [];
-  let selected = new Set();
+  let tracks         = [];
+  let selected       = new Set();
+  let lyricsEnabled  = false;
 
   // ── Static strings ───────────────────────────────────────────────────────────
   function applyStaticStrings() {
@@ -157,9 +172,16 @@
   // ── Boot ────────────────────────────────────────────────────────────────────
   async function load() {
     applyStaticStrings();
-    const res = await fetch('/mis-descargas/api/tracks');
-    if (!res.ok) { toast(window.I18n.t('md.error_load'), 'err'); return; }
-    tracks = await res.json();
+    const [tracksRes, featRes] = await Promise.all([
+      fetch('/mis-descargas/api/tracks'),
+      fetch('/player/api/me/features'),
+    ]);
+    if (!tracksRes.ok) { toast(window.I18n.t('md.error_load'), 'err'); return; }
+    tracks = await tracksRes.json();
+    const feat = featRes.ok ? await featRes.json() : {};
+    lyricsEnabled = Boolean(feat.lyrics_enabled);
+    window.Lyrics?.setEnabled(lyricsEnabled);
+    window._showLyricsBtn?.(lyricsEnabled);
     if (window.Player) window.Player.loadTracks(tracks);
     render();
   }
@@ -176,6 +198,7 @@
 
     if (!visible.length) {
       container.innerHTML = `<div class="empty-msg">${I.t('md.empty')}</div>`;
+      if (!lyricsEnabled) window.Lyrics?.close();
       updateToolbar();
       return;
     }
@@ -190,6 +213,7 @@
             <th>${I.t('md.col_title')}</th>
             <th class="col-size">${I.t('md.col_size')}</th>
             <th class="col-date">${I.t('md.col_date')}</th>
+            ${lyricsEnabled ? `<th class="col-lyrics"></th>` : ''}
             <th class="col-actions">${I.t('md.col_actions')}</th>
           </tr>
         </thead>
@@ -199,6 +223,7 @@
       </table>
     `;
     updateToolbar();
+    if (!lyricsEnabled) window.Lyrics?.close();
   }
 
   function rowHtml(t) {
@@ -228,6 +253,15 @@
         </td>
         <td class="col-size">${size}</td>
         <td class="col-date">${date}</td>
+        ${lyricsEnabled ? `
+        <td class="col-lyrics" onclick="event.stopPropagation()">
+          <button class="lyrics-btn" onclick="window.Lyrics?.open('${t.job_id}')"
+                  id="lyrbtn-${t.job_id}" title="${I.t('player.lyrics')}">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0v-4A2.5 2.5 0 0 1 8 1zm0 1A1.5 1.5 0 0 0 6.5 3.5v4a1.5 1.5 0 0 0 3 0v-4A1.5 1.5 0 0 0 8 2zm-4.5 5a.5.5 0 0 1 .5.5A4.5 4.5 0 0 0 12.5 7.5a.5.5 0 0 1 1 0A5.5 5.5 0 0 1 8.5 12.95V15h1a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h1v-2.05A5.5 5.5 0 0 1 3 7.5a.5.5 0 0 1 .5-.5z"/>
+            </svg>
+          </button>
+        </td>` : ''}
         <td class="col-actions">
           <button class="row-btn play" onclick="window.Player && window.Player.playTrack('${t.job_id}')" title="${I.t('md.play')}">▶</button>
           <button class="row-btn edit" onclick="startRename('${t.job_id}')" title="${I.t('md.rename')}">✎ <span class="edit-label">${I.t('md.rename').replace(/^✎\s*/, '')}</span></button>

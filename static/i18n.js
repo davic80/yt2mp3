@@ -72,6 +72,8 @@ window.I18n = (function () {
       'player.lyrics':           'Letras',
       'player.lyrics_loading':   'Buscando letras...',
       'player.lyrics_not_found': 'Letra no encontrada.',
+      'player.lyrics_synced':     'Letra · Sincronizada',
+      'player.lyrics_not_synced': 'Letra · No Sincronizada',
 
       // ── Mis descargas fragment ──
       'md.search':          'Buscar...',
@@ -156,6 +158,8 @@ window.I18n = (function () {
       'player.lyrics':           'Lyrics',
       'player.lyrics_loading':   'Looking up lyrics...',
       'player.lyrics_not_found': 'Lyrics not found.',
+      'player.lyrics_synced':     'Lyrics · Synced',
+      'player.lyrics_not_synced': 'Lyrics · Not Synced',
 
       // ── Mis descargas fragment ──
       'md.search':          'Search...',
@@ -212,30 +216,17 @@ window.I18n = (function () {
   function _applyShell() {
     const lang = getLang();
 
-    // Topbar nav links — update both .link-full and .link-short spans
+    // Topbar nav links — update .link-full span only (.link-short is always hidden)
     const nav = {
       '/':              'nav.download',
       '/mis-descargas': 'nav.mydownloads',
       '/player':        'nav.player',
     };
-    // Short labels (mobile): strip leading arrow/symbol, keep only the word(s)
-    const navShort = {
-      '/':              '→',
-      '/mis-descargas': '↓ Mis',
-      '/player':        '♪',
-    };
-    const navShortEn = {
-      '/':              '→',
-      '/mis-descargas': '↓ My',
-      '/player':        '♪',
-    };
     document.querySelectorAll('.topbar-link[data-path]').forEach(a => {
       const key = nav[a.dataset.path];
       if (!key) return;
-      const full  = a.querySelector('.link-full');
-      const short = a.querySelector('.link-short');
-      if (full)  full.textContent  = t(key);
-      if (short) short.textContent = (lang === 'en' ? navShortEn : navShort)[a.dataset.path] || t(key);
+      const full = a.querySelector('.link-full');
+      if (full) full.textContent = t(key);
     });
 
     // Auth buttons

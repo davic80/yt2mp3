@@ -103,10 +103,9 @@
       .lang-toggle { order: 1; }
       .auth-zone   { order: 1; }
     }
-    @media (min-width: 601px) {
-      .topbar-link .link-short { display: none; }
-      .topbar-link .link-full  { display: inline; }
-    }
+    /* Always show full labels; short spans are unused */
+    .topbar-link .link-short { display: none; }
+    .topbar-link .link-full  { display: inline; }
 
     /* ── Page content (swappable area) ── */
     #page-content {
@@ -228,9 +227,7 @@
       .topbar-nav [data-path="/"]              { order: 1; text-align: left; }
       .topbar-nav [data-path="/player"]        { order: 2; text-align: center; }
       .topbar-nav [data-path="/mis-descargas"] { order: 3; text-align: right; }
-      .topbar-link { font-size: .79rem; padding: .22rem .5rem; }
-      .topbar-link .link-full  { display: none; }
-      .topbar-link .link-short { display: inline; }
+      .topbar-link { font-size: .72rem; padding: .22rem .3rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
       /* Lang toggle: show flag + text, with spacing from avatar */
       .lang-btn      { padding: .2rem .35rem; font-size: .7rem; }
@@ -371,13 +368,14 @@
 
 <script src="/static/i18n.js"></script>
 <script src="/static/player.js"></script>
+<script src="/static/lyrics.js"></script>
 <script src="/static/spa.js"></script>
 <script src="/static/app.js"></script>
 <script>
   // Apply i18n to shell elements once DOM and i18n.js are ready
   I18n.init();
 
-  // ── Lyrics button helpers (called by player fragment) ────────────────────────
+  // ── Lyrics button helpers (called by fragments) ────────────────────────────
   function _showLyricsBtn(enabled) {
     const btn = document.getElementById('btn-lyrics');
     if (btn) btn.style.display = enabled ? '' : 'none';
@@ -388,14 +386,7 @@
   }
   function _playerToggleLyrics() {
     const jobId = window.Player?.getState()?.currentJob;
-    if (!jobId) return;
-    const panel = document.getElementById('lyrics-panel');
-    const isOpen = panel && !panel.classList.contains('hidden');
-    if (isOpen) {
-      window.closeLyrics?.();
-    } else {
-      window.openLyrics?.(jobId);
-    }
+    window.Lyrics?.toggle(jobId);
   }
 </script>
 </body>

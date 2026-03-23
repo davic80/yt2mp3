@@ -211,57 +211,7 @@
   .claim-btn:hover { border-color: var(--neon); color: var(--neon); }
   .claim-btn.claimed { border-color: transparent; color: var(--muted); cursor: default; }
 
-  /* ── Lyrics panel ── */
-  .lyrics-panel {
-    width: 260px; min-width: 260px; flex-shrink: 0;
-    background: var(--surface); border-left: 1px solid var(--border);
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  .lyrics-panel.hidden { display: none; }
-  .lyrics-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: .65rem .9rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
-  }
-  .lyrics-header-actions { display: flex; align-items: center; gap: .1rem; }
-  .lyrics-close {
-    background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 1rem; line-height: 1; padding: 0 .2rem; transition: color .12s;
-  }
-  .lyrics-close:hover { color: var(--text); }
-  .lyrics-size-btn {
-    background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: .72rem; font-weight: 600; font-family: var(--font);
-    line-height: 1; padding: .1rem .25rem; transition: color .12s;
-  }
-  .lyrics-size-btn:hover { color: var(--neon); }
-  .lyrics-body { flex: 1; overflow-y: auto; padding: .75rem .9rem; }
-  .lyrics-loading { color: var(--muted); font-size: .82rem; text-align: center; padding: 2rem 0; }
-  .lyrics-plain { font-size: .82rem; line-height: 1.7; color: var(--muted2); white-space: pre-wrap; }
-  .lyrics-line {
-    display: block; font-size: .82rem; line-height: 1.7; color: var(--muted);
-    transition: color .2s, font-size .15s; padding: .05rem 0;
-    cursor: default;
-  }
-  .lyrics-line.active {
-    color: var(--neon); font-weight: 600;
-  }
-  .lyrics-not-found { color: var(--muted); font-size: .82rem; text-align: center; padding: 2rem 0; }
-  .col-lyrics { width: 2rem; text-align: center; }
-  .lyrics-btn {
-    background: none; border: none; cursor: pointer; color: var(--muted);
-    font-size: .9rem; padding: 0; line-height: 1; transition: color .12s;
-  }
-  .lyrics-btn:hover { color: var(--neon); }
-  .lyrics-btn.active { color: var(--neon); }
-  @media (max-width: 600px) {
-    .lyrics-panel {
-      position: absolute; top: 0; right: 0; bottom: 0;
-      width: 85%; max-width: 300px; z-index: 50;
-      border-left: 1px solid var(--border2);
-      transform: translateX(100%); transition: transform .22s ease;
-    }
-    .lyrics-panel.open { transform: translateX(0); }
-  }
+  /* Lyrics panel CSS is in static/style.css */
 </style>
 
 <!-- Layout -->
@@ -307,9 +257,9 @@
     <div class="lyrics-header">
       <span class="lyrics-title" id="lyrics-panel-title"></span>
       <div class="lyrics-header-actions">
-        <button class="lyrics-size-btn" onclick="shrinkLyrics()" title="Texto más pequeño">A−</button>
-        <button class="lyrics-size-btn" onclick="growLyrics()"   title="Texto más grande">A+</button>
-        <button class="lyrics-close" onclick="closeLyrics()">✕</button>
+        <button class="lyrics-size-btn" onclick="window.Lyrics?.shrink()" title="Texto más pequeño">A−</button>
+        <button class="lyrics-size-btn" onclick="window.Lyrics?.grow()"   title="Texto más grande">A+</button>
+        <button class="lyrics-close" onclick="window.Lyrics?.close()">✕</button>
       </div>
     </div>
     <div class="lyrics-body" id="lyrics-body"></div>
@@ -380,7 +330,8 @@
       state.lyricsEnabled = Boolean(feat.lyrics_enabled);
       state.shareEnabled  = Boolean(feat.share_enabled);
 
-      // Show/hide lyrics button in the persistent player bar
+      // Tell shared Lyrics module whether lyrics are enabled for this user
+      window.Lyrics?.setEnabled(state.lyricsEnabled);
       window._showLyricsBtn?.(state.lyricsEnabled);
 
       // Hand the full track list to the global player
@@ -691,140 +642,7 @@
     document.getElementById('sidebar-overlay').classList.remove('open');
   }
 
-  // ── Lyrics ──────────────────────────────────────────────────────────────────
-  let _lyricsJob      = null;
-  let _lrcLines       = [];   // [{time, text}] for synced
-  let _lyricsFontSize = 0.82; // rem, adjustable with A+/A−
-  const _FONT_MIN = 0.60, _FONT_MAX = 1.40, _FONT_STEP = 0.08;
-
-  async function openLyrics(jobId) {
-    if (!state.lyricsEnabled) return;
-
-    // If already open for same track, close
-    if (_lyricsJob === jobId && !document.getElementById('lyrics-panel').classList.contains('hidden')) {
-      closeLyrics();
-      return;
-    }
-
-    _lyricsJob = jobId;
-    const panel = document.getElementById('lyrics-panel');
-    const body  = document.getElementById('lyrics-body');
-    const title = document.getElementById('lyrics-panel-title');
-
-    // Mark button active
-    document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById(`lyrbtn-${jobId}`);
-    if (btn) btn.classList.add('active');
-    window._setLyricsBtnActive?.(true);
-
-    const I = window.I18n;
-    title.textContent = I.t('player.lyrics');
-    body.innerHTML = `<div class="lyrics-loading">${I.t('player.lyrics_loading')}</div>`;
-    panel.classList.remove('hidden', 'open');
-    // mobile
-    setTimeout(() => panel.classList.add('open'), 10);
-
-    try {
-      const res  = await fetch(`/player/api/lyrics/${jobId}`);
-      if (!res.ok) {
-        body.innerHTML = `<div class="lyrics-not-found">${I.t('player.lyrics_not_found')}</div>`;
-        return;
-      }
-      const data = await res.json();
-
-      if (data.synced && data.content) {
-        _lrcLines = _parseLrc(data.content);
-        _renderLrcLines();
-        _startLrcSync();
-      } else {
-        _lrcLines = [];
-        _stopLrcSync();
-        body.innerHTML = `<pre class="lyrics-plain">${esc(data.plain || data.content || '')}</pre>`;
-      }
-    } catch (_) {
-      body.innerHTML = `<div class="lyrics-not-found">${I.t('player.lyrics_not_found')}</div>`;
-    }
-  }
-
-  function closeLyrics() {
-    _lyricsJob      = null;
-    _lrcLines       = [];
-    _lyricsFontSize = 0.82;
-    _stopLrcSync();
-    document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
-    window._setLyricsBtnActive?.(false);
-    const panel = document.getElementById('lyrics-panel');
-    panel.classList.remove('open');
-    setTimeout(() => panel.classList.add('hidden'), 240);
-  }
-
-  function _parseLrc(lrc) {
-    const lines = [];
-    for (const line of lrc.split('\n')) {
-      const m = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-      if (m) {
-        const time = parseInt(m[1]) * 60 + parseFloat(m[2]);
-        lines.push({ time, text: m[3].trim() });
-      }
-    }
-    return lines;
-  }
-
-  function _renderLrcLines() {
-    const body = document.getElementById('lyrics-body');
-    if (!body) return;
-    body.innerHTML = _lrcLines.map((l, i) =>
-      `<span class="lyrics-line" id="lrc-${i}" style="font-size:${_lyricsFontSize}rem">${esc(l.text) || '&nbsp;'}</span>`
-    ).join('');
-  }
-
-  function _applyFontSize() {
-    document.querySelectorAll('.lyrics-line').forEach(el => {
-      el.style.fontSize = _lyricsFontSize + 'rem';
-    });
-    const plain = document.querySelector('.lyrics-plain');
-    if (plain) plain.style.fontSize = _lyricsFontSize + 'rem';
-  }
-
-  function growLyrics() {
-    _lyricsFontSize = Math.min(_FONT_MAX, +(_lyricsFontSize + _FONT_STEP).toFixed(2));
-    _applyFontSize();
-  }
-
-  function shrinkLyrics() {
-    _lyricsFontSize = Math.max(_FONT_MIN, +(_lyricsFontSize - _FONT_STEP).toFixed(2));
-    _applyFontSize();
-  }
-
-  function _syncLrc() {
-    const audio = document.getElementById('audio');
-    if (!audio) return;
-    const t = audio.currentTime;
-    let active = -1;
-    for (let i = 0; i < _lrcLines.length; i++) {
-      if (_lrcLines[i].time <= t) active = i;
-      else break;
-    }
-    document.querySelectorAll('.lyrics-line').forEach((el, i) => {
-      el.classList.toggle('active', i === active);
-    });
-    if (active >= 0) {
-      const el = document.getElementById(`lrc-${active}`);
-      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-  }
-
-  function _startLrcSync() {
-    _stopLrcSync();
-    const audio = document.getElementById('audio');
-    if (!audio) return;
-    audio.addEventListener('timeupdate', _syncLrc);
-  }
-
-  function _stopLrcSync() {
-    const audio = document.getElementById('audio');
-    if (audio) audio.removeEventListener('timeupdate', _syncLrc);
-  }
+  // ── Lyrics — delegated to window.Lyrics (static/lyrics.js) ────────────────
 
   // ── Play tracking ────────────────────────────────────────────────────────────
   // These are stored on window so the single persisted audio.ended handler
@@ -870,8 +688,8 @@
       _startPlayTracking(jobId);
 
       // Re-open lyrics for new track if panel is visible
-      if (_lyricsJob && !document.getElementById('lyrics-panel').classList.contains('hidden')) {
-        openLyrics(jobId);
+      if (window.Lyrics?.currentJob() && !document.getElementById('lyrics-panel').classList.contains('hidden')) {
+        window.Lyrics.open(jobId);
       }
     });
   }
@@ -1047,10 +865,7 @@
   window.revokeShare         = revokeShare;
   window.closeShareModal     = closeShareModal;
   window.claimTrack          = claimTrack;
-  window.openLyrics          = openLyrics;
-  window.closeLyrics         = closeLyrics;
-  window.growLyrics          = growLyrics;
-  window.shrinkLyrics        = shrinkLyrics;
+  // openLyrics / closeLyrics / growLyrics / shrinkLyrics are in static/lyrics.js
 
   // Re-render when language changes
   document.addEventListener('i18n:change', () => {
