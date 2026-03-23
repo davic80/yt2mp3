@@ -138,8 +138,8 @@
     .sidebar.open { transform: translateX(0); }
     .sidebar-overlay { display: none; }
     .sidebar-overlay.open { display: block; }
-    /* Show hamburger */
-    .btn-sidebar-toggle { display: flex; }
+    /* Show hamburger — rule also in shell.html for WebKit innerHTML compat */
+    /* .btn-sidebar-toggle { display: flex; }  ← enforced by shell */
     /* Bigger touch targets in track list */
     .track-list td { padding: .75rem .5rem; }
     .menu-btn { padding: .35rem .55rem; font-size: 1.25rem; }

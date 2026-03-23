@@ -88,15 +88,34 @@
 
     /* ── Topbar responsive ── */
     @media (max-width: 600px) {
-      .topbar { padding: 0 .75rem; gap: .5rem; }
-      .topbar-nav { margin-left: .5rem; gap: .15rem; }
-      .topbar-link { font-size: .75rem; padding: .2rem .4rem; }
-      /* show short labels on narrow screens */
-      .topbar-link .link-full { display: none; }
-      .topbar-link .link-short { display: inline; }
-      .auth-name { display: none; }
-      .lang-toggle { gap: .1rem; }
-      .lang-btn { padding: .2rem .3rem; font-size: .68rem; }
+      :root { --topbar-h: 96px; }
+      /* Two-row topbar */
+      .topbar {
+        flex-wrap: wrap;
+        height: var(--topbar-h); min-height: var(--topbar-h);
+        align-content: center;
+        padding: 0 .75rem;
+        gap: 0;
+        row-gap: 0;
+      }
+      /* Row 1: logo (left) + lang + auth (right) */
+      .topbar-logo { order: 1; flex: 1; font-size: 1rem; }
+      .lang-toggle { order: 1; gap: .1rem; }
+      .lang-btn    { padding: .2rem .3rem; font-size: .68rem; }
+      .auth-zone   { order: 1; }
+      .auth-name   { display: none; }
+      /* Row 2: nav full-width, links evenly spaced */
+      .topbar-nav {
+        order: 2;
+        width: 100%; flex: none;
+        margin-left: 0;
+        justify-content: space-evenly;
+        padding: .15rem 0;
+      }
+      .topbar-link { font-size: .79rem; padding: .22rem .5rem; }
+      /* Show full labels in row 2 (full width available) */
+      .topbar-link .link-full  { display: inline; }
+      .topbar-link .link-short { display: none; }
     }
     @media (min-width: 601px) {
       .topbar-link .link-short { display: none; }
@@ -139,6 +158,8 @@
       color: var(--neon);
     }
     .ctrl-btn.play-pause:hover { background: rgba(57,255,20,.2); }
+    /* optical centering for the ▶ glyph (has a natural left offset in most fonts) */
+    #play-icon { display: inline-block; padding-left: 2px; }
     .player-progress { flex: 1; display: flex; align-items: center; gap: .65rem; min-width: 0; }
     .time-label { font-size: .75rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
     .progress-wrap {
@@ -167,20 +188,22 @@
       :root { --player-h: 108px; }
       .player-bar {
         flex-wrap: wrap; height: var(--player-h); min-height: var(--player-h);
-        padding: .45rem .75rem; gap: .3rem; align-content: center;
+        padding: .4rem .75rem; gap: .25rem; align-content: center;
       }
-      /* Row 1: title full width */
-      .player-info { width: 100%; order: 1; text-align: center; flex-shrink: 0; }
-      /* Row 2: controls centred + progress bar */
-      .player-controls { order: 2; flex-shrink: 0; gap: .6rem; }
-      .player-progress { order: 2; min-width: 0; gap: .4rem; }
+      /* Row 1: title full width, centred */
+      .player-info { width: 100%; order: 1; text-align: center; flex-shrink: 0; padding: 0 .5rem; }
+      /* Row 2: controls + progress bar */
+      .player-controls { order: 2; flex-shrink: 0; gap: .5rem; }
+      .player-progress { order: 2; flex: 1; min-width: 0; gap: .35rem; }
       /* bigger touch targets */
       .ctrl-btn { padding: .4rem; font-size: 1.2rem; }
       .ctrl-btn.play-pause { width: 2.6rem; height: 2.6rem; font-size: 1.35rem; }
-      /* hide time labels to save space, keep progress bar */
-      .time-label { display: none; }
-      /* hide volume — OS controls it on mobile */
+      /* hide time labels and volume */
+      .time-label  { display: none; }
       .volume-wrap { display: none; }
+      /* fix: hamburger button for player sidebar — force visible
+         (fragment <style> injected via innerHTML may be ignored by WebKit) */
+      .btn-sidebar-toggle { display: flex !important; }
     }
 
     /* ── Version badge ── */

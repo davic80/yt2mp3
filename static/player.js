@@ -94,9 +94,15 @@ window.Player = (function () {
   }
 
   function togglePlay() {
-    if (!audio.src || !state.currentJob) return;
-    if (audio.paused) audio.play().catch(() => {});
-    else              audio.pause();
+    if (state.currentJob) {
+      if (audio.paused) audio.play().catch(() => {});
+      else              audio.pause();
+      return;
+    }
+    // Nothing playing yet — start from first favorite, or first track
+    if (!state.tracks.length) return;
+    const fav = state.tracks.find(t => t.is_favorite);
+    playTrack((fav || state.tracks[0]).job_id);
   }
 
   function prevTrack() {
