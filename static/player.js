@@ -18,6 +18,9 @@ window.Player = (function () {
     _hasSession: false,   // set by app.js via Player.setSession()
   };
 
+  const _STORAGE_KEY = 'yt2mp3.player';
+  let _lastSave = 0;
+
   // Callbacks registered by fragments (e.g. to highlight playing row)
   const _listeners = { trackChange: [] };
 
@@ -75,6 +78,12 @@ window.Player = (function () {
     if (elTimeTotal) elTimeTotal.textContent = fmtTime(dur);
     const pct = dur ? (cur / dur * 100) : 0;
     if (elFill) elFill.style.width = pct + '%';
+    // Persist position every 5 s
+    const now = Date.now();
+    if (state.currentJob && now - _lastSave >= 5000) {
+      _lastSave = now;
+      _saveState();
+    }
   });
 
   // ── Player bar controls ─────────────────────────────────────────────────────
@@ -102,6 +111,7 @@ window.Player = (function () {
     audio.play().catch(() => {});
     _updateTitle(jobId, title);
     _emit('trackChange', jobId);
+    _saveState();
   }
 
   function togglePlay() {
@@ -178,6 +188,7 @@ window.Player = (function () {
   /** Called by app.js once /auth/me confirms a logged-in session. */
   function setSession(hasSession) {
     state._hasSession = !!hasSession;
+    if (hasSession) _restoreState();
   }
 
   /**
@@ -225,6 +236,47 @@ window.Player = (function () {
   }
 
   // ── Internal ────────────────────────────────────────────────────────────────
+
+  function _saveState() {
+    try {
+      localStorage.setItem(_STORAGE_KEY, JSON.stringify({
+        job:     state.currentJob,
+        time:    audio.currentTime,
+        title:   elTitle ? elTitle.textContent : '',
+        shuffle: state.shuffle,
+        repeat:  state.repeat,
+      }));
+    } catch (_) {}
+  }
+
+  function _restoreState() {
+    let s;
+    try { s = JSON.parse(localStorage.getItem(_STORAGE_KEY)); } catch (_) {}
+    if (!s || !s.job) return;
+
+    // Restore shuffle/repeat UI
+    if (s.shuffle && !state.shuffle) toggleShuffle();
+    if (s.repeat && s.repeat !== 'none') {
+      let guard = 0;
+      while (state.repeat !== s.repeat && guard++ < 3) cycleRepeat();
+    }
+
+    // Restore title in player bar immediately (no playback yet)
+    if (s.title) _updateTitle(s.job, s.title);
+
+    // Load audio src + seek, then attempt autoplay
+    state.currentJob = s.job;
+    audio.src = `/player/stream/${s.job}`;
+    audio.addEventListener('loadedmetadata', () => {
+      audio.currentTime = s.time || 0;
+      audio.play().catch(() => {});  // browsers may block without user gesture
+    }, { once: true });
+  }
+
+  function clearSavedState() {
+    try { localStorage.removeItem(_STORAGE_KEY); } catch (_) {}
+  }
+
   function _updateTitle(jobId, title) {
     if (!elTitle) return;
     if (!title) {
@@ -258,5 +310,6 @@ window.Player = (function () {
     offTrackChange,
     getState,
     setSession,
+    clearSavedState,
   };
 })();

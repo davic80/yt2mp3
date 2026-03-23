@@ -22,6 +22,13 @@
         zoneLoggedIn.style.display = 'flex';
         document.body.classList.add('has-session');
         if (window.Player && window.Player.setSession) window.Player.setSession(true);
+        // Clear saved playback state on logout
+        const logoutLink = document.querySelector('a[href="/auth/logout"]');
+        if (logoutLink) {
+          logoutLink.addEventListener('click', () => {
+            if (window.Player && window.Player.clearSavedState) window.Player.clearSavedState();
+          });
+        }
       } else {
         zoneLoggedOut.classList.remove('hidden');
         zoneLoggedOut.style.display = 'block';
