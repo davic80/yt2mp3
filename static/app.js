@@ -20,6 +20,8 @@
         if (name)   name.textContent = (data.name || data.email) + ' \u266a';
         zoneLoggedIn.classList.remove('hidden');
         zoneLoggedIn.style.display = 'flex';
+        document.body.classList.add('has-session');
+        if (window.Player && window.Player.setSession) window.Player.setSession(true);
       } else {
         zoneLoggedOut.classList.remove('hidden');
         zoneLoggedOut.style.display = 'block';

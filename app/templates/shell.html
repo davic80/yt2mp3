@@ -50,7 +50,7 @@
 
     /* ── Lang toggle ── */
     .lang-toggle {
-      display: flex; align-items: center; gap: .2rem; flex-shrink: 0;
+      display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
     }
     .lang-btn {
       background: none; border: none; cursor: pointer;
@@ -67,7 +67,7 @@
       display: flex; align-items: center; gap: .6rem; flex-shrink: 0;
     }
     .auth-avatar {
-      width: 2rem; height: 2rem; border-radius: 50%;
+      width: 2.4rem; height: 2.4rem; border-radius: 50%;
       object-fit: cover; border: 1px solid var(--neon);
     }
     .auth-name {
@@ -100,22 +100,8 @@
       }
       /* Row 1: logo (left) + lang + auth (right) */
       .topbar-logo { order: 1; flex: 1; font-size: 1rem; }
-      .lang-toggle { order: 1; gap: .1rem; }
-      .lang-btn    { padding: .2rem .3rem; font-size: .68rem; }
+      .lang-toggle { order: 1; }
       .auth-zone   { order: 1; }
-      .auth-name   { display: none; }
-      /* Row 2: nav full-width, links evenly spaced */
-      .topbar-nav {
-        order: 2;
-        width: 100%; flex: none;
-        margin-left: 0;
-        justify-content: space-evenly;
-        padding: .15rem 0;
-      }
-      .topbar-link { font-size: .79rem; padding: .22rem .5rem; }
-      /* Show full labels in row 2 (full width available) */
-      .topbar-link .link-full  { display: inline; }
-      .topbar-link .link-short { display: none; }
     }
     @media (min-width: 601px) {
       .topbar-link .link-short { display: none; }
@@ -183,27 +169,72 @@
       background: var(--neon); border-radius: 50%;
     }
 
+    /* ── Player bar: hide when no session ── */
+    body:not(.has-session) .player-bar { display: none; }
+
     /* ── Player bar responsive ── */
     @media (max-width: 600px) {
-      :root { --player-h: 108px; }
+      /* Compact (session + nothing playing): 1 row ~60px */
+      :root { --player-h: 60px; }
       .player-bar {
         flex-wrap: wrap; height: var(--player-h); min-height: var(--player-h);
-        padding: .4rem .75rem; gap: .25rem; align-content: center;
+        padding: .3rem .75rem; gap: .25rem; align-content: center;
       }
-      /* Row 1: title full width, centred */
-      .player-info { width: 100%; order: 1; text-align: center; flex-shrink: 0; padding: 0 .5rem; }
-      /* Row 2: controls + progress bar */
-      .player-controls { order: 2; flex-shrink: 0; gap: .5rem; }
-      .player-progress { order: 2; flex: 1; min-width: 0; gap: .35rem; }
-      /* bigger touch targets */
+      /* Only play button + title visible in compact state */
+      .player-info { width: auto; order: 2; flex: 1; min-width: 0; text-align: left; padding: 0 .4rem; }
+      .player-controls { order: 1; flex-shrink: 0; gap: .35rem; }
+      .player-progress { display: none; }
+      .volume-wrap { display: none; }
+      /* Hide shuffle/prev/next/repeat in compact state */
+      #btn-shuffle, #btn-repeat,
+      .player-controls > button:not(.play-pause):not(#btn-shuffle):not(#btn-repeat) { display: none; }
+      /* Keep only play-pause visible */
       .ctrl-btn { padding: .4rem; font-size: 1.2rem; }
       .ctrl-btn.play-pause { width: 2.6rem; height: 2.6rem; font-size: 1.35rem; }
-      /* hide time labels and volume */
-      .time-label  { display: none; }
-      .volume-wrap { display: none; }
+      .time-label { display: none; }
       /* fix: hamburger button for player sidebar — force visible
          (fragment <style> injected via innerHTML may be ignored by WebKit) */
       .btn-sidebar-toggle { display: flex !important; }
+
+      /* Full (session + something playing): 2 rows 108px */
+      body.is-playing .player-bar {
+        height: 108px; min-height: 108px;
+        flex-wrap: wrap; padding: .4rem .75rem; gap: .25rem; align-content: center;
+      }
+      body.is-playing .player-info {
+        width: 100%; order: 1; text-align: center; flex-shrink: 0; padding: 0 .5rem;
+      }
+      body.is-playing .player-controls { order: 2; flex-shrink: 0; gap: .5rem; }
+      body.is-playing .player-controls > button { display: flex; }
+      body.is-playing .player-progress {
+        display: flex; order: 2; flex: 1; min-width: 0; gap: .35rem;
+      }
+      body.is-playing .volume-wrap { display: none; }
+
+      /* Topbar row 2: grid left/center/right */
+      .topbar-nav {
+        order: 2;
+        width: 100%; flex: none;
+        margin-left: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        padding: .15rem 0;
+      }
+      .topbar-nav [data-path="/"]              { order: 1; text-align: left; }
+      .topbar-nav [data-path="/player"]        { order: 2; text-align: center; }
+      .topbar-nav [data-path="/mis-descargas"] { order: 3; text-align: right; }
+      .topbar-link { font-size: .79rem; padding: .22rem .5rem; }
+      /* Show full labels in row 2 (full width available) */
+      .topbar-link .link-full  { display: inline; }
+      .topbar-link .link-short { display: none; }
+
+      /* Lang toggle: flag only on mobile */
+      .lang-btn      { padding: .2rem .3rem; font-size: .68rem; }
+      .lang-btn-text { display: none; }
+
+      /* Avatar slightly smaller on mobile */
+      .auth-avatar { width: 2.2rem; height: 2.2rem; }
+      .auth-name   { display: none; }
     }
 
     /* ── Version badge ── */
@@ -231,9 +262,9 @@
   </nav>
   <!-- Language selector -->
   <div class="lang-toggle" id="lang-toggle">
-    <button class="lang-btn" data-lang="es" onclick="I18n.setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="es" onclick="I18n.setLang('es')"><span class="lang-flag">🇪🇸</span><span class="lang-btn-text"> ES</span></button>
     <span class="lang-sep">|</span>
-    <button class="lang-btn" data-lang="en" onclick="I18n.setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="en" onclick="I18n.setLang('en')"><span class="lang-flag">🇬🇧</span><span class="lang-btn-text"> EN</span></button>
   </div>
   <!-- Auth zone -->
   <div class="auth-zone" id="auth-zone">

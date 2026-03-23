@@ -9,12 +9,13 @@ window.Player = (function () {
 
   // ── State ───────────────────────────────────────────────────────────────────
   const state = {
-    tracks:     [],      // full track list (loaded by active fragment)
-    queue:      [],      // job_id[] for current playback sequence
-    queueIndex: 0,
-    shuffle:    false,
-    repeat:     'none',  // 'none' | 'one' | 'all'
-    currentJob: null,
+    tracks:      [],      // full track list (loaded by active fragment)
+    queue:       [],      // job_id[] for current playback sequence
+    queueIndex:  0,
+    shuffle:     false,
+    repeat:      'none',  // 'none' | 'one' | 'all'
+    currentJob:  null,
+    _hasSession: false,   // set by app.js via Player.setSession()
   };
 
   // Callbacks registered by fragments (e.g. to highlight playing row)
@@ -46,8 +47,14 @@ window.Player = (function () {
   }
 
   // ── Audio events ────────────────────────────────────────────────────────────
-  audio.addEventListener('play',  () => { if (elPlayIcon) elPlayIcon.textContent = '⏸'; });
-  audio.addEventListener('pause', () => { if (elPlayIcon) elPlayIcon.textContent = '▶'; });
+  audio.addEventListener('play',  () => {
+    if (elPlayIcon) elPlayIcon.textContent = '⏸';
+    document.body.classList.add('is-playing');
+  });
+  audio.addEventListener('pause', () => {
+    if (elPlayIcon) elPlayIcon.textContent = '▶';
+    document.body.classList.remove('is-playing');
+  });
 
   audio.addEventListener('ended', () => {
     if (state.repeat === 'one') {
@@ -99,8 +106,21 @@ window.Player = (function () {
       else              audio.pause();
       return;
     }
-    // Nothing playing yet — start from first favorite, or first track
-    if (!state.tracks.length) return;
+    // Nothing playing yet — lazy-load tracks if needed
+    if (!state.tracks.length) {
+      if (!state._hasSession) return;
+      fetch('/player/api/tracks')
+        .then(r => r.ok ? r.json() : [])
+        .then(tracks => {
+          if (!tracks.length) return;
+          loadTracks(tracks);
+          const fav = tracks.find(t => t.is_favorite);
+          playTrack((fav || tracks[0]).job_id);
+        })
+        .catch(() => {});
+      return;
+    }
+    // Tracks already loaded — start from first favorite or first track
     const fav = state.tracks.find(t => t.is_favorite);
     playTrack((fav || state.tracks[0]).job_id);
   }
@@ -148,6 +168,11 @@ window.Player = (function () {
   function toggleMute() {
     audio.muted = !audio.muted;
     if (elVolIcon) elVolIcon.textContent = audio.muted ? '🔇' : '🔊';
+  }
+
+  /** Called by app.js once /auth/me confirms a logged-in session. */
+  function setSession(hasSession) {
+    state._hasSession = !!hasSession;
   }
 
   /**
@@ -224,5 +249,6 @@ window.Player = (function () {
     onTrackChange,
     offTrackChange,
     getState,
+    setSession,
   };
 })();
