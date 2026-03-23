@@ -202,6 +202,7 @@
       { key: 'minutes_played', label: 'Minutos' },
       { key: 'last_play',      label: 'Último play' },
       { key: 'lyrics_enabled', label: 'Lyrics' },
+      { key: 'share_enabled',  label: 'Compartir' },
     ];
 
     if (!rows.length) {
@@ -233,7 +234,14 @@
               <td class="td-feat">
                 <label class="toggle" title="Lyrics ${u.lyrics_enabled ? 'activadas' : 'desactivadas'}">
                   <input type="checkbox" ${u.lyrics_enabled ? 'checked' : ''}
-                         onchange="toggleLyrics('${esc(u.email)}', this)" />
+                         onchange="toggleFeature('${esc(u.email)}', 'lyrics_enabled', this)" />
+                  <span class="slider"></span>
+                </label>
+              </td>
+              <td class="td-feat">
+                <label class="toggle" title="Compartir ${u.share_enabled ? 'activado' : 'desactivado'}">
+                  <input type="checkbox" ${u.share_enabled ? 'checked' : ''}
+                         onchange="toggleFeature('${esc(u.email)}', 'share_enabled', this)" />
                   <span class="slider"></span>
                 </label>
               </td>
@@ -243,21 +251,22 @@
       </table>`;
   }
 
-  async function toggleLyrics(email, checkbox) {
+  async function toggleFeature(email, feature, checkbox) {
     const enabled = checkbox.checked;
     try {
       const res = await fetch(`/db/api/users/${encodeURIComponent(email)}/features`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lyrics_enabled: enabled }),
+        body: JSON.stringify({ [feature]: enabled }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error('error');
       const u = _users.find(u => u.email === email);
-      if (u) u.lyrics_enabled = data.lyrics_enabled;
-      showToast(`Lyrics ${data.lyrics_enabled ? 'activadas' : 'desactivadas'} para ${email}`);
+      if (u) u[feature] = data[feature];
+      const labels = { lyrics_enabled: 'Lyrics', share_enabled: 'Compartir' };
+      showToast(`${labels[feature] || feature} ${enabled ? 'activado' : 'desactivado'} para ${email}`);
     } catch (_) {
-      checkbox.checked = !enabled; // revert
+      checkbox.checked = !enabled;
       showToast('Error al guardar');
     }
   }
@@ -283,7 +292,7 @@
 
   window.sortBy       = sortBy;
   window.filterTable  = filterTable;
-  window.toggleLyrics = toggleLyrics;
+  window.toggleFeature = toggleFeature;
 
   load();
 })();

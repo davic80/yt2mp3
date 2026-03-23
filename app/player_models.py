@@ -53,6 +53,7 @@ class UserFeature(db.Model):
     user_email     = db.Column(db.String(256), db.ForeignKey("users.email"),
                                primary_key=True)
     lyrics_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    share_enabled  = db.Column(db.Boolean, default=False, nullable=False)
 
 
 class PlayEvent(db.Model):

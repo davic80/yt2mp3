@@ -222,12 +222,18 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: .65rem .9rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
-  .lyrics-title { font-size: .78rem; font-weight: 600; color: var(--muted2); text-transform: uppercase; letter-spacing: .06em; }
+  .lyrics-header-actions { display: flex; align-items: center; gap: .1rem; }
   .lyrics-close {
     background: none; border: none; color: var(--muted); cursor: pointer;
     font-size: 1rem; line-height: 1; padding: 0 .2rem; transition: color .12s;
   }
   .lyrics-close:hover { color: var(--text); }
+  .lyrics-size-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: .72rem; font-weight: 600; font-family: var(--font);
+    line-height: 1; padding: .1rem .25rem; transition: color .12s;
+  }
+  .lyrics-size-btn:hover { color: var(--neon); }
   .lyrics-body { flex: 1; overflow-y: auto; padding: .75rem .9rem; }
   .lyrics-loading { color: var(--muted); font-size: .82rem; text-align: center; padding: 2rem 0; }
   .lyrics-plain { font-size: .82rem; line-height: 1.7; color: var(--muted2); white-space: pre-wrap; }
@@ -300,7 +306,11 @@
   <div class="lyrics-panel hidden" id="lyrics-panel">
     <div class="lyrics-header">
       <span class="lyrics-title" id="lyrics-panel-title"></span>
-      <button class="lyrics-close" onclick="closeLyrics()">✕</button>
+      <div class="lyrics-header-actions">
+        <button class="lyrics-size-btn" onclick="shrinkLyrics()" title="Texto más pequeño">A−</button>
+        <button class="lyrics-size-btn" onclick="growLyrics()"   title="Texto más grande">A+</button>
+        <button class="lyrics-close" onclick="closeLyrics()">✕</button>
+      </div>
     </div>
     <div class="lyrics-body" id="lyrics-body"></div>
   </div>
@@ -335,6 +345,7 @@
     queueIndex:   0,
     currentJob:   null,
     lyricsEnabled: false,
+    shareEnabled:  false,
   };
 
   // ── i18n shell strings ───────────────────────────────────────────────────────
@@ -366,6 +377,7 @@
     state.playlists   = await plRes.json();
     const feat        = await featRes.json();
     state.lyricsEnabled = Boolean(feat.lyrics_enabled);
+    state.shareEnabled  = Boolean(feat.share_enabled);
 
     // Hand the full track list to the global player
     if (window.Player) window.Player.loadTracks(state.tracks);
@@ -411,8 +423,8 @@
            onclick="setView(${pl.id})" data-plid="${pl.id}">
         <span class="pl-name">${esc(pl.name)}</span>
         <span class="pl-count">${pl.track_count}</span>
-        <button class="sidebar-pl-share" onclick="event.stopPropagation();sharePlaylist(${pl.id},'${esc(pl.name)}')"
-                title="${window.I18n.t('player.share')}">⇗</button>
+        ${state.shareEnabled ? `<button class="sidebar-pl-share" onclick="event.stopPropagation();sharePlaylist(${pl.id},'${esc(pl.name)}')"
+                title="${window.I18n.t('player.share')}">⇗</button>` : ''}
         <button class="sidebar-pl-del" onclick="event.stopPropagation();deletePlaylist(${pl.id})"
                 title="×">×</button>
       </div>
@@ -497,13 +509,10 @@
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-date">${fmtDate(t.created_at)}</td>
               ${state.lyricsEnabled ? `
-              <td class="col-lyrics" onclick="event.stopPropagation()">
-                <button class="lyrics-btn" onclick="openLyrics('${t.job_id}')"
-                        id="lyrbtn-${t.job_id}" title="${I.t('player.lyrics')}">♪</button>
-              </td>` : ''}
-              <td class="col-menu" onclick="event.stopPropagation()">
-                <button class="menu-btn" onclick="openMenu(event, '${t.job_id}')" title="${I.t('player.options')}">⋮</button>
-              </td>
+               <td class="col-lyrics" onclick="event.stopPropagation()">
+                 <button class="lyrics-btn" onclick="openLyrics('${t.job_id}')"
+                         id="lyrbtn-${t.job_id}" title="${I.t('player.lyrics')}"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M8 1a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0v-4A2.5 2.5 0 0 1 8 1zm0 1A1.5 1.5 0 0 0 6.5 3.5v4a1.5 1.5 0 0 0 3 0v-4A1.5 1.5 0 0 0 8 2zm-4.5 5a.5.5 0 0 1 .5.5A4.5 4.5 0 0 0 12.5 7.5a.5.5 0 0 1 1 0A5.5 5.5 0 0 1 8.5 12.95V15h1a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h1v-2.05A5.5 5.5 0 0 1 3 7.5a.5.5 0 0 1 .5-.5z"/></svg></button>
+               </td>
             </tr>
           `).join('')}
         </tbody>
@@ -674,9 +683,10 @@
   }
 
   // ── Lyrics ──────────────────────────────────────────────────────────────────
-  let _lyricsJob   = null;
-  let _lrcLines    = [];   // [{time, text}] for synced
-  let _lrcInterval = null;
+  let _lyricsJob      = null;
+  let _lrcLines       = [];   // [{time, text}] for synced
+  let _lyricsFontSize = 0.82; // rem, adjustable with A+/A−
+  const _FONT_MIN = 0.60, _FONT_MAX = 1.40, _FONT_STEP = 0.08;
 
   async function openLyrics(jobId) {
     if (!state.lyricsEnabled) return;
@@ -727,8 +737,9 @@
   }
 
   function closeLyrics() {
-    _lyricsJob = null;
-    _lrcLines  = [];
+    _lyricsJob      = null;
+    _lrcLines       = [];
+    _lyricsFontSize = 0.82;
     _stopLrcSync();
     document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
     const panel = document.getElementById('lyrics-panel');
@@ -752,34 +763,56 @@
     const body = document.getElementById('lyrics-body');
     if (!body) return;
     body.innerHTML = _lrcLines.map((l, i) =>
-      `<span class="lyrics-line" id="lrc-${i}">${esc(l.text) || '&nbsp;'}</span>`
+      `<span class="lyrics-line" id="lrc-${i}" style="font-size:${_lyricsFontSize}rem">${esc(l.text) || '&nbsp;'}</span>`
     ).join('');
+  }
+
+  function _applyFontSize() {
+    document.querySelectorAll('.lyrics-line').forEach(el => {
+      el.style.fontSize = _lyricsFontSize + 'rem';
+    });
+    const plain = document.querySelector('.lyrics-plain');
+    if (plain) plain.style.fontSize = _lyricsFontSize + 'rem';
+  }
+
+  function growLyrics() {
+    _lyricsFontSize = Math.min(_FONT_MAX, +(_lyricsFontSize + _FONT_STEP).toFixed(2));
+    _applyFontSize();
+  }
+
+  function shrinkLyrics() {
+    _lyricsFontSize = Math.max(_FONT_MIN, +(_lyricsFontSize - _FONT_STEP).toFixed(2));
+    _applyFontSize();
+  }
+
+  function _syncLrc() {
+    const audio = document.getElementById('player-audio');
+    if (!audio) return;
+    const t = audio.currentTime;
+    let active = -1;
+    for (let i = 0; i < _lrcLines.length; i++) {
+      if (_lrcLines[i].time <= t) active = i;
+      else break;
+    }
+    document.querySelectorAll('.lyrics-line').forEach((el, i) => {
+      el.classList.toggle('active', i === active);
+    });
+    if (active >= 0) {
+      const el = document.getElementById(`lrc-${active}`);
+      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
   }
 
   function _startLrcSync() {
     _stopLrcSync();
     const audio = document.getElementById('player-audio');
     if (!audio) return;
-    _lrcInterval = setInterval(() => {
-      const t = audio.currentTime;
-      let active = -1;
-      for (let i = 0; i < _lrcLines.length; i++) {
-        if (_lrcLines[i].time <= t) active = i;
-        else break;
-      }
-      document.querySelectorAll('.lyrics-line').forEach((el, i) => {
-        el.classList.toggle('active', i === active);
-      });
-      // Auto-scroll active line into view
-      if (active >= 0) {
-        const el = document.getElementById(`lrc-${active}`);
-        if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      }
-    }, 250);
+    audio.addEventListener('timeupdate', _syncLrc);
   }
 
   function _stopLrcSync() {
-    if (_lrcInterval) { clearInterval(_lrcInterval); _lrcInterval = null; }
+    const audio = document.getElementById('player-audio');
+    if (audio) audio.removeEventListener('timeupdate', _syncLrc);
   }
 
   // ── Play tracking ────────────────────────────────────────────────────────────
@@ -1000,6 +1033,8 @@
   window.claimTrack          = claimTrack;
   window.openLyrics          = openLyrics;
   window.closeLyrics         = closeLyrics;
+  window.growLyrics          = growLyrics;
+  window.shrinkLyrics        = shrinkLyrics;
 
   // Re-render when language changes
   document.addEventListener('i18n:change', () => {

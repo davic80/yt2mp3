@@ -381,6 +381,7 @@ def api_users():
             func.sum(PlayEvent.seconds_played).label("seconds_total"),
             func.max(PlayEvent.played_at).label("last_play"),
             UserFeature.lyrics_enabled,
+            UserFeature.share_enabled,
         )
         .outerjoin(Download,  Download.user_email  == User.email)
         .outerjoin(PlayEvent, PlayEvent.user_email == User.email)
@@ -400,8 +401,9 @@ def api_users():
             "minutes_played":  round((sec or 0) / 60, 1),
             "last_play":       lp.isoformat() if lp else None,
             "lyrics_enabled":  bool(le) if le is not None else False,
+            "share_enabled":   bool(se) if se is not None else False,
         }
-        for u, tc, pc, sec, lp, le in rows
+        for u, tc, pc, sec, lp, le, se in rows
     ])
 
 
@@ -413,11 +415,13 @@ def api_set_user_features(email: str):
     data = request.get_json(silent=True) or {}
     feat = UserFeature.query.filter_by(user_email=email).first()
     if not feat:
-        feat = UserFeature(user_email=email, lyrics_enabled=False)
+        feat = UserFeature(user_email=email, lyrics_enabled=False, share_enabled=False)
         db.session.add(feat)
 
     if "lyrics_enabled" in data:
         feat.lyrics_enabled = bool(data["lyrics_enabled"])
+    if "share_enabled" in data:
+        feat.share_enabled = bool(data["share_enabled"])
 
     db.session.commit()
-    return jsonify({"ok": True, "lyrics_enabled": feat.lyrics_enabled})
+    return jsonify({"ok": True, "lyrics_enabled": feat.lyrics_enabled, "share_enabled": feat.share_enabled})

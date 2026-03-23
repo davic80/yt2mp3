@@ -166,8 +166,18 @@ def create_app():
                 with db.engine.connect() as conn:
                     conn.execute(text(create_sql))
                     conn.commit()
-            except Exception:
+             except Exception:
                 pass
+
+        # v4.4.1 — share_enabled feature flag
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE user_features ADD COLUMN share_enabled BOOLEAN NOT NULL DEFAULT 0"
+                ))
+                conn.commit()
+        except Exception:
+            pass  # column already exists
 
     from app.routes import bp
     from app.admin_routes import admin_bp

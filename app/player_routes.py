@@ -419,9 +419,12 @@ def api_me_features():
     email = get_current_user_email()
     if not email:
         # Local/admin — all features on
-        return jsonify({"lyrics_enabled": True})
+        return jsonify({"lyrics_enabled": True, "share_enabled": True})
     feat = UserFeature.query.filter_by(user_email=email).first()
-    return jsonify({"lyrics_enabled": bool(feat.lyrics_enabled) if feat else False})
+    return jsonify({
+        "lyrics_enabled": bool(feat.lyrics_enabled) if feat else False,
+        "share_enabled":  bool(feat.share_enabled)  if feat else False,
+    })
 
 
 # ── Play tracking API ─────────────────────────────────────────────────────────
