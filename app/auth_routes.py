@@ -1,4 +1,11 @@
-"""Auth0 OAuth blueprint — /auth/login, /auth/callback, /auth/logout, /auth/me"""
+"""Google OAuth blueprint — /auth/login, /auth/callback, /auth/logout, /auth/me
+
+v4.5.0: replaced Auth0 with direct Google OAuth via Authlib.
+Env vars required:
+  GOOGLE_CLIENT_ID      — OAuth 2.0 client ID from Google Cloud Console
+  GOOGLE_CLIENT_SECRET  — OAuth 2.0 client secret
+  GOOGLE_CALLBACK_URL   — full callback URL, e.g. https://yt2mp3.f1madrid.win/auth/callback
+"""
 import os
 from datetime import datetime, timezone
 
@@ -20,37 +27,31 @@ def _oauth():
 
 @auth_bp.route("/login")
 def login():
-    # Remember where to send the user after login
     next_url = request.args.get("next", "/")
     session["next"] = next_url
 
-    callback = os.environ.get("AUTH0_CALLBACK_URL", url_for("auth.callback", _external=True))
-    return _oauth().auth0.authorize_redirect(callback)
+    callback = os.environ.get(
+        "GOOGLE_CALLBACK_URL",
+        url_for("auth.callback", _external=True),
+    )
+    return _oauth().google.authorize_redirect(callback)
 
 
 # ── Callback ──────────────────────────────────────────────────────────────────
 
 @auth_bp.route("/callback")
 def callback():
-    token     = _oauth().auth0.authorize_access_token()
-    userinfo  = token.get("userinfo") or {}
+    token    = _oauth().google.authorize_access_token()
+    userinfo = token.get("userinfo") or {}
 
     email   = userinfo.get("email")
     name    = userinfo.get("name")
     picture = userinfo.get("picture")
-    sub     = userinfo.get("sub", "")
 
     if not email:
-        # Should not happen with openid+email scope, but handle gracefully
         return redirect("/")
 
-    # Determine provider from Auth0 subject (e.g. "google-oauth2|…", "facebook|…")
-    if sub.startswith("google"):
-        provider = "google"
-    elif sub.startswith("facebook"):
-        provider = "facebook"
-    else:
-        provider = sub.split("|")[0] if "|" in sub else "auth0"
+    provider = "google"
 
     # Upsert user — create on first login, update fields on every login
     user = User.query.get(email)
@@ -65,7 +66,6 @@ def callback():
             last_login=now,
         )
         db.session.add(user)
-        # Notify admin of new registration — fire-and-forget, never blocks login
         from app.mailer import send_new_user_notification
         send_new_user_notification({
             "email":      email,
@@ -81,16 +81,12 @@ def callback():
 
     db.session.commit()
 
-    # Store minimal user info in session
     session["user_email"]   = email
     session["user_name"]    = name
     session["user_picture"] = picture
     session.permanent = True
 
-    # v3.1.0 — associate anonymous downloads made in this browser session
-    # (identified by the session fingerprint stored before login) to this user.
-    # We use the identity_hash stored on records that share the same browser
-    # fingerprint from the pre-login session cookie.
+    # Associate anonymous downloads made in this browser session before login
     anon_identity = session.pop("anon_identity_hash", None)
     if anon_identity:
         from app.models import Download
@@ -110,14 +106,8 @@ def callback():
 @auth_bp.route("/logout")
 def logout():
     session.clear()
-    domain    = os.environ.get("AUTH0_DOMAIN", "")
-    client_id = os.environ.get("AUTH0_CLIENT_ID", "")
-    return_to = os.environ.get("WEBAUTHN_ORIGIN", "https://diana.f1madrid.win")
-    return redirect(
-        f"https://{domain}/v2/logout"
-        f"?returnTo={return_to}"
-        f"&client_id={client_id}"
-    )
+    return_to = os.environ.get("WEBAUTHN_ORIGIN", "https://yt2mp3.f1madrid.win")
+    return redirect(return_to)
 
 
 # ── Me ────────────────────────────────────────────────────────────────────────

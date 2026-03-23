@@ -14,9 +14,9 @@ services:
       - DOWNLOAD_DIR=/app/downloads
       - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-localhost}
       - WEBAUTHN_RP_NAME=${WEBAUTHN_RP_NAME:-yt2mp3 admin}
-      - WEBAUTHN_ORIGIN=${WEBAUTHN_ORIGIN:-http://localhost:5000}
+      - WEBAUTHN_ORIGIN=${WEBAUTHN_ORIGIN:-https://yt2mp3.f1madrid.win}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
-      - APP_VERSION=${APP_VERSION:-4.4.4}
+      - APP_VERSION=${APP_VERSION:-4.5.0}
       - ADMIN_REFRESH_INTERVAL=${ADMIN_REFRESH_INTERVAL:-300}
       - GEOIP_PATH=${GEOIP_PATH:-/app/geoip/GeoLite2-City.mmdb}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
@@ -25,10 +25,9 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_FROM=${SMTP_FROM:-}
-      - AUTH0_DOMAIN=${AUTH0_DOMAIN:-}
-      - AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID:-}
-      - AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET:-}
-      - AUTH0_CALLBACK_URL=${AUTH0_CALLBACK_URL:-https://diana.f1madrid.win/auth/callback}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-https://yt2mp3.f1madrid.win/auth/callback}
     ports:
       - "5000:5000"
     restart: unless-stopped

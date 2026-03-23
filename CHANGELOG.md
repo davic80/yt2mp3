@@ -6,6 +6,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.5.0] - 2026-03-23
+
+### Changed
+- **Auth: Auth0 → Google OAuth directo.** Eliminada la dependencia de Auth0.
+  La autenticación ahora usa Google OAuth 2.0 directamente a través de Authlib
+  (`https://accounts.google.com/.well-known/openid-configuration`). Solo Google
+  como proveedor (Facebook eliminado).
+- **URL de la app: `yt2mp3.f1madrid.win`.** El callback de OAuth y el origen
+  de sesión apuntan ahora a `https://yt2mp3.f1madrid.win`. El logout redirige
+  a `yt2mp3.f1madrid.win` (sin pasar por el endpoint de Auth0).
+- **Env vars renombradas** en `docker-compose.yml`:
+  - `AUTH0_DOMAIN` / `AUTH0_CLIENT_ID` / `AUTH0_CLIENT_SECRET` / `AUTH0_CALLBACK_URL`
+    → `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL`
+  - `WEBAUTHN_ORIGIN` default: `https://yt2mp3.f1madrid.win`
+
+### Removed
+- Todo el código de Auth0 en `auth_routes.py` y `__init__.py`.
+
+### Notes — configuración en Google Cloud Console
+1. Crear un proyecto en https://console.cloud.google.com/
+2. APIs & Services → Credentials → Create OAuth 2.0 Client ID (tipo: Web application)
+3. Authorized redirect URIs: `https://yt2mp3.f1madrid.win/auth/callback`
+4. Authorized JavaScript origins: `https://yt2mp3.f1madrid.win`
+5. Copiar Client ID y Client Secret al `.env` de la Raspberry:
+   ```
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   GOOGLE_CALLBACK_URL=https://yt2mp3.f1madrid.win/auth/callback
+   WEBAUTHN_ORIGIN=https://yt2mp3.f1madrid.win
+   SESSION_COOKIE_SECURE=true
+   ```
+
+---
+
 ## [4.0.0] - 2026-03-22
 
 ### Added

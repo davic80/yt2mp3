@@ -57,7 +57,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.0.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.5.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -73,19 +73,15 @@ def create_app():
     db.init_app(app)
     limiter.init_app(app)
 
-    # ── Auth0 / Authlib OAuth ─────────────────────────────────────────────────
-    auth0_domain = os.environ.get("AUTH0_DOMAIN", "")
-    app.config["AUTH0_CLIENT_ID"]     = os.environ.get("AUTH0_CLIENT_ID", "")
-    app.config["AUTH0_CLIENT_SECRET"] = os.environ.get("AUTH0_CLIENT_SECRET", "")
+    # ── Google OAuth (Authlib) ────────────────────────────────────────────────
     oauth.init_app(app)
-    if auth0_domain:
-        oauth.register(
-            name="auth0",
-            client_id=app.config["AUTH0_CLIENT_ID"],
-            client_secret=app.config["AUTH0_CLIENT_SECRET"],
-            server_metadata_url=f"https://{auth0_domain}/.well-known/openid-configuration",
-            client_kwargs={"scope": "openid profile email"},
-        )
+    oauth.register(
+        name="google",
+        client_id=os.environ.get("GOOGLE_CLIENT_ID", ""),
+        client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid profile email"},
+    )
 
     with app.app_context():
         from sqlalchemy import text
