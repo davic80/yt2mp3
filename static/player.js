@@ -286,7 +286,35 @@ window.Player = (function () {
     }
     elTitle.classList.remove('player-title-empty');
     elTitle.textContent = title;
+    document.title = title + ' · yt2mp3';
+    _updateMediaSession(title);
   }
+
+  // ── Media Session API (lock screen / headphone controls) ────────────────────
+  function _updateMediaSession(title) {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title:  title || 'yt2mp3',
+      artist: 'yt2mp3',
+      album:  '',
+      artwork: [
+        { src: '/static/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/static/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
+    });
+  }
+
+  function _setupMediaSessionHandlers() {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.setActionHandler('play',          () => { audio.play().catch(() => {}); });
+    navigator.mediaSession.setActionHandler('pause',         () => { audio.pause(); });
+    navigator.mediaSession.setActionHandler('previoustrack', () => { prevTrack(); });
+    navigator.mediaSession.setActionHandler('nexttrack',     () => { nextTrack(); });
+    navigator.mediaSession.setActionHandler('seekbackward',  null);
+    navigator.mediaSession.setActionHandler('seekforward',   null);
+  }
+
+  _setupMediaSessionHandlers();
 
   // Expose toggleShuffle / cycleRepeat / toggleMute / togglePlay / prevTrack /
   // nextTrack as global functions so shell.html inline onclick attrs work.
@@ -361,6 +389,7 @@ window.Player = (function () {
     offTrackChange,
     getState,
     setSession,
+    hasSession: () => state._hasSession,
     clearSavedState,
   };
 })();

@@ -326,9 +326,8 @@ def api_revoke_share(pid: int):
 
 
 @player_bp.route("/api/shared/<token>")
-@user_required
 def api_shared_playlist(token: str):
-    """Return playlist name + tracks for a shared token (login required)."""
+    """Return playlist name + tracks for a shared token (no login required — token is the auth)."""
     share = PlaylistShare.query.filter_by(token=token).first()
     if not share:
         return jsonify({"name": None, "tracks": []})

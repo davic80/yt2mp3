@@ -6,6 +6,28 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.1] - 2026-03-24
+
+### Fixed
+- **Botón ⋯ (menú añadir a lista) restaurado.** La celda `col-menu` con el botón
+  de tres puntos había desaparecido del template `renderTracks()` en `player.html`.
+  Restaurado con `onclick="openMenu(event, jobId)"`.
+- **Shared links ahora funcionan sin login.** `GET /player/api/shared/<token>` ya no
+  lleva `@user_required` — el token es la autenticación. El botón "claim" solo se
+  muestra si hay sesión activa.
+- **`document.title` actualizado** con el nombre de la canción actual al cambiar de pista.
+
+### Added
+- **Media Session API.** Al reproducir, el título de la canción aparece en la pantalla
+  de bloqueo del iPhone/Android. Los botones de siguiente/anterior pista del sistema
+  (auriculares, lock screen) funcionan correctamente. Los botones de ±10 segundos
+  quedan desactivados (`seekbackward`/`seekforward` → `null`) para que el sistema
+  muestre next/prev en su lugar.
+- **Iconos de artwork** (`static/icon-192.png`, `static/icon-512.png`) para la
+  notificación de reproducción en lock screen.
+
+---
+
 ## [4.6.0] - 2026-03-23
 
 ### Fixed
