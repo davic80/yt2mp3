@@ -112,7 +112,7 @@ def logout():
     session.clear()
     domain    = os.environ.get("AUTH0_DOMAIN", "")
     client_id = os.environ.get("AUTH0_CLIENT_ID", "")
-    return_to = "https://diana.f1madrid.win"
+    return_to = os.environ.get("WEBAUTHN_ORIGIN", "https://diana.f1madrid.win")
     return redirect(
         f"https://{domain}/v2/logout"
         f"?returnTo={return_to}"

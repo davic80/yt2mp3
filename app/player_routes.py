@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, Response, abort, jsonify, render_template, request, send_file
 
@@ -445,10 +445,7 @@ def api_record_play():
         return jsonify({"error": "job_id required"}), 400
 
     # Dedup: ignore if same user played same track in last 60 s
-    from sqlalchemy import func
-    cutoff = datetime.now(timezone.utc).replace(tzinfo=None)
-    from datetime import timedelta
-    cutoff = cutoff - timedelta(seconds=60)
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
     recent = PlayEvent.query.filter(
         PlayEvent.user_email == email,
         PlayEvent.job_id     == job_id,
@@ -559,9 +556,18 @@ def api_lyrics(job_id: str):
             pass
         return None
 
-    result = _try_lrclib(clean_title) or _try_lrclib(title) or _try_ovh(clean_title) or _try_ovh(title)
-
-    source  = "lrclib" if result and (result.get("synced") or _try_lrclib(clean_title)) else "ovh"
+    result = None
+    source = "ovh"
+    for _fn, _arg, _src in (
+        (_try_lrclib, clean_title, "lrclib"),
+        (_try_lrclib, title,       "lrclib"),
+        (_try_ovh,    clean_title, "ovh"),
+        (_try_ovh,    title,       "ovh"),
+    ):
+        result = _fn(_arg)
+        if result:
+            source = _src
+            break
     content = result["content"] if result else ""
     plain   = result["plain"]   if result else ""
     synced  = result["synced"]  if result else False

@@ -151,7 +151,8 @@ window.Player = (function () {
     if (!state.queue.length) return;
     let idx;
     if (state.shuffle) {
-      idx = Math.floor(Math.random() * state.queue.length);
+      do { idx = Math.floor(Math.random() * state.queue.length); }
+      while (idx === state.queueIndex && state.queue.length > 1);
     } else {
       idx = state.queueIndex + 1;
       if (idx >= state.queue.length) {

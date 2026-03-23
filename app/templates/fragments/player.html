@@ -368,45 +368,51 @@
   // ── API ─────────────────────────────────────────────────────────────────────
   async function loadAll() {
     applyStaticStrings();
-    const [tracksRes, plRes, featRes] = await Promise.all([
-      fetch('/player/api/tracks'),
-      fetch('/player/api/playlists'),
-      fetch('/player/api/me/features'),
-    ]);
-    state.tracks      = await tracksRes.json();
-    state.playlists   = await plRes.json();
-    const feat        = await featRes.json();
-    state.lyricsEnabled = Boolean(feat.lyrics_enabled);
-    state.shareEnabled  = Boolean(feat.share_enabled);
+    try {
+      const [tracksRes, plRes, featRes] = await Promise.all([
+        fetch('/player/api/tracks'),
+        fetch('/player/api/playlists'),
+        fetch('/player/api/me/features'),
+      ]);
+      state.tracks      = await tracksRes.json();
+      state.playlists   = await plRes.json();
+      const feat        = await featRes.json();
+      state.lyricsEnabled = Boolean(feat.lyrics_enabled);
+      state.shareEnabled  = Boolean(feat.share_enabled);
 
-    // Show/hide lyrics button in the persistent player bar
-    window._showLyricsBtn?.(state.lyricsEnabled);
+      // Show/hide lyrics button in the persistent player bar
+      window._showLyricsBtn?.(state.lyricsEnabled);
 
-    // Hand the full track list to the global player
-    if (window.Player) window.Player.loadTracks(state.tracks);
+      // Hand the full track list to the global player
+      if (window.Player) window.Player.loadTracks(state.tracks);
 
-    // Check for shared view mode
-    const sharedToken = new URLSearchParams(location.search).get('shared');
-    if (sharedToken) {
-      renderSidebar();
-      await loadSharedView(sharedToken);
-    } else {
-      renderSidebar();
-      renderTracks();
-    }
-
-    // Register row-highlight callback
-    if (window.Player) {
-      window.Player.onTrackChange(function (jobId) {
-        state.currentJob = jobId;
-        highlightRow(jobId);
-      });
-      // Highlight immediately if something is already playing
-      const ps = window.Player.getState();
-      if (ps.currentJob) {
-        state.currentJob = ps.currentJob;
-        highlightRow(ps.currentJob);
+      // Check for shared view mode
+      const sharedToken = new URLSearchParams(location.search).get('shared');
+      if (sharedToken) {
+        renderSidebar();
+        await loadSharedView(sharedToken);
+      } else {
+        renderSidebar();
+        renderTracks();
       }
+
+      // Register row-highlight callback
+      if (window.Player) {
+        window.Player.onTrackChange(function (jobId) {
+          state.currentJob = jobId;
+          highlightRow(jobId);
+        });
+        // Highlight immediately if something is already playing
+        const ps = window.Player.getState();
+        if (ps.currentJob) {
+          state.currentJob = ps.currentJob;
+          highlightRow(ps.currentJob);
+        }
+      }
+    } catch (err) {
+      console.error('[player] loadAll failed:', err);
+      const el = document.getElementById('track-list');
+      if (el) el.innerHTML = '<p style="color:#f66;padding:1rem">Failed to load player data. Please refresh.</p>';
     }
   }
 
@@ -821,21 +827,23 @@
   }
 
   // ── Play tracking ────────────────────────────────────────────────────────────
+  // These are stored on window so the single persisted audio.ended handler
+  // (see below) always reads the current values across SPA navigations.
   let _playTimer    = null;
-  let _playStart    = null;
-  let _playJob      = null;
-  let _playReported = false;
+  window._pt_playStart    = window._pt_playStart    ?? null;
+  window._pt_playJob      = window._pt_playJob      ?? null;
+  window._pt_playReported = window._pt_playReported ?? false;
 
   function _startPlayTracking(jobId) {
     _stopPlayTracking();
-    _playJob      = jobId;
-    _playStart    = Date.now();
-    _playReported = false;
+    window._pt_playJob      = jobId;
+    window._pt_playStart    = Date.now();
+    window._pt_playReported = false;
 
     // Report after 30 s
     _playTimer = setTimeout(() => {
       _reportPlay(jobId, 30);
-      _playReported = true;
+      window._pt_playReported = true;
     }, 30000);
   }
 
@@ -855,9 +863,9 @@
   if (window.Player) {
     window.Player.onTrackChange(function (jobId) {
       // If previous track was playing and not yet reported, send actual seconds
-      if (_playJob && !_playReported && _playStart) {
-        const secs = Math.round((Date.now() - _playStart) / 1000);
-        if (secs >= 10) _reportPlay(_playJob, secs);
+      if (window._pt_playJob && !window._pt_playReported && window._pt_playStart) {
+        const secs = Math.round((Date.now() - window._pt_playStart) / 1000);
+        if (secs >= 10) _reportPlay(window._pt_playJob, secs);
       }
       _startPlayTracking(jobId);
 
@@ -868,14 +876,17 @@
     });
   }
 
-  // Also hook audio ended event for accurate seconds
+  // Also hook audio ended event for accurate seconds.
+  // The <audio> element persists across SPA navigations; guard with a sentinel
+  // so only one handler is ever attached, reading window._pt_* for current state.
   const _audioEl = document.getElementById('audio');
-  if (_audioEl) {
+  if (_audioEl && !_audioEl._playTrackingBound) {
+    _audioEl._playTrackingBound = true;
     _audioEl.addEventListener('ended', () => {
-      if (_playJob && _playStart) {
-        const secs = Math.round((Date.now() - _playStart) / 1000);
-        _reportPlay(_playJob, secs);
-        _playReported = true;
+      if (window._pt_playJob && window._pt_playStart) {
+        const secs = Math.round((Date.now() - window._pt_playStart) / 1000);
+        _reportPlay(window._pt_playJob, secs);
+        window._pt_playReported = true;
       }
     });
   }
