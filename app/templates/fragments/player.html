@@ -373,8 +373,10 @@
   // ── Playback via global player ────────────────────────────────────────────────
   function playTrack(jobId, idx) {
     if (window.Player) {
-      window.Player.setQueue(getFilteredTracks().map(t => t.job_id), idx);
-      window.Player.playTrack(jobId);
+      const tracks = getFilteredTracks();
+      window.Player.setQueue(tracks.map(t => t.job_id), idx);
+      const t = tracks.find(t => t.job_id === jobId);
+      window.Player.playTrack(jobId, t ? (t.title || jobId) : jobId);
     }
   }
 

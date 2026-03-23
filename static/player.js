@@ -94,13 +94,13 @@ window.Player = (function () {
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
-  function playTrack(jobId) {
+  function playTrack(jobId, title) {
     const idx = state.queue.indexOf(jobId);
     state.currentJob  = jobId;
     state.queueIndex  = idx >= 0 ? idx : 0;
     audio.src = `/player/stream/${jobId}`;
     audio.play().catch(() => {});
-    _updateTitle(jobId);
+    _updateTitle(jobId, title);
     _emit('trackChange', jobId);
   }
 
@@ -225,11 +225,14 @@ window.Player = (function () {
   }
 
   // ── Internal ────────────────────────────────────────────────────────────────
-  function _updateTitle(jobId) {
+  function _updateTitle(jobId, title) {
     if (!elTitle) return;
-    const track = state.tracks.find(t => t.job_id === jobId);
+    if (!title) {
+      const track = state.tracks.find(t => t.job_id === jobId);
+      title = track ? (track.title || jobId) : jobId;
+    }
     elTitle.classList.remove('player-title-empty');
-    elTitle.textContent = track ? (track.title || jobId) : jobId;
+    elTitle.textContent = title;
   }
 
   // Expose toggleShuffle / cycleRepeat / toggleMute / togglePlay / prevTrack /
