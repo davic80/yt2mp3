@@ -379,6 +379,9 @@
     state.lyricsEnabled = Boolean(feat.lyrics_enabled);
     state.shareEnabled  = Boolean(feat.share_enabled);
 
+    // Show/hide lyrics button in the persistent player bar
+    window._showLyricsBtn?.(state.lyricsEnabled);
+
     // Hand the full track list to the global player
     if (window.Player) window.Player.loadTracks(state.tracks);
 
@@ -706,6 +709,7 @@
     document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(`lyrbtn-${jobId}`);
     if (btn) btn.classList.add('active');
+    window._setLyricsBtnActive?.(true);
 
     const I = window.I18n;
     title.textContent = I.t('player.lyrics');
@@ -742,6 +746,7 @@
     _lyricsFontSize = 0.82;
     _stopLrcSync();
     document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
+    window._setLyricsBtnActive?.(false);
     const panel = document.getElementById('lyrics-panel');
     panel.classList.remove('open');
     setTimeout(() => panel.classList.add('hidden'), 240);
@@ -786,7 +791,7 @@
   }
 
   function _syncLrc() {
-    const audio = document.getElementById('player-audio');
+    const audio = document.getElementById('audio');
     if (!audio) return;
     const t = audio.currentTime;
     let active = -1;
@@ -805,13 +810,13 @@
 
   function _startLrcSync() {
     _stopLrcSync();
-    const audio = document.getElementById('player-audio');
+    const audio = document.getElementById('audio');
     if (!audio) return;
     audio.addEventListener('timeupdate', _syncLrc);
   }
 
   function _stopLrcSync() {
-    const audio = document.getElementById('player-audio');
+    const audio = document.getElementById('audio');
     if (audio) audio.removeEventListener('timeupdate', _syncLrc);
   }
 
@@ -864,7 +869,7 @@
   }
 
   // Also hook audio ended event for accurate seconds
-  const _audioEl = document.getElementById('player-audio');
+  const _audioEl = document.getElementById('audio');
   if (_audioEl) {
     _audioEl.addEventListener('ended', () => {
       if (_playJob && _playStart) {

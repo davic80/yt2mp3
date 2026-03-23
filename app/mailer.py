@@ -148,3 +148,118 @@ def send_download_notification(data: dict) -> None:
     ``data`` must be a plain dict, not a SQLAlchemy model instance."""
     t = threading.Thread(target=_send, args=(data,), daemon=True)
     t.start()
+
+
+# ── New-user notification ─────────────────────────────────────────────────────
+
+def _build_new_user_html(data: dict) -> str:
+    """Return an HTML email body for a new user registration."""
+    created_at = data.get("created_at")
+    created = (
+        created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+        if created_at
+        else "—"
+    )
+    rows = [
+        ("Email",    data.get("email") or "—"),
+        ("Name",     data.get("name") or "—"),
+        ("Provider", data.get("provider") or "—"),
+        ("Date",     created),
+    ]
+    detail_rows_html = "".join(
+        f"""
+        <tr>
+          <td style="padding:6px 12px;color:#888;font-size:12px;white-space:nowrap;
+                     border-bottom:1px solid #333;">{label}</td>
+          <td style="padding:6px 12px;color:#e0e0e0;font-size:12px;word-break:break-all;
+                     border-bottom:1px solid #333;font-family:'Courier New',monospace;">{value}</td>
+        </tr>"""
+        for label, value in rows
+    )
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#1c1c1c;font-family:system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0"
+         style="background:#1c1c1c;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0"
+             style="background:#252525;border:1px solid #333;border-radius:8px;
+                    overflow:hidden;max-width:560px;width:100%;">
+
+        <!-- Header -->
+        <tr>
+          <td style="padding:20px 24px;border-bottom:1px solid #333;">
+            <span style="font-size:22px;font-weight:600;letter-spacing:-1px;color:#e0e0e0;">
+              yt<span style="color:#27a008;">2</span><span style="color:#39FF14;">mp3</span>
+            </span>
+            <span style="font-size:11px;color:#888;margin-left:8px;
+                         text-transform:uppercase;letter-spacing:.1em;">nuevo usuario</span>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:16px 0 8px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              {detail_rows_html}
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 24px;border-top:1px solid #333;
+                     font-size:11px;color:#555;text-align:center;">
+            yt2mp3 · automated notification
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _send_new_user(data: dict) -> None:
+    """Send the new-user notification. Runs in a background thread."""
+    admin_email   = os.environ.get("ADMIN_EMAIL", "")
+    smtp_host     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port     = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user     = os.environ.get("SMTP_USER", "")
+    smtp_password = os.environ.get("SMTP_PASSWORD", "")
+    smtp_from     = os.environ.get("SMTP_FROM", smtp_user)
+
+    if not admin_email or not smtp_user or not smtp_password:
+        logger.warning(
+            "mailer: SMTP not configured — skipping new-user notification for %s",
+            data.get("email"),
+        )
+        return
+
+    email = data.get("email") or "unknown"
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"[yt2mp3] nuevo usuario: {email}"
+    msg["From"]    = smtp_from
+    msg["To"]      = admin_email
+
+    msg.attach(MIMEText(_build_new_user_html(data), "html", "utf-8"))
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_from, [admin_email], msg.as_string())
+        logger.info("mailer: new-user notification sent for %s", email)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("mailer: failed to send new-user notification for %s: %s", email, exc)
+
+
+def send_new_user_notification(data: dict) -> None:
+    """Fire-and-forget: notify admin of a new user registration.
+    ``data`` keys: email, name, provider, created_at."""
+    t = threading.Thread(target=_send_new_user, args=(data,), daemon=True)
+    t.start()

@@ -45,8 +45,10 @@ def create_app():
     # Session config (server-side cookie, 8h admin session)
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
     app.config["SESSION_COOKIE_HTTPONLY"] = True
-    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-    # In production behind Cloudflare tunnel, cookies should be secure
+    # SameSite=None required for Auth0 cross-site OAuth callback to carry the session cookie.
+    # Secure must be True when SameSite=None; SESSION_COOKIE_SECURE=true is set in Pi .env
+    # (Cloudflare tunnel + ProxyFix ensure HTTPS is detected correctly).
+    app.config["SESSION_COOKIE_SAMESITE"] = "None"
     app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
     # WebAuthn config

@@ -337,6 +337,14 @@
       </div>
       <span class="time-label" id="time-total">0:00</span>
     </div>
+    <button class="ctrl-btn" id="btn-lyrics" onclick="_playerToggleLyrics()" title="Letra" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="22"></line>
+        <line x1="8" y1="22" x2="16" y2="22"></line>
+      </svg>
+    </button>
     <div class="volume-wrap">
       <button class="ctrl-btn vol-btn" onclick="_playerToggleMute()" title="Silenciar">
         <svg id="icon-vol" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -368,6 +376,27 @@
 <script>
   // Apply i18n to shell elements once DOM and i18n.js are ready
   I18n.init();
+
+  // ── Lyrics button helpers (called by player fragment) ────────────────────────
+  function _showLyricsBtn(enabled) {
+    const btn = document.getElementById('btn-lyrics');
+    if (btn) btn.style.display = enabled ? '' : 'none';
+  }
+  function _setLyricsBtnActive(active) {
+    const btn = document.getElementById('btn-lyrics');
+    if (btn) btn.classList.toggle('active', active);
+  }
+  function _playerToggleLyrics() {
+    const jobId = window.Player?.getState()?.currentJob;
+    if (!jobId) return;
+    const panel = document.getElementById('lyrics-panel');
+    const isOpen = panel && !panel.classList.contains('hidden');
+    if (isOpen) {
+      window.closeLyrics?.();
+    } else {
+      window.openLyrics?.(jobId);
+    }
+  }
 </script>
 </body>
 </html>

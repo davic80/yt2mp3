@@ -65,6 +65,14 @@ def callback():
             last_login=now,
         )
         db.session.add(user)
+        # Notify admin of new registration — fire-and-forget, never blocks login
+        from app.mailer import send_new_user_notification
+        send_new_user_notification({
+            "email":      email,
+            "name":       name,
+            "provider":   provider,
+            "created_at": now,
+        })
     else:
         user.name       = name
         user.picture    = picture
