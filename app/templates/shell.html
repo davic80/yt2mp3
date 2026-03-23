@@ -145,7 +145,7 @@
     }
     .ctrl-btn.play-pause:hover { background: rgba(57,255,20,.2); }
     /* optical centering for the ▶ glyph (has a natural left offset in most fonts) */
-    #play-icon { display: inline-block; padding-left: 2px; }
+    #play-icon { display: inline-block; padding-left: 2px; color: var(--neon); }
     .player-progress { flex: 1; display: flex; align-items: center; gap: .65rem; min-width: 0; }
     .time-label { font-size: .75rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
     .progress-wrap {
@@ -179,7 +179,7 @@
       :root { --player-h: 96px; }
       .player-bar {
         flex-wrap: wrap; height: var(--player-h); min-height: var(--player-h);
-        padding: .35rem .75rem; gap: .2rem; align-content: center;
+        padding: .35rem .75rem; column-gap: .2rem; row-gap: .45rem; align-content: center;
       }
       /* Row 1: title (left, flex-1) */
       .player-info {
@@ -199,7 +199,9 @@
         display: flex; align-items: center; gap: .35rem;
         padding: 0 .1rem;
       }
-      .volume-wrap { display: none; }
+      .volume-wrap { display: flex; }   /* show mute button */
+      .vol-icon    { display: flex; }    /* keep mute icon */
+      #vol-slider  { display: none; }    /* hide slider — doesn't work on mobile */
       .time-label  { display: none; }
       .ctrl-btn { padding: .35rem; font-size: 1.1rem; }
       .ctrl-btn.play-pause { width: 2.5rem; height: 2.5rem; font-size: 1.3rem; }
@@ -227,7 +229,7 @@
       /* Lang toggle: show flag + text, with spacing from avatar */
       .lang-btn      { padding: .2rem .35rem; font-size: .7rem; }
       .lang-btn-text { display: inline; }
-      .lang-toggle   { margin-right: .5rem; }
+      .lang-toggle   { margin-right: 1.2rem; }
 
       /* Avatar */
       .auth-avatar { width: 2.2rem; height: 2.2rem; }
