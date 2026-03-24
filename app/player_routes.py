@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests as _requests
 
-from flask import Blueprint, Response, abort, jsonify, render_template, request, send_file
+from flask import Blueprint, Response, abort, jsonify, redirect, render_template, request, send_file, url_for
 
 from app import db
 from app.auth_utils import _is_local_request, get_current_user_email, user_required
@@ -492,6 +492,13 @@ def api_shared_playlist(token: str):
             for t in tracks
         ],
     })
+
+
+@player_bp.route("/s/<token>")
+def shared_redirect(token: str):
+    """Canonical short URL for shared playlists: /player/s/<token> → /player?shared=<token>.
+    Works whether the user is logged in or not; login redirect preserves the ?shared= param."""
+    return redirect(url_for("player.index") + f"?shared={token}")
 
 
 @player_bp.route("/api/shared/<token>/claim/<job_id>", methods=["POST"])

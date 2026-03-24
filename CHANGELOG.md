@@ -6,6 +6,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.5] - 2026-03-24
+
+### Fixed
+- **Shared playlist token se perdía al hacer login.** `@user_required` usaba `request.path`
+  (sin query string) al construir el redirect a `/auth/login?next=…`, por lo que `?shared=TOKEN`
+  desaparecía. Cambiado a `request.full_path` para preservar todos los query params.
+- **Botón "entrar" de la topbar también perdía el token.** `app.js` construía el `next=` con
+  `window.location.pathname` en lugar de `pathname + search`. Corregido para incluir
+  `location.search`.
+
+### Added
+- **Ruta corta `/player/s/<token>`.** URL canónica para compartir playlists: redirige a
+  `/player?shared=<token>`. Los links generados por el botón ⇗ ahora usan esta ruta
+  (`…/player/s/uuid`) en lugar de `…/player?shared=uuid`, lo que es más limpia, resiste
+  cualquier SPA que pudiera truncar query params, y sobrevive al redirect de login sin perder
+  el token.
+
+---
+
 ## [4.6.4] - 2026-03-24
 
 ### Added

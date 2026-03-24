@@ -721,7 +721,7 @@
     const data = await res.json();
     _sharePid   = pid;
     _shareToken = data.token;
-    const url   = `${location.origin}/player?shared=${data.token}`;
+    const url   = `${location.origin}/player/s/${data.token}`;
     const I = window.I18n;
     document.getElementById('share-modal-title').textContent  = I.t('player.share_title') + ': ' + name;
     document.getElementById('share-modal-url').textContent    = url;

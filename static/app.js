@@ -33,10 +33,10 @@
         // Set ?next= to current SPA path so login returns to where the user was
         const loginLink = zoneLoggedOut.querySelector('a.auth-btn.login');
         if (loginLink) {
-          loginLink.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname);
+          loginLink.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
           // Update on every click so it reflects the current SPA path at that moment
           loginLink.addEventListener('click', () => {
-            loginLink.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname);
+            loginLink.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
           });
         }
         zoneLoggedOut.classList.remove('hidden');

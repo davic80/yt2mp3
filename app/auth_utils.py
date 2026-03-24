@@ -49,7 +49,7 @@ def user_required(f):
         if _is_local_request():
             return f(*args, **kwargs)
         if not session.get("user_email"):
-            return redirect(url_for("auth.login", next=request.path))
+            return redirect(url_for("auth.login", next=request.full_path))
         return f(*args, **kwargs)
     return decorated
 
