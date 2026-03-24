@@ -76,6 +76,10 @@ class Download(db.Model):
     video_id   = db.Column(db.String(32),  nullable=True, index=True)
     audio_hash = db.Column(db.String(64),  nullable=True, index=True)
 
+    # Artwork (v4.6.3) — cached cover art URL from iTunes/Deezer/YouTube
+    artwork_url         = db.Column(db.Text,    nullable=True)
+    artwork_blacklisted = db.Column(db.Boolean, default=False, nullable=False)
+
     def to_dict(self):
         return {
             "job_id": self.job_id,

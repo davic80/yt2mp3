@@ -1,6 +1,9 @@
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
+
+import requests as _requests
 
 from flask import Blueprint, Response, abort, jsonify, render_template, request, send_file
 
@@ -112,6 +115,7 @@ def api_tracks():
             "created_at":  r.created_at.isoformat() if r.created_at else None,
             "is_favorite": bool(r.is_favorite),
             "video_id":    r.video_id,
+            "artwork_url": r.artwork_url,
         }
         for r in rows
     ])
@@ -134,6 +138,118 @@ def api_favorite():
     record.is_favorite = not bool(record.is_favorite)
     db.session.commit()
     return jsonify({"is_favorite": bool(record.is_favorite)})
+
+
+# ── Artwork API ────────────────────────────────────────────────────────────────
+
+def _parse_title_parts(full_title: str):
+    """Split 'Artist - Song' into (artist, song). Returns ('', full_title) if no separator."""
+    parts = (full_title or "").split(" - ", 1)
+    if len(parts) == 2:
+        return parts[0].strip(), parts[1].strip()
+    return "", (full_title or "").strip()
+
+
+def _itunes_lookup(artist: str, title: str) -> str | None:
+    term = f"{artist} {title}".strip()
+    try:
+        r = _requests.get(
+            "https://itunes.apple.com/search",
+            params={"term": term, "media": "music", "entity": "song", "limit": 1},
+            timeout=4,
+        )
+        results = r.json().get("results", [])
+        if results:
+            url = results[0].get("artworkUrl100", "")
+            return url.replace("100x100bb", "600x600bb") if url else None
+    except Exception:
+        pass
+    return None
+
+
+def _deezer_lookup(artist: str, title: str) -> str | None:
+    term = f"{artist} {title}".strip()
+    try:
+        r = _requests.get(
+            "https://api.deezer.com/search",
+            params={"q": term, "type": "track", "limit": 1},
+            timeout=4,
+        )
+        data = r.json().get("data", [])
+        if data:
+            return data[0].get("album", {}).get("cover_big") or None
+    except Exception:
+        pass
+    return None
+
+
+@player_bp.route("/api/artwork/<job_id>")
+@user_required
+def api_artwork(job_id: str):
+    """Return cached artwork URL for a track, fetching from iTunes/Deezer if not yet cached."""
+    record = Download.query.filter_by(job_id=job_id, status="done").first_or_404()
+
+    # Ownership check for remote users
+    email = get_current_user_email()
+    if email and record.user_email != email:
+        abort(403)
+
+    # Already cached (and not blacklisted)
+    if record.artwork_url and not record.artwork_blacklisted:
+        return jsonify({"artwork_url": record.artwork_url})
+
+    # Don't re-fetch if blacklisted — return YouTube thumb or nothing
+    if record.artwork_blacklisted:
+        fallback = (
+            f"https://img.youtube.com/vi/{record.video_id}/maxresdefault.jpg"
+            if record.video_id else None
+        )
+        return jsonify({"artwork_url": fallback})
+
+    artist, title = _parse_title_parts(record.title or "")
+    # Strip common noise from title before searching
+    clean_title = re.sub(
+        r'\s*[\(\[].*?(official|video|audio|lyric|hd|4k|mv).*?[\)\]]',
+        '', record.title or '', flags=re.IGNORECASE
+    ).strip()
+    c_artist, c_title = _parse_title_parts(clean_title)
+
+    url = (
+        _itunes_lookup(c_artist, c_title)
+        or _itunes_lookup(artist, title)
+        or _deezer_lookup(c_artist, c_title)
+        or _deezer_lookup(artist, title)
+        or (f"https://img.youtube.com/vi/{record.video_id}/maxresdefault.jpg"
+            if record.video_id else None)
+    )
+
+    if url:
+        record.artwork_url = url
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    return jsonify({"artwork_url": url})
+
+
+@player_bp.route("/api/artwork/<job_id>", methods=["DELETE"])
+@user_required
+def api_artwork_delete(job_id: str):
+    """Blacklist current artwork so next fetch tries again from external APIs."""
+    # Admin-only: only local requests (email is None)
+    if get_current_user_email() is not None:
+        abort(403)
+
+    record = Download.query.filter_by(job_id=job_id).first_or_404()
+    record.artwork_url         = None
+    record.artwork_blacklisted = True
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "db error"}), 500
+    return jsonify({"ok": True})
 
 
 # ── Playlists API ──────────────────────────────────────────────────────────────
@@ -496,11 +612,17 @@ def api_lyrics(job_id: str):
         if not shared_accessible:
             abort(403)
 
-    # Check lyrics cache
-    from app.player_models import LyricsCache
+    # Check lyrics cache (skip if blacklisted for all sources)
+    from app.player_models import LyricsCache, LyricsBlacklist
     cached = None
+    blacklisted_all = False
     if record.video_id:
-        cached = LyricsCache.query.filter_by(video_id=record.video_id).first()
+        bl = LyricsBlacklist.query.filter_by(video_id=record.video_id, source="*").first()
+        blacklisted_all = bl is not None
+        if not blacklisted_all:
+            cached = LyricsCache.query.filter_by(video_id=record.video_id).first()
+    if blacklisted_all:
+        return jsonify({"error": "not_found"}), 404
     if cached:
         return jsonify({
             "source":      cached.source,
@@ -591,3 +713,34 @@ def api_lyrics(job_id: str):
         return jsonify({"error": "not_found"}), 404
 
     return jsonify({"source": source, "synced": synced, "content": content, "plain": plain})
+
+
+@player_bp.route("/api/lyrics/<job_id>/cache", methods=["DELETE"])
+@user_required
+def api_lyrics_cache_delete(job_id: str):
+    """Admin: blacklist cached lyrics for a track so next request re-fetches from external APIs."""
+    if get_current_user_email() is not None:
+        abort(403)
+
+    record = Download.query.filter_by(job_id=job_id).first_or_404()
+
+    from app.player_models import LyricsCache, LyricsBlacklist
+
+    # Delete the cached entry for this video_id
+    if record.video_id:
+        LyricsCache.query.filter_by(video_id=record.video_id).delete()
+        # Add a per-source blacklist entry so we skip that source on next fetch
+        # Using source="*" means: skip ALL sources (re-fetch will try all providers fresh)
+        existing = LyricsBlacklist.query.filter_by(
+            video_id=record.video_id, source="*"
+        ).first()
+        if not existing:
+            db.session.add(LyricsBlacklist(video_id=record.video_id, source="*"))
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "db error"}), 500
+
+    return jsonify({"ok": True})

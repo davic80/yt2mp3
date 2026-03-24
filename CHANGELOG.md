@@ -6,6 +6,42 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.3] - 2026-03-24
+
+### Added
+- **Artwork oficial desde bases de datos abiertas.** Nuevo endpoint `GET /player/api/artwork/<job_id>`
+  que busca portada del álbum en iTunes Search API (zero-auth) → Deezer API (zero-auth) →
+  YouTube thumbnail como fallback. El resultado se cachea en la columna `artwork_url` de la
+  tabla `downloads` para que las siguientes reproducciones sean instantáneas.
+- **Letras: blacklist respetada en caché.** Si un `video_id` tiene una entrada `source='*'`
+  en `lyrics_blacklist`, el endpoint devuelve 404 directamente sin hacer lookup externo.
+- **Miniatura de portada en el player bar.** `<img id="player-artwork">` aparece a la izquierda
+  del título con esquinas redondeadas (48×48 px escritorio, 40×40 px móvil). Se muestra con
+  fade-in al cargar; usa `artwork_url` de BD si está disponible, o thumbnail de YouTube como
+  fallback visual.
+- **Media Session usa artwork real.** `_updateMediaSession` prioriza `artwork_url` de BD
+  (600×600 px) sobre los thumbnails de YouTube para la lock screen de iOS/Android.
+- **Blacklist de artwork en admin.** Vista `/db` muestra miniatura de portada por track.
+  Botón ✕ llama a `DELETE /player/api/artwork/<job_id>`: pone `artwork_blacklisted=true`,
+  limpia `artwork_url` y fuerza nueva búsqueda la próxima vez que se reproduzca.
+- **Blacklist de letras en admin.** Vista `/db` muestra enlace ♪ a la letra y botón ✕ que
+  llama a `DELETE /player/api/lyrics/<job_id>/cache`: borra la entrada de `lyrics_cache`
+  e inserta `source='*'` en `lyrics_blacklist` para forzar nueva búsqueda.
+- **Nuevas columnas en BD** (migraciones automáticas al arrancar):
+  - `downloads.artwork_url` (TEXT)
+  - `downloads.artwork_blacklisted` (BOOLEAN DEFAULT 0)
+  - tabla `lyrics_blacklist` (`video_id`, `source`, `added_at`)
+
+### Changed
+- `GET /player/api/tracks` incluye `artwork_url` en cada objeto de respuesta.
+- `player.js`: `_updateTitle` dispara lazy-fetch a `/api/artwork/<job_id>` si el track no
+  tiene `artwork_url` en memoria, actualizando UI y lock screen sin bloquear la reproducción.
+- `player.js`: nueva función `_updateArtworkImg` actualiza el `<img>` del player bar.
+- `player.js`: `_updateMediaSession` acepta tercer argumento `artworkUrl` con prioridad
+  sobre thumbnails de YouTube.
+
+---
+
 ## [4.6.2] - 2026-03-24
 
 ### Added

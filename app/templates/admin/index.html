@@ -493,6 +493,38 @@ async function renameTitle(jobId, currentTitle) {
   }
 }
 
+// ── Delete artwork (blacklist) ─────────────────────────────────────────────────
+async function deleteArtwork(jobId) {
+  if (!confirm('¿Borrar artwork? Se marcará como blacklisted y se intentará descargar uno nuevo la próxima vez.')) return;
+  try {
+    const resp = await fetch(`/player/api/artwork/${jobId}`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (resp.ok && data.ok) {
+      refreshTable();
+    } else {
+      alert(data.error || 'Error al borrar artwork');
+    }
+  } catch (e) {
+    alert('Error de conexión.');
+  }
+}
+
+// ── Delete lyrics cache (blacklist) ───────────────────────────────────────────
+async function deleteLyrics(jobId) {
+  if (!confirm('¿Borrar letra en caché? Se marcará como blacklisted y se intentará descargar una nueva la próxima vez.')) return;
+  try {
+    const resp = await fetch(`/player/api/lyrics/${jobId}/cache`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (resp.ok && data.ok) {
+      refreshTable();
+    } else {
+      alert(data.error || 'Error al borrar letra');
+    }
+  } catch (e) {
+    alert('Error de conexión.');
+  }
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 initCheckboxes();
 

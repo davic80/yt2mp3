@@ -298,16 +298,57 @@ window.Player = (function () {
 
   function _updateTitle(jobId, title) {
     if (!elTitle) return;
+    const track   = state.tracks.find(t => t.job_id === jobId);
     if (!title) {
-      const track = state.tracks.find(t => t.job_id === jobId);
       title = track ? (track.title || jobId) : jobId;
     }
     elTitle.classList.remove('player-title-empty');
     elTitle.textContent = title;
     document.title = title + ' · yt2mp3';
-    const track   = state.tracks.find(t => t.job_id === jobId);
-    const videoId = track ? (track.video_id || null) : null;
-    _updateMediaSession(title, videoId);
+
+    const videoId    = track ? (track.video_id   || null) : null;
+    const artworkUrl = track ? (track.artwork_url || null) : null;
+
+    _updateArtworkImg(jobId, artworkUrl, videoId);
+    _updateMediaSession(title, videoId, artworkUrl);
+
+    // Lazy-fetch artwork from backend if not yet cached
+    if (!artworkUrl && track) {
+      fetch(`/player/api/artwork/${jobId}`)
+        .then(r => r.ok ? r.json() : {})
+        .then(({ artwork_url }) => {
+          if (!artwork_url) return;
+          // Cache in memory so subsequent calls are instant
+          if (track) track.artwork_url = artwork_url;
+          // Only update UI if this is still the active track
+          if (state.currentJob === jobId) {
+            _updateArtworkImg(jobId, artwork_url, videoId);
+            _updateMediaSession(title, videoId, artwork_url);
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
+  // ── Artwork image in player bar ──────────────────────────────────────────────
+
+  function _updateArtworkImg(jobId, artworkUrl, videoId) {
+    const img = document.getElementById('player-artwork');
+    if (!img) return;
+    // Priority: DB artwork → YouTube thumbnail → hide
+    const src = artworkUrl
+      || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null);
+    if (!src) {
+      img.classList.remove('loaded');
+      img.src = '';
+      return;
+    }
+    // Avoid flickering if same src
+    if (img.src === src) return;
+    img.classList.remove('loaded');
+    img.onload  = () => img.classList.add('loaded');
+    img.onerror = () => { img.classList.remove('loaded'); };
+    img.src = src;
   }
 
   // ── Media Session API (lock screen / headphone controls) ────────────────────
@@ -318,19 +359,22 @@ window.Player = (function () {
     return { artist: fullTitle.slice(0, idx), title: fullTitle.slice(idx + 3), album: '' };
   }
 
-  function _updateMediaSession(title, videoId) {
+  function _updateMediaSession(title, videoId, artworkUrl) {
     if (!('mediaSession' in navigator)) return;
     const parsed  = _parseTitle(title);
-    const artwork = videoId
-      ? [
-          { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,     sizes: '320x180',   type: 'image/jpeg' },
-          { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,     sizes: '480x360',   type: 'image/jpeg' },
-          { src: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, sizes: '1280x720',  type: 'image/jpeg' },
-        ]
-      : [
-          { src: '/static/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/static/icon-512.png', sizes: '512x512', type: 'image/png' },
-        ];
+    // Artwork priority: DB cover art → YouTube thumbnail → app icon
+    const artwork = artworkUrl
+      ? [{ src: artworkUrl, sizes: '600x600', type: 'image/jpeg' }]
+      : videoId
+        ? [
+            { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,     sizes: '320x180',  type: 'image/jpeg' },
+            { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,     sizes: '480x360',  type: 'image/jpeg' },
+            { src: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, sizes: '1280x720', type: 'image/jpeg' },
+          ]
+        : [
+            { src: '/static/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/static/icon-512.png', sizes: '512x512', type: 'image/png' },
+          ];
     navigator.mediaSession.metadata = new MediaMetadata({
       title:   parsed.title  || title || '',
       artist:  parsed.artist || '',

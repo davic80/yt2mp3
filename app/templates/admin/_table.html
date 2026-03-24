@@ -11,6 +11,8 @@
         <th>ip</th>
         <th>country</th>
         <th>title</th>
+        <th>artwork</th>
+        <th>lyrics</th>
         <th>size</th>
         <th>browser</th>
         <th>os</th>
@@ -51,6 +53,35 @@
           </a>
           {% else %}
           <span style="color: var(--muted);">{{ row.title | truncate(45, True) if row.title else '—' }}</span>
+          {% endif %}
+        </td>
+        {# ── Artwork cell ── #}
+        <td style="width:52px; padding:.35rem .5rem; vertical-align:middle;">
+          {% if row.artwork_url and not row.artwork_blacklisted %}
+            <div style="display:flex;align-items:center;gap:.3rem;">
+              <img src="{{ row.artwork_url }}" alt="" loading="lazy"
+                   style="width:36px;height:36px;border-radius:5px;object-fit:cover;display:block;flex-shrink:0;"
+                   onerror="this.style.display='none'">
+              <button onclick="deleteArtwork('{{ row.job_id }}')" title="Borrar artwork (blacklist)"
+                      style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✕</button>
+            </div>
+          {% elif row.artwork_blacklisted %}
+            <span style="color:var(--muted);font-size:.72rem;" title="Blacklisted">✕BL</span>
+          {% else %}
+            <span style="color:var(--muted)">—</span>
+          {% endif %}
+        </td>
+        {# ── Lyrics cell ── #}
+        <td style="width:60px; padding:.35rem .5rem; vertical-align:middle;">
+          {% if row.video_id %}
+            <div style="display:flex;align-items:center;gap:.3rem;">
+              <a href="/player/api/lyrics/{{ row.job_id }}" target="_blank" rel="noopener"
+                 style="color:var(--neon);text-decoration:none;font-size:.78rem;" title="Ver letra">♪</a>
+              <button onclick="deleteLyrics('{{ row.job_id }}')" title="Borrar letra (blacklist)"
+                      style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✕</button>
+            </div>
+          {% else %}
+            <span style="color:var(--muted)">—</span>
           {% endif %}
         </td>
         <td class="mono" style="white-space:nowrap;">
@@ -106,7 +137,7 @@
         </td>
       </tr>
       <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-        <td colspan="18">
+        <td colspan="20">
           <div class="detail-grid">
             <div class="detail-item">
               <span class="detail-label">YouTube URL</span>

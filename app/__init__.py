@@ -57,7 +57,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.6.2")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.6.3")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -87,7 +87,7 @@ def create_app():
         from sqlalchemy import text
         from app.models import User, Download  # noqa: F401
         from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge  # noqa: F401
-        from app.player_models import Playlist, PlaylistTrack, PlaylistShare, UserFeature, PlayEvent, LyricsCache  # noqa: F401
+        from app.player_models import Playlist, PlaylistTrack, PlaylistShare, UserFeature, PlayEvent, LyricsCache, LyricsBlacklist  # noqa: F401
         db.create_all()
 
         # ── Inline migrations: add new columns if they don't exist yet ──
@@ -105,6 +105,9 @@ def create_app():
             # v3.2.0 — deduplication
             "ALTER TABLE downloads ADD COLUMN video_id VARCHAR(32)",
             "ALTER TABLE downloads ADD COLUMN audio_hash VARCHAR(64)",
+            # v4.6.3 — artwork cache
+            "ALTER TABLE downloads ADD COLUMN artwork_url TEXT",
+            "ALTER TABLE downloads ADD COLUMN artwork_blacklisted BOOLEAN NOT NULL DEFAULT 0",
         ):
             try:
                 with db.engine.connect() as conn:

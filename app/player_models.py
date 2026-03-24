@@ -81,3 +81,13 @@ class LyricsCache(db.Model):
     content  = db.Column(db.Text, nullable=True)   # LRC or plain
     plain    = db.Column(db.Text, nullable=True)   # always plain fallback
     fetched_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class LyricsBlacklist(db.Model):
+    """Blacklisted lyrics sources per video_id — admin-rejected entries won't be re-fetched from the same source."""
+    __tablename__ = "lyrics_blacklist"
+
+    id       = db.Column(db.Integer, primary_key=True)
+    video_id = db.Column(db.String(32), nullable=False, index=True)
+    source   = db.Column(db.String(16), nullable=False)   # 'lrclib' | 'ovh' | '*' = all
+    added_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

@@ -122,6 +122,14 @@
       display: flex; align-items: center; gap: 1rem;
       padding: 0 1.25rem; flex-shrink: 0; z-index: 10;
     }
+    .player-artwork {
+      width: 48px; height: 48px; border-radius: 8px;
+      object-fit: cover; flex-shrink: 0;
+      background: var(--surface3);
+      opacity: 0; transition: opacity .25s ease;
+      display: block;
+    }
+    .player-artwork.loaded { opacity: 1; }
     .player-info { flex: 1; min-width: 0; }
     .player-title {
       font-size: .84rem; white-space: nowrap; overflow: hidden;
@@ -180,6 +188,7 @@
         flex-wrap: wrap; height: var(--player-h); min-height: var(--player-h);
         padding: .35rem .75rem; column-gap: .2rem; row-gap: .45rem; align-content: center;
       }
+      .player-artwork { width: 40px; height: 40px; border-radius: 6px; order: 0; }
       /* Row 1: title (left, flex-1) */
       .player-info {
         order: 1; flex: 1; min-width: 0; width: auto;
@@ -288,6 +297,7 @@
 
 <!-- ── Player bar (persistent) ── -->
 <div class="player-bar">
+  <img id="player-artwork" class="player-artwork" src="" alt="" aria-hidden="true">
   <div class="player-info">
     <div class="player-title player-title-empty" id="player-title">Sin reproducción</div>
   </div>
