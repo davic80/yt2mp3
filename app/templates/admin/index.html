@@ -203,6 +203,41 @@
 
     .empty { text-align: center; padding: 3rem; color: var(--muted); }
     .hidden { display: none !important; }
+
+    /* ── Lyrics modal ── */
+    #lyrics-modal {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,.65);
+      align-items: center; justify-content: center;
+    }
+    .lyrics-modal-box {
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: var(--radius); padding: 1.25rem;
+      width: min(520px, 92vw); display: flex; flex-direction: column; gap: .75rem;
+    }
+    .lyrics-modal-title {
+      font-size: .85rem; font-weight: 600; color: var(--text);
+    }
+    #lyrics-modal-textarea {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border2);
+      border-radius: var(--radius); font-family: var(--mono); font-size: .78rem;
+      padding: .6rem .75rem; resize: vertical; min-height: 220px;
+      outline: none; transition: border-color .12s;
+    }
+    #lyrics-modal-textarea:focus { border-color: var(--neon); }
+    .lyrics-modal-actions {
+      display: flex; justify-content: flex-end; gap: .6rem;
+    }
+    .lyrics-modal-actions button {
+      font-family: var(--font); font-size: .8rem; font-weight: 600;
+      padding: .32rem .85rem; border-radius: var(--radius); cursor: pointer;
+      border: none; transition: background .15s;
+    }
+    #lyrics-modal-save   { background: var(--neon); color: #0a0a0a; }
+    #lyrics-modal-save:hover { background: #4fff25; }
+    #lyrics-modal-cancel { background: var(--surface); border: 1px solid var(--border2); color: var(--muted2); }
+    #lyrics-modal-cancel:hover { color: var(--text); border-color: var(--muted); }
   </style>
 </head>
 <body>
@@ -525,9 +560,75 @@ async function deleteLyrics(jobId) {
   }
 }
 
+// ── Custom artwork (prompt for URL) ──────────────────────────────────────────
+async function setCustomArtwork(jobId) {
+  const url = prompt('URL de la imagen de portada:');
+  if (!url || !url.trim()) return;
+  try {
+    const resp = await fetch(`/player/api/artwork/${jobId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url.trim() }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.ok) {
+      refreshTable();
+    } else {
+      alert(data.error || 'Error al guardar artwork');
+    }
+  } catch (e) {
+    alert('Error de conexión.');
+  }
+}
+
+// ── Custom lyrics (modal with textarea) ──────────────────────────────────────
+let _lyricsModalJobId = null;
+
+function setCustomLyrics(jobId) {
+  _lyricsModalJobId = jobId;
+  document.getElementById('lyrics-modal-textarea').value = '';
+  document.getElementById('lyrics-modal').style.display = 'flex';
+  document.getElementById('lyrics-modal-textarea').focus();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('lyrics-modal-cancel').addEventListener('click', function () {
+    document.getElementById('lyrics-modal').style.display = 'none';
+    _lyricsModalJobId = null;
+  });
+  document.getElementById('lyrics-modal-save').addEventListener('click', async function () {
+    const lyrics = document.getElementById('lyrics-modal-textarea').value;
+    if (!lyrics.trim()) { alert('La letra no puede estar vacía.'); return; }
+    const jobId = _lyricsModalJobId;
+    document.getElementById('lyrics-modal').style.display = 'none';
+    _lyricsModalJobId = null;
+    try {
+      const resp = await fetch(`/player/api/lyrics/${jobId}/cache`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lyrics }),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.ok) {
+        refreshTable();
+      } else {
+        alert(data.error || 'Error al guardar letra');
+      }
+    } catch (e) {
+      alert('Error de conexión.');
+    }
+  });
+  // Close on backdrop click
+  document.getElementById('lyrics-modal').addEventListener('click', function (e) {
+    if (e.target === this) {
+      this.style.display = 'none';
+      _lyricsModalJobId = null;
+    }
+  });
+});
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 initCheckboxes();
-
 // User filter — debounced navigate
 (function () {
   const input = document.getElementById('user-filter-input');
@@ -549,6 +650,18 @@ initCheckboxes();
   });
 })();
 </script>
+
+<!-- ── Lyrics modal ── -->
+<div id="lyrics-modal">
+  <div class="lyrics-modal-box">
+    <div class="lyrics-modal-title">Letra personalizada</div>
+    <textarea id="lyrics-modal-textarea" placeholder="Pega aquí la letra (texto plano o LRC sincronizado)…"></textarea>
+    <div class="lyrics-modal-actions">
+      <button id="lyrics-modal-cancel">Cancelar</button>
+      <button id="lyrics-modal-save">Guardar</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

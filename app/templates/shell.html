@@ -128,8 +128,9 @@
       background: var(--surface3);
       opacity: 0; transition: opacity .25s ease;
       display: block;
+      cursor: default;
     }
-    .player-artwork.loaded { opacity: 1; }
+    .player-artwork.loaded { opacity: 1; cursor: pointer; }
     .player-info { flex: 1; min-width: 0; }
     .player-title {
       font-size: .84rem; white-space: nowrap; overflow: hidden;
@@ -178,6 +179,45 @@
 
     /* ── Player bar: hide when no session ── */
     body:not(.has-session) .player-bar { display: none; }
+
+    /* ── Player bar: expanded (artwork full-size) ── */
+    .player-bar { position: relative; }
+    .player-bar.expanded {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: auto;
+      flex-direction: column;
+      padding: 1.5rem 1.25rem 1rem;
+      gap: .75rem;
+      z-index: 100;
+      background: var(--surface);
+    }
+    .player-bar.expanded .player-artwork {
+      width: 240px; height: 240px;
+      border-radius: 12px;
+      margin: 0 auto;
+      cursor: pointer;
+      order: 0;
+    }
+    .btn-artwork-close {
+      display: none;
+      position: absolute;
+      top: .75rem; right: 1rem;
+      background: none; border: none;
+      color: var(--muted2); font-size: 1.3rem;
+      cursor: pointer; padding: .25rem;
+      transition: color .12s;
+    }
+    .btn-artwork-close:hover { color: var(--text); }
+    .player-bar.expanded .btn-artwork-close { display: block; }
+    .player-bar.expanded .player-info    { order: 1; text-align: center; }
+    .player-bar.expanded .player-controls { order: 2; justify-content: center; }
+    .player-bar.expanded .player-right   { order: 3; }
+    @media (max-width: 600px) {
+      .player-bar.expanded .player-artwork {
+        width: min(70vw, 280px); height: min(70vw, 280px);
+      }
+    }
 
     /* ── Player bar responsive ── */
     @media (max-width: 600px) {
@@ -297,6 +337,7 @@
 
 <!-- ── Player bar (persistent) ── -->
 <div class="player-bar">
+  <button class="btn-artwork-close" id="btn-artwork-close" title="Cerrar">✕</button>
   <img id="player-artwork" class="player-artwork" src="" alt="" aria-hidden="true">
   <div class="player-info">
     <div class="player-title player-title-empty" id="player-title">Sin reproducción</div>
@@ -398,6 +439,17 @@
     const jobId = window.Player?.getState()?.currentJob;
     window.Lyrics?.toggle(jobId);
   }
+
+  // ── Expanded player bar (artwork click) ─────────────────────────────────────
+  document.getElementById('player-artwork').addEventListener('click', () => {
+    const bar = document.querySelector('.player-bar');
+    const hasArt = document.getElementById('player-artwork').classList.contains('loaded');
+    if (!hasArt) return;
+    bar.classList.toggle('expanded');
+  });
+  document.getElementById('btn-artwork-close').addEventListener('click', () => {
+    document.querySelector('.player-bar').classList.remove('expanded');
+  });
 </script>
 </body>
 </html>

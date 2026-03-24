@@ -62,13 +62,23 @@
               <img src="{{ row.artwork_url }}" alt="" loading="lazy"
                    style="width:36px;height:36px;border-radius:5px;object-fit:cover;display:block;flex-shrink:0;"
                    onerror="this.style.display='none'">
+              <button onclick="setCustomArtwork('{{ row.job_id }}')" title="Cambiar artwork"
+                      style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
               <button onclick="deleteArtwork('{{ row.job_id }}')" title="Borrar artwork (blacklist)"
                       style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✕</button>
             </div>
           {% elif row.artwork_blacklisted %}
-            <span style="color:var(--muted);font-size:.72rem;" title="Blacklisted">✕BL</span>
+            <div style="display:flex;align-items:center;gap:.3rem;">
+              <span style="color:var(--muted);font-size:.72rem;" title="Blacklisted">✕BL</span>
+              <button onclick="setCustomArtwork('{{ row.job_id }}')" title="Poner artwork custom"
+                      style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
+            </div>
           {% else %}
-            <span style="color:var(--muted)">—</span>
+            <div style="display:flex;align-items:center;gap:.3rem;">
+              <span style="color:var(--muted)">—</span>
+              <button onclick="setCustomArtwork('{{ row.job_id }}')" title="Poner artwork custom"
+                      style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
+            </div>
           {% endif %}
         </td>
         {# ── Lyrics cell ── #}
@@ -77,6 +87,8 @@
             <div style="display:flex;align-items:center;gap:.3rem;">
               <a href="/player/api/lyrics/{{ row.job_id }}" target="_blank" rel="noopener"
                  style="color:var(--neon);text-decoration:none;font-size:.78rem;" title="Ver letra">♪</a>
+              <button onclick="setCustomLyrics('{{ row.job_id }}')" title="Poner letra custom"
+                      style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
               <button onclick="deleteLyrics('{{ row.job_id }}')" title="Borrar letra (blacklist)"
                       style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✕</button>
             </div>

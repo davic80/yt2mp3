@@ -252,6 +252,29 @@ def api_artwork_delete(job_id: str):
     return jsonify({"ok": True})
 
 
+@player_bp.route("/api/artwork/<job_id>", methods=["PATCH"])
+@user_required
+def api_artwork_patch(job_id: str):
+    """Admin: set a custom artwork URL for a track, clearing any blacklist."""
+    if get_current_user_email() is not None:
+        abort(403)
+
+    data = request.get_json(silent=True) or {}
+    url  = (data.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url required"}), 400
+
+    record = Download.query.filter_by(job_id=job_id).first_or_404()
+    record.artwork_url         = url
+    record.artwork_blacklisted = False
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "db error"}), 500
+    return jsonify({"ok": True, "artwork_url": url})
+
+
 # ── Playlists API ──────────────────────────────────────────────────────────────
 
 @player_bp.route("/api/playlists")
@@ -743,4 +766,48 @@ def api_lyrics_cache_delete(job_id: str):
         db.session.rollback()
         return jsonify({"error": "db error"}), 500
 
+    return jsonify({"ok": True})
+
+
+@player_bp.route("/api/lyrics/<job_id>/cache", methods=["PATCH"])
+@user_required
+def api_lyrics_cache_patch(job_id: str):
+    """Admin: set custom lyrics for a track, clearing any blacklist."""
+    if get_current_user_email() is not None:
+        abort(403)
+
+    data   = request.get_json(silent=True) or {}
+    lyrics = data.get("lyrics", "")
+    if not isinstance(lyrics, str) or not lyrics.strip():
+        return jsonify({"error": "lyrics required"}), 400
+
+    record = Download.query.filter_by(job_id=job_id).first_or_404()
+
+    from app.player_models import LyricsCache, LyricsBlacklist
+
+    if record.video_id:
+        # Remove any existing blacklist entry so the lyrics are served
+        LyricsBlacklist.query.filter_by(video_id=record.video_id, source="*").delete()
+
+        # Upsert LyricsCache with source='custom'
+        existing = LyricsCache.query.filter_by(video_id=record.video_id).first()
+        if existing:
+            existing.source  = "custom"
+            existing.synced  = False
+            existing.content = lyrics
+            existing.plain   = lyrics
+        else:
+            db.session.add(LyricsCache(
+                video_id = record.video_id,
+                source   = "custom",
+                synced   = False,
+                content  = lyrics,
+                plain    = lyrics,
+            ))
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "db error"}), 500
     return jsonify({"ok": True})

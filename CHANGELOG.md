@@ -6,6 +6,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.4] - 2026-03-24
+
+### Added
+- **Player bar expandido (estilo Spotify).** Al pulsar el artwork en el player bar, la barra se
+  expande hacia arriba mostrando la portada en grande (240×240 px escritorio, hasta 280×280 px
+  móvil). El cursor cambia a pointer cuando hay artwork cargado. Se cierra con el botón ✕
+  (arriba a la derecha) o pulsando de nuevo la imagen.
+- **Custom artwork en admin.** Botón ✎ en la columna artwork de `/db`. Abre un `prompt()` para
+  introducir la URL de imagen; llama a `PATCH /player/api/artwork/<job_id>` que guarda la URL
+  en BD y limpia cualquier blacklist previa.
+- **Custom lyrics en admin.** Botón ✎ en la columna lyrics de `/db`. Abre un modal con
+  `<textarea>` (texto plano o LRC sincronizado); llama a `PATCH /player/api/lyrics/<job_id>/cache`
+  que hace upsert en `LyricsCache` con `source='custom'` y elimina cualquier blacklist previa.
+- **Nuevos endpoints de administración:**
+  - `PATCH /player/api/artwork/<job_id>` — sobreescribe `artwork_url` y limpia
+    `artwork_blacklisted` (admin only).
+  - `PATCH /player/api/lyrics/<job_id>/cache` — upsert en `LyricsCache` con letra custom y
+    elimina entrada `source='*'` de `LyricsBlacklist` (admin only).
+
+---
+
 ## [4.6.3] - 2026-03-24
 
 ### Added
