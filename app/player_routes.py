@@ -498,7 +498,7 @@ def api_shared_playlist(token: str):
 def shared_redirect(token: str):
     """Canonical short URL for shared playlists: /player/s/<token> → /player?shared=<token>.
     Works whether the user is logged in or not; login redirect preserves the ?shared= param."""
-    return redirect(url_for("player.index") + f"?shared={token}")
+    return redirect(f"/player?shared={token}")
 
 
 @player_bp.route("/api/shared/<token>/claim/<job_id>", methods=["POST"])

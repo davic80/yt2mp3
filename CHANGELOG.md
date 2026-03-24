@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.6] - 2026-03-24
+
+### Fixed
+- **SPA navigation a `/player/s/<token>` no mostraba la playlist compartida.** Al navegar vía
+  SPA, `fetch` seguía el redirect 302 silenciosamente pero `pushState` usaba la URL original
+  (`/player/s/TOKEN`) sin query string, por lo que `location.search` quedaba vacío y
+  `sharedToken` era `null`. Corregido en `spa.js`: si `res.redirected` es verdadero se usa
+  `res.url` (URL final) para `pushState` en lugar de la URL original.
+- **`/player/s/<token>` generaba `/player/?shared=<token>` (con barra) en lugar de
+  `/player?shared=<token>`.** El blueprint de Flask añade `/` al usar `url_for("player.index")`.
+  Reemplazado por `redirect(f"/player?shared={token}")` directo para evitar la barra extra.
+
+---
+
 ## [4.6.5] - 2026-03-24
 
 ### Fixed

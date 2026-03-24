@@ -52,7 +52,12 @@
 
     container.innerHTML = html;
 
-    if (pushState) history.pushState({ href }, '', href);
+    // If the server redirected us (e.g. /player/s/<token> → /player/?shared=<token>),
+    // push the *final* URL so location.search reflects the real destination.
+    const finalHref = res.redirected
+      ? new URL(res.url).pathname + new URL(res.url).search
+      : href;
+    if (pushState) history.pushState({ href: finalHref }, '', finalHref);
 
     // Re-run <script> tags — innerHTML doesn't execute them
     runScripts(container);
