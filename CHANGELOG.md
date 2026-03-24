@@ -6,6 +6,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.7] - 2026-03-24
+
+### Fixed
+- **Lista vacía al navegar desde `/db/` → Player (race condition i18n).** En una full-page
+  load, el `<script>` del fragmento `player.html` se ejecuta mientras el browser parsea el
+  HTML, antes de que `i18n.js` haya sido evaluado. `window.I18n` era `undefined` →
+  `renderTracks()` fallaba silenciosamente y la lista quedaba en blanco. Corregido: si
+  `window.I18n` no existe al cargar el fragmento, se espera al evento `i18n:change` que
+  `shell.html` dispara tras `I18n.init()`, y solo entonces se llama `loadAll()`. El listener
+  de re-render por cambio de idioma también se registra después de la carga inicial para
+  evitar un render con estado vacío.
+
+### Added
+- **Script de datos de prueba (`scripts/seed_test_data.py`).** Crea de forma idempotente
+  2 usuarios (`test1@example.com`, `test2@example.com`), 5 canciones, 2 playlists y sus
+  `UserFeature` correspondientes. Útil para desarrollo local y como base de integración.
+
+---
+
 ## [4.6.6] - 2026-03-24
 
 ### Fixed

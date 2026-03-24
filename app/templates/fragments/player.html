@@ -872,13 +872,28 @@
   window.claimTrack          = claimTrack;
   // openLyrics / closeLyrics / growLyrics / shrinkLyrics are in static/lyrics.js
 
-  // Re-render when language changes
-  document.addEventListener('i18n:change', () => {
+  // Re-render when language changes (only after initial data is loaded)
+  function _onLangChange() {
     applyStaticStrings();
     renderSidebar();
     renderTracks();
-  });
+  }
 
-  loadAll();
+  // Guard: on a full-page load (e.g. navigating from /db/ → /player/) the
+  // fragment <script> executes while the HTML is being parsed, before the
+  // external <script src="/static/i18n.js"> has been evaluated. In that case
+  // window.I18n is undefined and renderTracks() would crash. We wait for the
+  // 'i18n:change' event that shell.html fires after I18n.init() completes.
+  // When the SPA swaps the fragment normally, I18n is already loaded and we
+  // call loadAll() immediately.
+  if (window.I18n) {
+    loadAll();
+    document.addEventListener('i18n:change', _onLangChange);
+  } else {
+    document.addEventListener('i18n:change', () => {
+      loadAll();
+      document.addEventListener('i18n:change', _onLangChange);
+    }, { once: true });
+  }
 })();
 </script>
