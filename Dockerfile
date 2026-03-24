@@ -1,9 +1,12 @@
 FROM python:3.12-slim
 
-# System dependencies: ffmpeg for audio conversion
+# System dependencies: ffmpeg for audio conversion, curl+unzip for Deno install
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg curl unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Deno — JS runtime required by yt-dlp 2026+ to solve YouTube signature challenges
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 
 WORKDIR /app
 

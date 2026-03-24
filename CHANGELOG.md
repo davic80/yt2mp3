@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.9] - 2026-03-24
+
+### Fixed
+- **Descargas de YouTube rotas por falta de runtime JavaScript.** yt-dlp `2026.03.17` requiere
+  un runtime JS (Deno) para resolver los desafíos de firma/n-challenge de YouTube. Sin él,
+  todos los vídeos devolvían `"This video is not available"`. Se añade la instalación de Deno
+  al `Dockerfile` para que yt-dlp lo detecte automáticamente.
+
+---
+
 ## [4.6.8] - 2026-03-24
 
 ### Added
