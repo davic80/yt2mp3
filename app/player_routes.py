@@ -111,6 +111,7 @@ def api_tracks():
             "file_size":   r.file_size,
             "created_at":  r.created_at.isoformat() if r.created_at else None,
             "is_favorite": bool(r.is_favorite),
+            "video_id":    r.video_id,
         }
         for r in rows
     ])

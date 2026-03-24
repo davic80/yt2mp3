@@ -6,6 +6,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.2] - 2026-03-24
+
+### Added
+- **`playbackState` sincronizado con iOS.** `navigator.mediaSession.playbackState`
+  se actualiza a `'playing'`/`'paused'` en los eventos `play`/`pause` del `<audio>`,
+  garantizando que los controles del sistema reflejen el estado real.
+- **Barra de progreso en lock screen (`setPositionState`).** Se llama a
+  `navigator.mediaSession.setPositionState({ duration, position, playbackRate })`
+  en cada tick de `timeupdate`, activando la barra de progreso en la notificación
+  de iOS 15+ y en el media hub de escritorio.
+- **Artwork real de YouTube.** `GET /player/api/tracks` ahora incluye `video_id`.
+  La notificación de lock screen muestra la portada real del vídeo usando las URLs
+  públicas de thumbnail de YouTube (`mqdefault`, `hqdefault`, `maxresdefault`).
+  Fallback al icono de la app si el track no tiene `video_id`.
+- **Parsing de título para artista.** Si el título tiene formato `"Artista - Canción"`,
+  la notificación muestra `artist = "Artista"` y `title = "Canción"` por separado.
+  Sin el separador ` - `, el título completo va en `title` y `artist` queda vacío.
+  Ya no aparece `'yt2mp3'` como artista falso.
+- **Handler `stop` en Media Session.** Auriculares que envían `stop` pausan y
+  resetean la posición correctamente.
+- **`try/catch` en `setActionHandler`.** Todos los handlers de Media Session se
+  registran con protección frente a browsers que no soporten alguna acción.
+
+---
+
 ## [4.6.1] - 2026-03-24
 
 ### Fixed

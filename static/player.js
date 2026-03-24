@@ -56,11 +56,15 @@ window.Player = (function () {
     if (elIconPlay)  elIconPlay.style.display  = 'none';
     if (elIconPause) elIconPause.style.display = 'block';
     document.body.classList.add('is-playing');
+    if ('mediaSession' in navigator)
+      navigator.mediaSession.playbackState = 'playing';
   });
   audio.addEventListener('pause', () => {
     if (elIconPlay)  elIconPlay.style.display  = 'block';
     if (elIconPause) elIconPause.style.display = 'none';
     document.body.classList.remove('is-playing');
+    if ('mediaSession' in navigator)
+      navigator.mediaSession.playbackState = 'paused';
   });
 
   audio.addEventListener('ended', () => {
@@ -84,7 +88,21 @@ window.Player = (function () {
       _lastSave = now;
       _saveState();
     }
+    _updatePositionState();
   });
+
+  function _updatePositionState() {
+    if (!('mediaSession' in navigator)) return;
+    if (!('setPositionState' in navigator.mediaSession)) return;
+    if (!audio.duration || !isFinite(audio.duration)) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration:     audio.duration,
+        position:     audio.currentTime,
+        playbackRate: audio.playbackRate || 1,
+      });
+    } catch (_) {}
+  }
 
   // ── Player bar controls ─────────────────────────────────────────────────────
   if (elWrap) {
@@ -287,31 +305,52 @@ window.Player = (function () {
     elTitle.classList.remove('player-title-empty');
     elTitle.textContent = title;
     document.title = title + ' · yt2mp3';
-    _updateMediaSession(title);
+    const track   = state.tracks.find(t => t.job_id === jobId);
+    const videoId = track ? (track.video_id || null) : null;
+    _updateMediaSession(title, videoId);
   }
 
   // ── Media Session API (lock screen / headphone controls) ────────────────────
-  function _updateMediaSession(title) {
+
+  function _parseTitle(fullTitle) {
+    const idx = (fullTitle || '').indexOf(' - ');
+    if (idx === -1) return { title: fullTitle || '', artist: '', album: '' };
+    return { artist: fullTitle.slice(0, idx), title: fullTitle.slice(idx + 3), album: '' };
+  }
+
+  function _updateMediaSession(title, videoId) {
     if (!('mediaSession' in navigator)) return;
+    const parsed  = _parseTitle(title);
+    const artwork = videoId
+      ? [
+          { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,     sizes: '320x180',   type: 'image/jpeg' },
+          { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,     sizes: '480x360',   type: 'image/jpeg' },
+          { src: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, sizes: '1280x720',  type: 'image/jpeg' },
+        ]
+      : [
+          { src: '/static/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/static/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ];
     navigator.mediaSession.metadata = new MediaMetadata({
-      title:  title || 'yt2mp3',
-      artist: 'yt2mp3',
-      album:  '',
-      artwork: [
-        { src: '/static/icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: '/static/icon-512.png', sizes: '512x512', type: 'image/png' },
-      ],
+      title:   parsed.title  || title || '',
+      artist:  parsed.artist || '',
+      album:   '',
+      artwork,
     });
   }
 
   function _setupMediaSessionHandlers() {
     if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.setActionHandler('play',          () => { audio.play().catch(() => {}); });
-    navigator.mediaSession.setActionHandler('pause',         () => { audio.pause(); });
-    navigator.mediaSession.setActionHandler('previoustrack', () => { prevTrack(); });
-    navigator.mediaSession.setActionHandler('nexttrack',     () => { nextTrack(); });
-    navigator.mediaSession.setActionHandler('seekbackward',  null);
-    navigator.mediaSession.setActionHandler('seekforward',   null);
+    const safe = (action, handler) => {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch (_) {}
+    };
+    safe('play',          () => audio.play().catch(() => {}));
+    safe('pause',         () => audio.pause());
+    safe('stop',          () => { audio.pause(); audio.currentTime = 0; });
+    safe('previoustrack', () => prevTrack());
+    safe('nexttrack',     () => nextTrack());
+    safe('seekbackward',  null);   // disable ±10 s buttons → iPhone shows prev/next instead
+    safe('seekforward',   null);
   }
 
   _setupMediaSessionHandlers();
