@@ -98,9 +98,15 @@ def stream(job_id: str):
 @user_required
 def api_tracks():
     email = get_current_user_email()
+
+    # Local admin can impersonate a user with ?as=email to see their tracks
+    if not email and _is_local_request():
+        email = request.args.get("as") or None
+
     query = Download.query.filter_by(status="done")
 
-    # Local (admin) → email is None → sees all tracks
+    # Local (admin) without ?as → email is None → sees all tracks
+    # Local admin with ?as=email → sees that user's tracks
     # Remote logged-in user → filter to own tracks only
     if email:
         query = query.filter_by(user_email=email)
@@ -283,6 +289,10 @@ def api_playlists():
     from sqlalchemy import case, func
     email = get_current_user_email()
 
+    # Local admin can impersonate a user with ?as=email to see their playlists
+    if not email and _is_local_request():
+        email = request.args.get("as") or None
+
     query = (
         db.session.query(
             Playlist,
@@ -292,7 +302,7 @@ def api_playlists():
         .group_by(Playlist.id)
     )
 
-    # Remote users see only their own playlists; local sees all
+    # Remote users / local with ?as → filter by email; local without ?as → all playlists
     if email:
         query = query.filter(Playlist.user_email == email)
 
@@ -558,14 +568,37 @@ def api_claim_track(token: str, job_id: str):
 
 # ── User features API ─────────────────────────────────────────────────────────
 
+@player_bp.route("/api/admin/users-list")
+@user_required
+def api_admin_users_list():
+    """Return list of all users — local admin only, for the user picker in the player topbar."""
+    if not _is_local_request():
+        return jsonify({"error": "forbidden"}), 403
+    from app.models import User
+    users = User.query.order_by(User.email).all()
+    return jsonify([
+        {"email": u.email, "name": u.name or u.email}
+        for u in users
+    ])
+
 @player_bp.route("/api/me/features")
 @user_required
 def api_me_features():
     """Return feature flags for the current user."""
     email = get_current_user_email()
-    if not email:
-        # Local/admin — all features on
+
+    # Local admin can impersonate a user with ?as=email to see their features
+    if not email and _is_local_request():
+        as_email = request.args.get("as")
+        if as_email:
+            feat = UserFeature.query.filter_by(user_email=as_email).first()
+            return jsonify({
+                "lyrics_enabled": bool(feat.lyrics_enabled) if feat else False,
+                "share_enabled":  bool(feat.share_enabled)  if feat else False,
+            })
+        # Local admin without ?as → all features on
         return jsonify({"lyrics_enabled": True, "share_enabled": True})
+
     feat = UserFeature.query.filter_by(user_email=email).first()
     return jsonify({
         "lyrics_enabled": bool(feat.lyrics_enabled) if feat else False,

@@ -319,10 +319,13 @@
   async function loadAll() {
     applyStaticStrings();
     try {
+      // ?as=email allows a local admin to view a specific user's library
+      const asEmail = new URLSearchParams(location.search).get('as');
+      const qs      = asEmail ? '?as=' + encodeURIComponent(asEmail) : '';
       const [tracksRes, plRes, featRes] = await Promise.all([
-        fetch('/player/api/tracks'),
-        fetch('/player/api/playlists'),
-        fetch('/player/api/me/features'),
+        fetch('/player/api/tracks'       + qs),
+        fetch('/player/api/playlists'    + qs),
+        fetch('/player/api/me/features'  + qs),
       ]);
       state.tracks      = await tracksRes.json();
       state.playlists   = await plRes.json();

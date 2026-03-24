@@ -6,6 +6,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.8] - 2026-03-24
+
+### Added
+- **Link "Usuarios" en el topbar del admin `/db/`.** Acceso directo a `/db/users` junto a
+  Analytics y → Player. El link `→ Player` ahora apunta a `/player/` (con trailing slash)
+  para evitar el redirect 308 de Flask.
+- **Selector de usuario en la topbar del player (solo acceso local/admin).** Un `<select>`
+  aparece en la topbar cuando se está en `/player*` y la solicitud proviene de una IP local.
+  Permite al administrador ver las canciones, playlists y features de cualquier usuario
+  registrado. La URL cambia a `/player?as=email` para que el estado sea navegable. Al
+  seleccionar "— todos —" vuelve a la vista global sin filtro de usuario.
+- **Endpoint `GET /player/api/admin/users-list`** (solo local): lista de todos los usuarios
+  `[{email, name}]` para poblar el selector.
+- **Parámetro `?as=email` en `/player/api/tracks`, `/player/api/playlists`,
+  `/player/api/me/features`** (solo local): permite al admin impersonar a un usuario y ver
+  su biblioteca sin necesidad de una sesión.
+- **Context processor `is_local`** inyectado en todos los templates: indica si la request
+  proviene de una IP local (RFC-1918 / loopback).
+
+---
+
 ## [4.6.7] - 2026-03-24
 
 ### Fixed

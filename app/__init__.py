@@ -57,7 +57,7 @@ def create_app():
     app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.6.7")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.6.8")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -199,6 +199,11 @@ def create_app():
             "repo_url":         app.config["REPO_URL"],
             "refresh_interval": app.config["ADMIN_REFRESH_INTERVAL"],
         }
+
+    @app.context_processor
+    def inject_is_local():
+        from app.auth_utils import _is_local_request
+        return {"is_local": _is_local_request()}
 
     # ── Background migration: fill hardware_model / identity_hash for old rows ──
     def _migrate_hardware():

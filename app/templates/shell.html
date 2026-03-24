@@ -86,6 +86,24 @@
     .auth-btn.login { border-color: var(--neon); color: var(--neon); }
     .hidden { display: none !important; }
 
+    /* ── Admin user picker (local only) ── */
+    .admin-user-picker {
+      display: flex; align-items: center; gap: .4rem; flex-shrink: 0;
+    }
+    .admin-user-picker label {
+      font-size: .72rem; color: var(--muted); white-space: nowrap; user-select: none;
+    }
+    .admin-user-picker select {
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: var(--radius); color: var(--text); font-family: var(--font);
+      font-size: .75rem; padding: .2rem .45rem; cursor: pointer;
+      outline: none; max-width: 160px;
+      transition: border-color .15s;
+    }
+    .admin-user-picker select:hover,
+    .admin-user-picker select:focus { border-color: var(--neon); }
+    @media (max-width: 600px) { .admin-user-picker label { display: none; } }
+
     /* ── Topbar responsive ── */
     @media (max-width: 600px) {
       :root { --topbar-h: 96px; }
@@ -317,6 +335,15 @@
     <span class="lang-sep">|</span>
     <button class="lang-btn" data-lang="en" onclick="I18n.setLang('en')"><span class="lang-flag">🇬🇧</span><span class="lang-btn-text"> EN</span></button>
   </div>
+  {% if is_local %}
+  <!-- Admin user picker — only rendered for local (admin) requests -->
+  <div class="admin-user-picker" id="admin-user-picker" style="display:none">
+    <label for="user-picker-select">👤</label>
+    <select id="user-picker-select" title="Ver canciones de un usuario concreto">
+      <option value="">— todos —</option>
+    </select>
+  </div>
+  {% endif %}
   <!-- Auth zone -->
   <div class="auth-zone" id="auth-zone">
     <div id="auth-loggedin" class="hidden" style="display:flex;align-items:center;gap:.6rem;">
@@ -450,6 +477,60 @@
   document.getElementById('btn-artwork-close').addEventListener('click', () => {
     document.querySelector('.player-bar').classList.remove('expanded');
   });
+
+  // ── Admin user picker (local only) ──────────────────────────────────────────
+  (function () {
+    const wrap   = document.getElementById('admin-user-picker');
+    const sel    = document.getElementById('user-picker-select');
+    if (!wrap || !sel) return;  // not rendered (non-local request)
+
+    // Show the picker only when we are on the /player route
+    function _syncVisibility() {
+      const onPlayer = location.pathname.startsWith('/player');
+      wrap.style.display = onPlayer ? 'flex' : 'none';
+    }
+    _syncVisibility();
+
+    // Keep visibility in sync as the SPA navigates
+    window.addEventListener('popstate', _syncVisibility);
+    document.addEventListener('click', () => setTimeout(_syncVisibility, 50));
+
+    // Populate the <select> with users from the API
+    fetch('/player/api/admin/users-list')
+      .then(r => r.ok ? r.json() : [])
+      .then(users => {
+        users.forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.email;
+          opt.textContent = u.name || u.email;
+          sel.appendChild(opt);
+        });
+        // Pre-select the ?as= param if present in the current URL
+        const as = new URLSearchParams(location.search).get('as');
+        if (as) sel.value = as;
+      })
+      .catch(() => {});
+
+    // Navigate to /player?as=email (or /player if "all") on change
+    sel.addEventListener('change', () => {
+      const email = sel.value;
+      const dest  = email
+        ? '/player?as=' + encodeURIComponent(email)
+        : '/player';
+      // Use SPA navigation: push state then fire popstate so spa.js picks it up
+      history.pushState({ href: dest }, '', dest);
+      window.dispatchEvent(new PopStateEvent('popstate', { state: { href: dest } }));
+    });
+
+    // Keep the <select> value in sync when the browser navigates (back/forward)
+    // or when the SPA updates the URL
+    function _syncSelect() {
+      const as = new URLSearchParams(location.search).get('as') || '';
+      if (sel.value !== as) sel.value = as;
+      _syncVisibility();
+    }
+    window.addEventListener('popstate', _syncSelect);
+  })();
 </script>
 </body>
 </html>
