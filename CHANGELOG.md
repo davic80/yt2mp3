@@ -6,6 +6,34 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.7.0] - 2026-03-25
+
+### Added
+- **Drag & drop canciones a playlists.** Las filas de tracks ahora son arrastrables
+  (`draggable`). Al soltar una canción sobre una playlist en el sidebar, se añade
+  automáticamente a esa playlist.
+- **Reordenar canciones dentro de una playlist.** Al ver una playlist, se pueden
+  arrastrar las filas para cambiar el orden. El nuevo orden se persiste al servidor
+  vía `PUT /player/api/playlists/<pid>/reorder`.
+- **Zona de basura en el sidebar.** Debajo de la lista de playlists aparece una zona
+  🗑 donde:
+  - Soltar una **canción** (cuando se ve una playlist) la elimina de la playlist
+    sin confirmación.
+  - Soltar una **playlist** (arrastrada desde el sidebar) la elimina con
+    confirmación.
+- **Endpoint `PUT /player/api/playlists/<pid>/reorder`** para reordenar tracks
+  dentro de una playlist (backend).
+
+### Changed
+- **Sidebar de playlists:** se eliminó el botón `×` de borrar; ahora se borran
+  arrastrando a la zona de basura. El botón de compartir `⇗` se agrandó de `.8rem`
+  a `1rem`.
+- **Letras — fuente más grande por defecto.** `lyrics.js` cambia `_fontSize` de
+  `0.82rem` a `1.0rem`, rango de `0.70–1.50rem`. Panel más ancho en desktop:
+  `400px` (antes `340px`). Fuente base en `style.css` también actualizada a `1rem`.
+
+---
+
 ## [4.6.11] - 2026-03-25
 
 ### Fixed

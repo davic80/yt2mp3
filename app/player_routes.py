@@ -436,6 +436,32 @@ def api_remove_from_playlist(pid: int, job_id: str):
     return jsonify({"ok": True})
 
 
+@player_bp.route("/api/playlists/<int:pid>/reorder", methods=["PUT"])
+@user_required
+def api_reorder_playlist(pid: int):
+    """Reorder tracks within a playlist. Expects JSON: { "order": ["job_id_1", "job_id_2", ...] }"""
+    pl = Playlist.query.get_or_404(pid)
+
+    email = get_current_user_email()
+    if email and pl.user_email != email:
+        abort(403)
+
+    data  = request.get_json(silent=True) or {}
+    order = data.get("order", [])
+    if not order:
+        return jsonify({"error": "order required"}), 400
+
+    tracks = PlaylistTrack.query.filter_by(playlist_id=pid).all()
+    by_job = {t.job_id: t for t in tracks}
+
+    for i, job_id in enumerate(order):
+        if job_id in by_job:
+            by_job[job_id].position = i
+
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 # ── Playlist sharing API ───────────────────────────────────────────────────────
 
 @player_bp.route("/api/playlists/<int:pid>/share", methods=["POST"])

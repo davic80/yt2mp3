@@ -17,9 +17,9 @@ window.Lyrics = (function () {
   let _enabled      = false;
   let _lyricsJob    = null;
   let _lrcLines     = [];        // [{time, text}] for synced lyrics
-  let _fontSize     = 0.82;      // rem, adjustable with grow/shrink
-  const _FONT_MIN   = 0.60;
-  const _FONT_MAX   = 1.40;
+  let _fontSize     = 1.00;      // rem, adjustable with grow/shrink
+  const _FONT_MIN   = 0.70;
+  const _FONT_MAX   = 1.50;
   const _FONT_STEP  = 0.08;
 
   // ── HTML escaping ─────────────────────────────────────────────────────────────
@@ -158,7 +158,7 @@ window.Lyrics = (function () {
   function close() {
     _lyricsJob = null;
     _lrcLines  = [];
-    _fontSize  = 0.82;
+    _fontSize  = 1.00;
     _stopLrcSync();
     document.querySelectorAll('.lyrics-btn').forEach(b => b.classList.remove('active'));
     window._setLyricsBtnActive?.(false);

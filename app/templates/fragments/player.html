@@ -37,15 +37,9 @@
   }
   .btn-new-pl:hover { background: var(--surface2); color: var(--neon); }
   .btn-new-pl .plus { font-size: 1rem; line-height: 1; color: var(--neon); }
-  .sidebar-pl-del {
-    background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: .85rem; padding: 0 .2rem; line-height: 1; flex-shrink: 0;
-    transition: color .12s;
-  }
-  .sidebar-pl-del:hover { color: #ff4d4d; }
   .sidebar-pl-share {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: .8rem; padding: 0 .2rem; line-height: 1; flex-shrink: 0;
+    font-size: 1rem; padding: 0 .25rem; line-height: 1; flex-shrink: 0;
     transition: color .12s;
   }
   .sidebar-pl-share:hover { color: var(--neon); }
@@ -212,6 +206,23 @@
   .claim-btn:hover { border-color: var(--neon); color: var(--neon); }
   .claim-btn.claimed { border-color: transparent; color: var(--muted); cursor: default; }
 
+  /* ── Drag & drop ── */
+  .track-list tbody tr[draggable="true"] { cursor: grab; }
+  .track-list tbody tr.dragging { opacity: .35; }
+  .track-list tbody tr.drag-above { box-shadow: 0 -2px 0 var(--neon) inset; }
+  .track-list tbody tr.drag-below { box-shadow: 0 2px 0 var(--neon) inset; }
+  .sidebar-item.drag-over { background: var(--neon-dim); outline: 1.5px dashed var(--neon); }
+  .sidebar-item.dragging-pl { opacity: .4; }
+  .trash-zone {
+    margin: .6rem .85rem; padding: .55rem .6rem; border-radius: var(--radius);
+    border: 1.5px dashed var(--muted); text-align: center;
+    font-size: .75rem; color: var(--muted); transition: all .15s;
+    user-select: none;
+  }
+  .trash-zone.drag-over {
+    border-color: #ff4d4d; background: rgba(255,77,77,.1); color: #ff4d4d;
+  }
+
   /* Lyrics panel CSS is in static/style.css */
 </style>
 
@@ -241,6 +252,10 @@
         <span class="plus">+</span> <span id="sidebar-newpl-label"></span>
       </button>
       <div id="playlist-list"></div>
+      <div id="trash-zone" class="trash-zone"
+           ondragover="_trashOver(event)" ondragleave="_trashLeave(event)" ondrop="_trashDrop(event)">
+        🗑
+      </div>
     </div>
   </nav>
 
@@ -387,13 +402,16 @@
     if (!state.playlists.length) { el.innerHTML = ''; return; }
     el.innerHTML = state.playlists.map(pl => `
       <div class="sidebar-item ${state.view == pl.id ? 'active' : ''}"
-           onclick="setView(${pl.id})" data-plid="${pl.id}">
+           onclick="setView(${pl.id})" data-plid="${pl.id}"
+           draggable="true"
+           ondragstart="_plDragStart(event,${pl.id})"
+           ondragend="_plDragEnd(event)"
+           ondragover="_sidebarOver(event)" ondragleave="_sidebarLeave(event)"
+           ondrop="_sidebarDrop(event,${pl.id})">
         <span class="pl-name">${esc(pl.name)}</span>
         <span class="pl-count">${pl.track_count}</span>
         ${state.shareEnabled ? `<button class="sidebar-pl-share" onclick="event.stopPropagation();sharePlaylist(${pl.id},'${esc(pl.name)}')"
                 title="${window.I18n.t('player.share')}">⇗</button>` : ''}
-        <button class="sidebar-pl-del" onclick="event.stopPropagation();deletePlaylist(${pl.id})"
-                title="×">×</button>
       </div>
     `).join('');
   }
@@ -462,7 +480,12 @@
           ${tracks.map((t, i) => `
             <tr data-job="${t.job_id}" data-idx="${i}"
                 class="${state.currentJob === t.job_id ? 'playing' : ''}"
-                onclick="playTrack('${t.job_id}', ${i})">
+                onclick="playTrack('${t.job_id}', ${i})"
+                draggable="true"
+                ondragstart="_rowDragStart(event,'${t.job_id}')"
+                ondragend="_rowDragEnd(event)"
+                ondragover="_rowOver(event)" ondragleave="_rowLeave(event)"
+                ondrop="_rowDrop(event,'${t.job_id}',${i})">>
               <td class="col-fav" onclick="event.stopPropagation()">
                 <button class="fav-btn ${t.is_favorite ? 'on' : ''}"
                         onclick="toggleFav('${t.job_id}', this)"
@@ -859,6 +882,151 @@
     }
   }
 
+  // ── Drag & drop ────────────────────────────────────────────────────────────
+
+  // What is being dragged: 'track' or 'playlist'
+  let _dragType = null;
+  let _dragJobId = null;
+  let _dragPlId  = null;
+
+  // --- Track row drag ---
+  function _rowDragStart(e, jobId) {
+    _dragType  = 'track';
+    _dragJobId = jobId;
+    _dragPlId  = null;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', jobId);
+    e.currentTarget.classList.add('dragging');
+  }
+
+  function _rowDragEnd(e) {
+    e.currentTarget.classList.remove('dragging');
+    _clearAllDragClasses();
+    _dragType = null; _dragJobId = null;
+  }
+
+  // --- Track reorder within playlist ---
+  function _rowOver(e) {
+    if (_dragType !== 'track') return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const tr = e.currentTarget;
+    // Only show reorder indicators when viewing a playlist
+    if (typeof state.view !== 'number') return;
+    const rect = tr.getBoundingClientRect();
+    const mid  = rect.top + rect.height / 2;
+    tr.classList.toggle('drag-above', e.clientY < mid);
+    tr.classList.toggle('drag-below', e.clientY >= mid);
+  }
+
+  function _rowLeave(e) {
+    e.currentTarget.classList.remove('drag-above', 'drag-below');
+  }
+
+  async function _rowDrop(e, targetJobId, targetIdx) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-above', 'drag-below');
+    if (_dragType !== 'track' || typeof state.view !== 'number') return;
+    const pid = state.view;
+    const srcJobId = _dragJobId;
+    if (srcJobId === targetJobId) return;
+
+    // Compute new order locally
+    const tracks = state.plTracks[pid];
+    if (!tracks) return;
+    const ids = tracks.map(t => t.job_id);
+    const fromIdx = ids.indexOf(srcJobId);
+    if (fromIdx < 0) return;
+    ids.splice(fromIdx, 1);
+    // Determine insert position based on drop half
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mid  = rect.top + rect.height / 2;
+    let toIdx  = ids.indexOf(targetJobId);
+    if (e.clientY >= mid) toIdx++;
+    ids.splice(toIdx, 0, srcJobId);
+
+    // Optimistic local reorder
+    const byJob = {};
+    tracks.forEach(t => byJob[t.job_id] = t);
+    state.plTracks[pid] = ids.map(id => byJob[id]).filter(Boolean);
+    renderTracks();
+
+    // Persist to server
+    await fetch(`/player/api/playlists/${pid}/reorder`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: ids }),
+    });
+  }
+
+  // --- Sidebar playlist drop target (add track to playlist) ---
+  function _sidebarOver(e) {
+    if (_dragType !== 'track') return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    e.currentTarget.classList.add('drag-over');
+  }
+
+  function _sidebarLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+
+  async function _sidebarDrop(e, pid) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    if (_dragType === 'track' && _dragJobId) {
+      await addToPlaylist(pid, _dragJobId);
+    }
+  }
+
+  // --- Sidebar playlist item drag (for trash) ---
+  function _plDragStart(e, pid) {
+    _dragType  = 'playlist';
+    _dragPlId  = pid;
+    _dragJobId = null;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'pl:' + pid);
+    e.currentTarget.classList.add('dragging-pl');
+    // Don't let the parent sidebar-item onclick fire setView
+    e.stopPropagation();
+  }
+
+  function _plDragEnd(e) {
+    e.currentTarget.classList.remove('dragging-pl');
+    _clearAllDragClasses();
+    _dragType = null; _dragPlId = null;
+  }
+
+  // --- Trash zone ---
+  function _trashOver(e) {
+    if (!_dragType) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+  }
+
+  function _trashLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+
+  async function _trashDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    if (_dragType === 'track' && _dragJobId && typeof state.view === 'number') {
+      // Remove song from current playlist (no confirmation)
+      await removeFromPlaylist(state.view, _dragJobId);
+    } else if (_dragType === 'playlist' && _dragPlId) {
+      // Delete playlist (with confirmation)
+      await deletePlaylist(_dragPlId);
+    }
+  }
+
+  function _clearAllDragClasses() {
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.drag-above,.drag-below').forEach(el => el.classList.remove('drag-above', 'drag-below'));
+    document.querySelectorAll('.dragging-pl').forEach(el => el.classList.remove('dragging-pl'));
+  }
+
   // Expose to onclick attrs in generated HTML
   window.setView             = setView;
   window.playTrack           = playTrack;
@@ -877,6 +1045,19 @@
   window.revokeShare         = revokeShare;
   window.closeShareModal     = closeShareModal;
   window.claimTrack          = claimTrack;
+  window._rowDragStart       = _rowDragStart;
+  window._rowDragEnd         = _rowDragEnd;
+  window._rowOver            = _rowOver;
+  window._rowLeave           = _rowLeave;
+  window._rowDrop            = _rowDrop;
+  window._sidebarOver        = _sidebarOver;
+  window._sidebarLeave       = _sidebarLeave;
+  window._sidebarDrop        = _sidebarDrop;
+  window._plDragStart        = _plDragStart;
+  window._plDragEnd          = _plDragEnd;
+  window._trashOver          = _trashOver;
+  window._trashLeave         = _trashLeave;
+  window._trashDrop          = _trashDrop;
   // openLyrics / closeLyrics / growLyrics / shrinkLyrics are in static/lyrics.js
 
   // Re-render when language changes (only after initial data is loaded)
