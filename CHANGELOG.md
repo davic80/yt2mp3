@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.10] - 2026-03-25
+
+### Fixed
+- **yt-dlp necesita el script EJS de GitHub para resolver desafíos JS.** Aunque Deno se instaló
+  en v4.6.9, yt-dlp también necesita descargar el script solver desde GitHub. Se añade
+  `remote_components: {"ejs:github"}` a las opciones de yt-dlp en `downloader.py` para que
+  el challenge solver se descargue automáticamente.
+
+---
+
 ## [4.6.9] - 2026-03-24
 
 ### Fixed

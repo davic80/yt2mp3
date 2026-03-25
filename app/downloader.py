@@ -91,6 +91,9 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            # Allow yt-dlp to download the EJS challenge solver from GitHub
+            # so Deno can solve YouTube's signature/n-challenge (required 2026+)
+            "remote_components": {"ejs:github"},
             "postprocessors": [
                 {
                     "key": "FFmpegExtractAudio",
