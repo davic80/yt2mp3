@@ -28,7 +28,7 @@ def _build_html(data: dict) -> str:
     )
     browser = f"{data.get('ua_browser') or '—'} {data.get('ua_browser_version') or ''}".strip()
 
-    base_url = os.environ.get("WEBAUTHN_ORIGIN", "").rstrip("/")
+    base_url = os.environ.get("SITE_URL", "").rstrip("/")
     job_id   = data.get("job_id") or ""
     file_name = data.get("file_name") or "—"
     if base_url and job_id:

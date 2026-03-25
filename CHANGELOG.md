@@ -6,6 +6,43 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.8.0] - 2026-03-25
+
+### Removed
+- **WebAuthn / Passkey authentication system.** Deleted `AdminUser`, `WebAuthnCredential`,
+  and `WebAuthnChallenge` models (`admin_models.py`), all WebAuthn routes (`/db/login`,
+  `/db/logout`, `/db/webauthn/auth/begin`, `/db/webauthn/auth/complete`), the passkey login
+  template (`admin/login.html`), and the `webauthn==2.1.0` dependency. The three WebAuthn
+  database tables are dropped automatically on startup.
+- **`WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN` env vars** replaced by a
+  single `SITE_URL` env var (default `https://yt2mp3.f1madrid.win`), used in email links
+  and logout redirect.
+
+### Added
+- **`is_admin` and `is_enabled` flags on User model.** `is_admin` (default `False`) grants
+  remote access to the `/db/` admin panel. `is_enabled` (default `True`) controls whether
+  a user can use the app — disabled users see a styled "Tu cuenta ha sido deshabilitada"
+  page instead of being silently blocked.
+- **`admin_or_local` decorator** (`auth_utils.py`). Replaces the old `@local_only @login_required`
+  pattern on all `/db/` routes. Local (RFC-1918/loopback) requests pass through unconditionally;
+  remote requests require a session with `is_admin=True`.
+- **Habilitado / Admin toggle columns** in `/db/users` — same toggle switch UI as the
+  existing Lyrics and Compartir columns. Changes are saved via the existing
+  `POST /db/api/users/<email>/features` endpoint.
+- **Disabled user page** — when `user_required` detects `is_enabled=False` on a remote
+  user, it returns a dark-themed HTML page (matching the app style) with the message
+  "Tu cuenta ha sido deshabilitada. Contacta al administrador." (HTTP 403).
+
+### Changed
+- **`/db/api/users` response** now includes `is_admin` and `is_enabled` fields per user.
+- **`/db/api/users/<email>/features`** endpoint now accepts `is_admin` and `is_enabled`
+  toggles in addition to the existing `lyrics_enabled` and `share_enabled`.
+- **`seed_test_data.py`** test users changed from `@example.com` to `@local` domain.
+- **`user_required`** now checks `is_enabled` after validating the session — previously
+  it only checked for a session email.
+
+---
+
 ## [4.7.1] - 2026-03-25
 
 ### Fixed

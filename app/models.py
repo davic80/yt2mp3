@@ -12,6 +12,8 @@ class User(db.Model):
     provider   = db.Column(db.String(16), nullable=True) # 'google' | 'facebook'
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    is_admin   = db.Column(db.Boolean, default=False)
+    is_enabled = db.Column(db.Boolean, default=True)
 
     downloads = db.relationship("Download", back_populates="user", lazy="dynamic")
 

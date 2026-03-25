@@ -51,13 +51,11 @@ def create_app():
     app.config["SESSION_COOKIE_SAMESITE"] = "None"
     app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
-    # WebAuthn config
-    app.config["WEBAUTHN_RP_ID"] = os.environ.get("WEBAUTHN_RP_ID", "localhost")
-    app.config["WEBAUTHN_RP_NAME"] = os.environ.get("WEBAUTHN_RP_NAME", "yt2mp3 admin")
-    app.config["WEBAUTHN_ORIGIN"] = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
+    # Site URL (used for email links and logout redirect)
+    app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.7.1")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.8.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -86,7 +84,6 @@ def create_app():
     with app.app_context():
         from sqlalchemy import text
         from app.models import User, Download  # noqa: F401
-        from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge  # noqa: F401
         from app.player_models import Playlist, PlaylistTrack, PlaylistShare, UserFeature, PlayEvent, LyricsCache, LyricsBlacklist  # noqa: F401
         db.create_all()
 
@@ -179,6 +176,30 @@ def create_app():
                 conn.commit()
         except Exception:
             pass  # column already exists
+
+        # v4.8.0 — admin/enabled flags on users + drop WebAuthn tables
+        for col_sql in (
+            "ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN is_enabled BOOLEAN DEFAULT 1",
+        ):
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text(col_sql))
+                    conn.commit()
+            except Exception:
+                pass  # column already exists
+
+        for drop_sql in (
+            "DROP TABLE IF EXISTS webauthn_challenges",
+            "DROP TABLE IF EXISTS webauthn_credentials",
+            "DROP TABLE IF EXISTS admin_users",
+        ):
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text(drop_sql))
+                    conn.commit()
+            except Exception:
+                pass
 
     from app.routes import bp
     from app.admin_routes import admin_bp

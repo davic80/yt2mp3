@@ -94,12 +94,10 @@ app/
   downloader.py    # yt-dlp wrapper with background jobs (threading)
   fingerprint.py   # User metadata collection
   mailer.py        # Email notifications via Gmail SMTP
-  admin_models.py  # AdminUser, WebAuthnCredential, WebAuthnChallenge models
-  admin_routes.py  # WebAuthn endpoints + local-only guard + paginated admin view
+  admin_routes.py  # Admin panel routes + admin_or_local guard + paginated admin view
   templates/
     index.html     # Main UI
     admin/
-      login.html   # Passkey login (three states)
       index.html   # Downloads admin table
 static/
   style.css
@@ -113,11 +111,12 @@ docker-compose.yml
 
 ## Admin panel
 
-Available at `/db`. Protected with **WebAuthn / Passkey** (Face ID, Touch ID, YubiKey, Windows Hello).
+Available at `/db`. Local network requests (RFC-1918 / loopback) have unrestricted access.
+Remote users must be logged in with `is_admin=True` on their User record.
 
-- **Registration** is restricted to the local network — it is never reachable from the internet.
-- **Authentication** works from any network.
-- **Emergency recovery:** run the CLI command directly on the Raspberry Pi to delete all credentials and re-register.
+- **User management** at `/db/users` — toggle `is_admin` and `is_enabled` flags per user.
+- **Analytics** at `/db/analytics`.
+- **Emergency access:** connect to the local network or SSH to the Raspberry Pi.
 
 ---
 

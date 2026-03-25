@@ -201,6 +201,8 @@
       { key: 'play_count',     label: 'Plays' },
       { key: 'minutes_played', label: 'Minutos' },
       { key: 'last_play',      label: 'Último play' },
+      { key: 'is_enabled',     label: 'Habilitado' },
+      { key: 'is_admin',       label: 'Admin' },
       { key: 'lyrics_enabled', label: 'Lyrics' },
       { key: 'share_enabled',  label: 'Compartir' },
     ];
@@ -231,6 +233,20 @@
               <td class="td-num ${u.play_count > 0 ? 'highlight' : ''}">${u.play_count}</td>
               <td class="td-num ${u.minutes_played > 0 ? 'highlight' : ''}">${u.minutes_played > 0 ? u.minutes_played + ' min' : '—'}</td>
               <td class="td-date">${u.last_play ? fmtDate(u.last_play) : '<span style="color:var(--muted)">—</span>'}</td>
+              <td class="td-feat">
+                <label class="toggle" title="Habilitado ${u.is_enabled ? 'sí' : 'no'}">
+                  <input type="checkbox" ${u.is_enabled ? 'checked' : ''}
+                         onchange="toggleFeature('${esc(u.email)}', 'is_enabled', this)" />
+                  <span class="slider"></span>
+                </label>
+              </td>
+              <td class="td-feat">
+                <label class="toggle" title="Admin ${u.is_admin ? 'sí' : 'no'}">
+                  <input type="checkbox" ${u.is_admin ? 'checked' : ''}
+                         onchange="toggleFeature('${esc(u.email)}', 'is_admin', this)" />
+                  <span class="slider"></span>
+                </label>
+              </td>
               <td class="td-feat">
                 <label class="toggle" title="Lyrics ${u.lyrics_enabled ? 'activadas' : 'desactivadas'}">
                   <input type="checkbox" ${u.lyrics_enabled ? 'checked' : ''}
@@ -263,7 +279,7 @@
       if (!data.ok) throw new Error('error');
       const u = _users.find(u => u.email === email);
       if (u) u[feature] = data[feature];
-      const labels = { lyrics_enabled: 'Lyrics', share_enabled: 'Compartir' };
+      const labels = { lyrics_enabled: 'Lyrics', share_enabled: 'Compartir', is_enabled: 'Habilitado', is_admin: 'Admin' };
       showToast(`${labels[feature] || feature} ${enabled ? 'activado' : 'desactivado'} para ${email}`);
     } catch (_) {
       checkbox.checked = !enabled;

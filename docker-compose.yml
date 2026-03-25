@@ -12,11 +12,9 @@ services:
       - RATE_LIMIT_PER_HOUR=${RATE_LIMIT_PER_HOUR:-10}
       - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-3}
       - DOWNLOAD_DIR=/app/downloads
-      - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-localhost}
-      - WEBAUTHN_RP_NAME=${WEBAUTHN_RP_NAME:-yt2mp3 admin}
-      - WEBAUTHN_ORIGIN=${WEBAUTHN_ORIGIN:-https://yt2mp3.f1madrid.win}
+      - SITE_URL=${SITE_URL:-https://yt2mp3.f1madrid.win}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
-      - APP_VERSION=${APP_VERSION:-4.7.1}
+      - APP_VERSION=${APP_VERSION:-4.8.0}
       - ADMIN_REFRESH_INTERVAL=${ADMIN_REFRESH_INTERVAL:-300}
       - GEOIP_PATH=${GEOIP_PATH:-/app/geoip/GeoLite2-City.mmdb}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}

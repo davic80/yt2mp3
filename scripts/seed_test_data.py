@@ -3,7 +3,7 @@
 seed_test_data.py — crea datos de prueba idempotentes en la BD.
 
 Crea:
-  - 2 usuarios (test1@example.com, test2@example.com)
+  - 2 usuarios (test1@local, test2@local)
   - 3 canciones para test1, 2 canciones para test2  (ficheros dummy en /tmp)
   - 1 playlist "Rock Clásico" para test1 con 2 de sus canciones
   - 1 playlist "Pop Hits" para test2 con sus 2 canciones
@@ -34,13 +34,13 @@ from app.player_models import Playlist, PlaylistTrack, UserFeature
 
 USERS = [
     {
-        "email": "test1@example.com",
+        "email": "test1@local",
         "name": "Usuario Test 1",
         "picture": None,
         "provider": "google",
     },
     {
-        "email": "test2@example.com",
+        "email": "test2@local",
         "name": "Usuario Test 2",
         "picture": None,
         "provider": "google",
@@ -51,7 +51,7 @@ TRACKS = [
     # test1 – 3 canciones
     {
         "job_id": "test1-track-001",
-        "user_email": "test1@example.com",
+        "user_email": "test1@local",
         "title": "Bohemian Rhapsody",
         "file_name": "bohemian_rhapsody.mp3",
         "youtube_url": "https://www.youtube.com/watch?v=fJ9rUzIMcZQ",
@@ -62,7 +62,7 @@ TRACKS = [
     },
     {
         "job_id": "test1-track-002",
-        "user_email": "test1@example.com",
+        "user_email": "test1@local",
         "title": "Stairway to Heaven",
         "file_name": "stairway_to_heaven.mp3",
         "youtube_url": "https://www.youtube.com/watch?v=QkF3oxziUI4",
@@ -73,7 +73,7 @@ TRACKS = [
     },
     {
         "job_id": "test1-track-003",
-        "user_email": "test1@example.com",
+        "user_email": "test1@local",
         "title": "Hotel California",
         "file_name": "hotel_california.mp3",
         "youtube_url": "https://www.youtube.com/watch?v=lDK9QqIzhwk",
@@ -85,7 +85,7 @@ TRACKS = [
     # test2 – 2 canciones
     {
         "job_id": "test2-track-001",
-        "user_email": "test2@example.com",
+        "user_email": "test2@local",
         "title": "Bad Guy",
         "file_name": "bad_guy.mp3",
         "youtube_url": "https://www.youtube.com/watch?v=DyDfgMOUjCI",
@@ -96,7 +96,7 @@ TRACKS = [
     },
     {
         "job_id": "test2-track-002",
-        "user_email": "test2@example.com",
+        "user_email": "test2@local",
         "title": "Blinding Lights",
         "file_name": "blinding_lights.mp3",
         "youtube_url": "https://www.youtube.com/watch?v=4NRXx6U8ABQ",
@@ -110,19 +110,19 @@ TRACKS = [
 PLAYLISTS = [
     {
         "name": "Rock Clásico",
-        "user_email": "test1@example.com",
+        "user_email": "test1@local",
         "track_job_ids": ["test1-track-001", "test1-track-002"],
     },
     {
         "name": "Pop Hits",
-        "user_email": "test2@example.com",
+        "user_email": "test2@local",
         "track_job_ids": ["test2-track-001", "test2-track-002"],
     },
 ]
 
 FEATURES = [
-    {"user_email": "test1@example.com", "lyrics_enabled": True,  "share_enabled": True},
-    {"user_email": "test2@example.com", "lyrics_enabled": False, "share_enabled": True},
+    {"user_email": "test1@local", "lyrics_enabled": True,  "share_enabled": True},
+    {"user_email": "test2@local", "lyrics_enabled": False, "share_enabled": True},
 ]
 
 

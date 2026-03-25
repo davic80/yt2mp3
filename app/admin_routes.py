@@ -1,68 +1,24 @@
-import base64
 import io
 import json
 import os
-import time
 import zipfile
-import functools
 from datetime import datetime
 
-import webauthn
-from webauthn.helpers.structs import (
-    UserVerificationRequirement,
-    PublicKeyCredentialDescriptor,
-)
 from flask import (
     Blueprint,
     current_app,
     jsonify,
-    redirect,
     render_template,
     request,
     send_file,
-    session,
-    url_for,
-    abort,
 )
 from app import db
-from app.admin_models import AdminUser, WebAuthnCredential, WebAuthnChallenge
 from app.models import Download, User
-from app.auth_utils import _client_ip, _is_local_request, local_only
+from app.auth_utils import admin_or_local
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/db")
 
-CHALLENGE_TTL = 300  # 5 minutes
 _VALID_PER_PAGE = (10, 25, 50, 100)
-
-def _rp_id():
-    return current_app.config.get("WEBAUTHN_RP_ID", "localhost")
-
-def _rp_name():
-    return current_app.config.get("WEBAUTHN_RP_NAME", "yt2mp3 admin")
-
-def _origin():
-    return current_app.config.get("WEBAUTHN_ORIGIN", "http://localhost:5000")
-
-def _b64url(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
-
-def _b64url_decode(s: str) -> bytes:
-    pad = 4 - len(s) % 4
-    return base64.urlsafe_b64decode(s + "=" * (pad % 4))
-
-def _clean_challenges():
-    """Remove expired challenges."""
-    WebAuthnChallenge.query.filter(WebAuthnChallenge.expires_at < time.time()).delete()
-    db.session.commit()
-
-def login_required(f):
-    """Allow local-network requests through unconditionally; remote requests require a session."""
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        if not _is_local_request() and not session.get("admin_authenticated"):
-            return redirect(url_for("admin.login_page"))
-        return f(*args, **kwargs)
-    return decorated
 
 
 def _get_per_page() -> int:
@@ -73,8 +29,7 @@ def _get_per_page() -> int:
 # ── Pages ──────────────────────────────────────────────────────────────────────
 
 @admin_bp.route("/")
-@local_only
-@login_required
+@admin_or_local
 def index():
     page = request.args.get("page", 1, type=int)
     per_page = _get_per_page()
@@ -87,8 +42,7 @@ def index():
 
 
 @admin_bp.route("/table-fragment")
-@local_only
-@login_required
+@admin_or_local
 def table_fragment():
     """Returns only the table HTML fragment for AJAX refresh."""
     page = request.args.get("page", 1, type=int)
@@ -101,31 +55,8 @@ def table_fragment():
     return render_template("admin/_table.html", pagination=pagination, per_page=per_page, user_filter=user_filter)
 
 
-@admin_bp.route("/login")
-@local_only
-def login_page():
-    # Local network: skip login entirely
-    if _is_local_request():
-        return redirect(url_for("admin.index"))
-    if session.get("admin_authenticated"):
-        return redirect(url_for("admin.index"))
-    has_credentials = WebAuthnCredential.query.count() > 0
-    return render_template(
-        "admin/login.html",
-        has_credentials=has_credentials,
-    )
-
-
-@admin_bp.route("/logout", methods=["POST"])
-@local_only
-def logout():
-    session.pop("admin_authenticated", None)
-    return redirect(url_for("admin.login_page"))
-
-
 @admin_bp.route("/analytics")
-@local_only
-@login_required
+@admin_or_local
 def analytics():
     from sqlalchemy import func, text as sa_text
 
@@ -188,8 +119,7 @@ def analytics():
 # ── ZIP download ───────────────────────────────────────────────────────────────
 
 @admin_bp.route("/download-zip", methods=["POST"])
-@local_only
-@login_required
+@admin_or_local
 def download_zip():
     data = request.get_json(silent=True) or {}
     job_ids = data.get("job_ids", [])
@@ -235,8 +165,7 @@ def download_zip():
 # ── Rename title ───────────────────────────────────────────────────────────────
 
 @admin_bp.route("/rename", methods=["POST"])
-@local_only
-@login_required
+@admin_or_local
 def rename_record():
     data = request.get_json(silent=True) or {}
     job_id = data.get("job_id", "").strip()
@@ -254,8 +183,7 @@ def rename_record():
 # ── Delete records ─────────────────────────────────────────────────────────────
 
 @admin_bp.route("/delete", methods=["POST"])
-@local_only
-@login_required
+@admin_or_local
 def delete_records():
     data = request.get_json(silent=True) or {}
     job_ids = data.get("job_ids", [])
@@ -276,99 +204,16 @@ def delete_records():
     return jsonify({"deleted": deleted})
 
 
-# ── WebAuthn: Authentication (local only) ─────────────────────────────────────
-
-@admin_bp.route("/webauthn/auth/begin", methods=["POST"])
-@local_only
-def auth_begin():
-    _clean_challenges()
-
-    user = AdminUser.query.filter_by(username="admin").first()
-    if not user or not user.credentials:
-        return jsonify({"error": "No passkeys registered"}), 400
-
-    allow = [
-        PublicKeyCredentialDescriptor(
-            id=c.credential_id_bytes(),
-            transports=json.loads(c.transports or "[]"),
-        )
-        for c in user.credentials
-    ]
-
-    options = webauthn.generate_authentication_options(
-        rp_id=_rp_id(),
-        allow_credentials=allow,
-        user_verification=UserVerificationRequirement.REQUIRED,
-    )
-
-    challenge_b64 = _b64url(options.challenge)
-    ch = WebAuthnChallenge(
-        ceremony="authentication",
-        challenge=challenge_b64,
-        expires_at=time.time() + CHALLENGE_TTL,
-    )
-    db.session.add(ch)
-    db.session.commit()
-
-    return jsonify(json.loads(webauthn.options_to_json(options)))
-
-
-@admin_bp.route("/webauthn/auth/complete", methods=["POST"])
-@local_only
-def auth_complete():
-    _clean_challenges()
-    data = request.get_json()
-
-    ch = (
-        WebAuthnChallenge.query
-        .filter_by(ceremony="authentication")
-        .order_by(WebAuthnChallenge.id.desc())
-        .first_or_404()
-    )
-
-    # Find credential by ID — normalise base64url padding
-    raw_id = data.get("rawId") or data.get("id")
-    cred_id_b64 = _b64url(_b64url_decode(raw_id))
-    cred = WebAuthnCredential.query.filter_by(credential_id=cred_id_b64).first()
-    if not cred:
-        cred = WebAuthnCredential.query.filter(
-            WebAuthnCredential.credential_id.like(raw_id[:20] + "%")
-        ).first()
-    if not cred:
-        return jsonify({"error": "Credential not found"}), 400
-
-    try:
-        verification = webauthn.verify_authentication_response(
-            credential=data,
-            expected_challenge=_b64url_decode(ch.challenge),
-            expected_rp_id=_rp_id(),
-            expected_origin=_origin(),
-            credential_public_key=cred.public_key_bytes(),
-            credential_current_sign_count=cred.sign_count,
-            require_user_verification=True,
-        )
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
-
-    db.session.delete(ch)
-    cred.sign_count = verification.new_sign_count
-    db.session.commit()
-
-    session["admin_authenticated"] = True
-    session.permanent = True
-    return jsonify({"ok": True})
-
-
 # ── Users management ──────────────────────────────────────────────────────────
 
 @admin_bp.route("/users")
-@login_required
+@admin_or_local
 def admin_users():
     return render_template("admin/users.html")
 
 
 @admin_bp.route("/api/users")
-@login_required
+@admin_or_local
 def api_users():
     from app.player_models import UserFeature, PlayEvent
     from sqlalchemy import func
@@ -402,17 +247,21 @@ def api_users():
             "last_play":       lp.isoformat() if lp else None,
             "lyrics_enabled":  bool(le) if le is not None else False,
             "share_enabled":   bool(se) if se is not None else False,
+            "is_admin":        bool(u.is_admin),
+            "is_enabled":      bool(u.is_enabled) if u.is_enabled is not None else True,
         }
         for u, tc, pc, sec, lp, le, se in rows
     ])
 
 
 @admin_bp.route("/api/users/<path:email>/features", methods=["POST"])
-@login_required
+@admin_or_local
 def api_set_user_features(email: str):
     from app.player_models import UserFeature
 
     data = request.get_json(silent=True) or {}
+
+    # Handle UserFeature toggles (lyrics, share)
     feat = UserFeature.query.filter_by(user_email=email).first()
     if not feat:
         feat = UserFeature(user_email=email, lyrics_enabled=False, share_enabled=False)
@@ -423,5 +272,21 @@ def api_set_user_features(email: str):
     if "share_enabled" in data:
         feat.share_enabled = bool(data["share_enabled"])
 
+    # Handle User model toggles (is_admin, is_enabled)
+    user = User.query.get(email)
+    if user:
+        if "is_admin" in data:
+            user.is_admin = bool(data["is_admin"])
+        if "is_enabled" in data:
+            user.is_enabled = bool(data["is_enabled"])
+
     db.session.commit()
-    return jsonify({"ok": True, "lyrics_enabled": feat.lyrics_enabled, "share_enabled": feat.share_enabled})
+    result = {
+        "ok": True,
+        "lyrics_enabled": feat.lyrics_enabled,
+        "share_enabled": feat.share_enabled,
+    }
+    if user:
+        result["is_admin"] = bool(user.is_admin)
+        result["is_enabled"] = bool(user.is_enabled)
+    return jsonify(result)

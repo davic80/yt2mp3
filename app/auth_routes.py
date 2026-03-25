@@ -106,7 +106,7 @@ def callback():
 @auth_bp.route("/logout")
 def logout():
     session.clear()
-    return_to = os.environ.get("WEBAUTHN_ORIGIN", "https://yt2mp3.f1madrid.win")
+    return_to = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
     return redirect(return_to)
 
 
