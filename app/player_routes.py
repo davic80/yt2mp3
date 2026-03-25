@@ -396,6 +396,11 @@ def api_add_to_playlist(pid: int):
 
     Download.query.filter_by(job_id=job_id).first_or_404()
 
+    # Duplicate guard — silently succeed if track is already in this playlist
+    existing = PlaylistTrack.query.filter_by(playlist_id=pid, job_id=job_id).first()
+    if existing:
+        return jsonify({"ok": True, "already_exists": True, "position": existing.position})
+
     max_pos = db.session.query(
         db.func.max(PlaylistTrack.position)
     ).filter_by(playlist_id=pid).scalar() or -1
@@ -592,6 +597,88 @@ def api_claim_track(token: str, job_id: str):
     db.session.add(new_record)
     db.session.commit()
     return jsonify({"ok": True, "new_job_id": new_record.job_id})
+
+
+@player_bp.route("/api/shared/<token>/add-playlist", methods=["POST"])
+@user_required
+def api_shared_add_playlist(token: str):
+    """Bulk-claim all shared tracks and create a playlist containing them."""
+    email = get_current_user_email()
+    if not email:
+        abort(403)
+
+    share = PlaylistShare.query.filter_by(token=token).first()
+    if not share:
+        return jsonify({"error": "invalid token"}), 404
+
+    src_pl = share.playlist
+    src_tracks = (
+        PlaylistTrack.query
+        .filter_by(playlist_id=src_pl.id)
+        .order_by(PlaylistTrack.position)
+        .all()
+    )
+
+    # Claim each track (skip already-owned)
+    claimed_job_ids = []
+    for pt in src_tracks:
+        original = Download.query.filter_by(job_id=pt.job_id, status="done").first()
+        if not original:
+            continue
+
+        # Already owns by job_id
+        existing = Download.query.filter_by(job_id=pt.job_id, user_email=email).first()
+        if existing:
+            claimed_job_ids.append(pt.job_id)
+            continue
+
+        # Already owns by video_id
+        if original.video_id:
+            dup = Download.query.filter_by(
+                video_id=original.video_id, user_email=email, status="done"
+            ).first()
+            if dup:
+                claimed_job_ids.append(dup.job_id)
+                continue
+
+        new_record = Download(
+            job_id       = str(uuid.uuid4()),
+            user_email   = email,
+            title        = original.title,
+            file_name    = original.file_name,
+            file_path    = original.file_path,
+            file_size    = original.file_size,
+            youtube_url  = original.youtube_url,
+            status       = "done",
+            video_id     = original.video_id,
+            audio_hash   = original.audio_hash,
+            created_at   = datetime.now(timezone.utc),
+            is_favorite  = False,
+        )
+        db.session.add(new_record)
+        db.session.flush()
+        claimed_job_ids.append(new_record.job_id)
+
+    # Create a new playlist with the claimed tracks
+    new_pl = Playlist(
+        name       = src_pl.name,
+        user_email = email,
+        created_at = datetime.now(timezone.utc),
+        last_added = datetime.now(timezone.utc),
+    )
+    db.session.add(new_pl)
+    db.session.flush()
+
+    for pos, jid in enumerate(claimed_job_ids):
+        db.session.add(PlaylistTrack(playlist_id=new_pl.id, job_id=jid, position=pos))
+
+    db.session.commit()
+    return jsonify({
+        "ok": True,
+        "playlist_id": new_pl.id,
+        "playlist_name": new_pl.name,
+        "track_count": len(claimed_job_ids),
+    }), 201
 
 
 # ── User features API ─────────────────────────────────────────────────────────

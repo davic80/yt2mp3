@@ -97,7 +97,7 @@
   }
   .fav-btn {
     background: none; border: none; cursor: pointer;
-    font-size: 1rem; line-height: 1; padding: 0;
+    font-size: 1.3rem; line-height: 1; padding: 0;
     color: var(--muted); transition: color .12s, transform .12s;
   }
   .fav-btn:hover { transform: scale(1.2); }
@@ -144,7 +144,7 @@
     /* Bigger touch targets in track list */
     .track-list td { padding: .75rem .5rem; }
     .menu-btn { padding: .35rem .55rem; font-size: 1.25rem; }
-    .fav-btn  { font-size: 1.15rem; padding: .1rem; }
+    .fav-btn  { font-size: 1.45rem; padding: .1rem; }
     /* Hide size and date columns */
     .col-size, .col-date,
     .track-list thead th.col-size,
@@ -197,6 +197,14 @@
   }
   .shared-header-name { font-size: .9rem; font-weight: 600; color: var(--neon); }
   .shared-header-sub  { font-size: .75rem; color: var(--muted); }
+  .btn-shared-add {
+    margin-left: auto;
+    background: none; border: 1px solid var(--neon); border-radius: var(--radius);
+    color: var(--neon); font-size: .78rem; padding: .3rem .8rem; cursor: pointer;
+    font-family: var(--font); transition: all .15s; white-space: nowrap;
+  }
+  .btn-shared-add:hover { background: var(--neon-dim); }
+  .btn-shared-add.claimed { border-color: transparent; color: var(--muted); cursor: default; }
   .col-claim { width: 5.5rem; text-align: center; }
   .claim-btn {
     background: none; border: 1px solid var(--border2); border-radius: var(--radius);
@@ -485,7 +493,7 @@
                 ondragstart="_rowDragStart(event,'${t.job_id}')"
                 ondragend="_rowDragEnd(event)"
                 ondragover="_rowOver(event)" ondragleave="_rowLeave(event)"
-                ondrop="_rowDrop(event,'${t.job_id}',${i})">>
+                ondrop="_rowDrop(event,'${t.job_id}',${i})">
               <td class="col-fav" onclick="event.stopPropagation()">
                 <button class="fav-btn ${t.is_favorite ? 'on' : ''}"
                         onclick="toggleFav('${t.job_id}', this)"
@@ -609,11 +617,19 @@
   async function addToPlaylist(pid, jobId) {
     const dd = document.getElementById('dropdown');
     if (dd) dd.classList.remove('open');
-    await fetch(`/player/api/playlists/${pid}/tracks`, {
+
+    // Client-side duplicate guard: skip if track already in this playlist's cache
+    const cached = state.plTracks[pid];
+    if (cached && cached.some(t => t.job_id === jobId)) return;
+
+    const res = await fetch(`/player/api/playlists/${pid}/tracks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ job_id: jobId }),
     });
+    const data = await res.json();
+    if (data.already_exists) return;           // server confirmed duplicate
+
     delete state.plTracks[pid];
     const pl = state.playlists.find(p => p.id === pid);
     if (pl) {
@@ -799,6 +815,7 @@
     // Hide sidebar, show shared header above main
     document.getElementById('sidebar').style.display = 'none';
     const main = document.querySelector('.main');
+    const hasSession = window.Player && window.Player.hasSession ? window.Player.hasSession() : document.body.classList.contains('has-session');
 
     const header = document.createElement('div');
     header.className = 'shared-header';
@@ -806,7 +823,12 @@
       <div>
         <div class="shared-header-name">${data.name ? esc(data.name) : I.t('player.shared_invalid')}</div>
         <div class="shared-header-sub">${I.t('player.shared_view')}</div>
-      </div>`;
+      </div>
+      ${data.name && hasSession ? `
+      <button class="btn-shared-add" id="btn-shared-add"
+              onclick="addSharedPlaylist('${token}')">
+        ${I.t('player.shared_add_pl')}
+      </button>` : ''}`;
     main.prepend(header);
 
     if (!data.name) {
@@ -816,7 +838,6 @@
     }
 
     // Build track list — mark which ones the current user already owns
-    const hasSession = window.Player && window.Player.hasSession ? window.Player.hasSession() : document.body.classList.contains('has-session');
     const ownedIds = new Set(state.tracks.map(t => t.job_id));
     const tracks = data.tracks;
 
@@ -879,6 +900,29 @@
     } else {
       btn.disabled = false;
       btn.textContent = window.I18n.t('player.claim');
+    }
+  }
+
+  async function addSharedPlaylist(token) {
+    const btn = document.getElementById('btn-shared-add');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const res  = await fetch(`/player/api/shared/${token}/add-playlist`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        if (btn) {
+          btn.textContent = window.I18n.t('player.shared_added_pl');
+          btn.classList.add('claimed');
+        }
+        // Mark all individual claim buttons as claimed
+        document.querySelectorAll('.claim-btn:not(.claimed)').forEach(b => {
+          b.textContent = window.I18n.t('player.claimed');
+          b.classList.add('claimed');
+          b.disabled = true;
+        });
+      }
+    } catch {
+      if (btn) { btn.disabled = false; btn.textContent = window.I18n.t('player.shared_add_pl'); }
     }
   }
 
@@ -976,6 +1020,7 @@
     e.currentTarget.classList.remove('drag-over');
     if (_dragType === 'track' && _dragJobId) {
       await addToPlaylist(pid, _dragJobId);
+      await setView(pid);
     }
   }
 
@@ -1045,6 +1090,7 @@
   window.revokeShare         = revokeShare;
   window.closeShareModal     = closeShareModal;
   window.claimTrack          = claimTrack;
+  window.addSharedPlaylist   = addSharedPlaylist;
   window._rowDragStart       = _rowDragStart;
   window._rowDragEnd         = _rowDragEnd;
   window._rowOver            = _rowOver;

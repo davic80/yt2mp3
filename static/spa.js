@@ -54,9 +54,15 @@
 
     // If the server redirected us (e.g. /player/s/<token> → /player/?shared=<token>),
     // push the *final* URL so location.search reflects the real destination.
-    const finalHref = res.redirected
-      ? new URL(res.url).pathname + new URL(res.url).search
-      : href;
+    // Strip the internal fragment=1 param so it never leaks into the address bar.
+    let finalHref;
+    if (res.redirected) {
+      const u = new URL(res.url);
+      u.searchParams.delete('fragment');
+      finalHref = u.pathname + u.search;
+    } else {
+      finalHref = href;
+    }
     if (pushState) history.pushState({ href: finalHref }, '', finalHref);
 
     // Re-run <script> tags — innerHTML doesn't execute them

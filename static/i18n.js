@@ -67,6 +67,8 @@ window.I18n = (function () {
       'player.claim':          '+ Agregar',
       'player.claimed':        'Agregado ✓',
       'player.shared_invalid': 'Este enlace no está disponible.',
+      'player.shared_add_pl':  'Agregar a mis playlists',
+      'player.shared_added_pl':'Playlist creada ✓',
 
       // ── Player — lyrics ──
       'player.lyrics':           'Letras',
@@ -153,6 +155,8 @@ window.I18n = (function () {
       'player.claim':          '+ Add',
       'player.claimed':        'Added ✓',
       'player.shared_invalid': 'This link is no longer available.',
+      'player.shared_add_pl':  'Add to my playlists',
+      'player.shared_added_pl':'Playlist created ✓',
 
       // ── Player — lyrics ──
       'player.lyrics':           'Lyrics',

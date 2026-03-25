@@ -1,5 +1,6 @@
 import re
 import functools
+from urllib.parse import urlsplit, urlencode, parse_qs
 from flask import request, abort, session, redirect, url_for
 
 # RFC-1918 + loopback ranges
@@ -49,7 +50,13 @@ def user_required(f):
         if _is_local_request():
             return f(*args, **kwargs)
         if not session.get("user_email"):
-            return redirect(url_for("auth.login", next=request.full_path))
+            # Strip internal 'fragment' param so the post-login redirect
+            # serves the full page, not a bare HTML fragment.
+            parts = urlsplit(request.full_path)
+            qs = parse_qs(parts.query)
+            qs.pop("fragment", None)
+            clean = parts._replace(query=urlencode(qs, doseq=True)).geturl()
+            return redirect(url_for("auth.login", next=clean))
         return f(*args, **kwargs)
     return decorated
 

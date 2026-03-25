@@ -6,6 +6,41 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.7.1] - 2026-03-25
+
+### Fixed
+- **Stray `>` characters above track list.** `player.html` had a double `>>` closing
+  a `<tr>` tag (`ondrop="…)">>`) which injected literal `>` text nodes into the DOM.
+  Browsers hoisted these above the table structure, showing `>>> >>> >>>` above the
+  track list and breaking drag-to-playlist event handlers.
+- **Duplicate tracks when adding to playlist.** Neither client nor server checked for
+  existing `(playlist_id, job_id)` pairs. Added a server-side duplicate guard in
+  `api_add_to_playlist()` that returns `already_exists: true` without inserting, and
+  a client-side guard in `addToPlaylist()` that checks the local cache before posting.
+- **Shared playlist link loads empty player.** Two compounding bugs:
+  1. `spa.js` leaked `fragment=1` into the address bar when `fetch()` followed a
+     redirect (e.g., Flask's 308 trailing-slash redirect). The `pushState` URL now
+     strips `fragment=1` from the final URL.
+  2. `user_required` stored `request.full_path` (including `fragment=1`) in the
+     `next=` param for login redirects. After OAuth, the user was sent to a URL with
+     `fragment=1`, receiving only the bare HTML fragment instead of the full shell.
+     Now strips `fragment` from the stored path.
+- **Drag-to-playlist now switches to playlist view.** After dropping a track on a
+  sidebar playlist, `_sidebarDrop()` calls `setView(pid)` to show the playlist.
+- **Nav buttons (Descargar, Player, Mis descargas) too narrow.** Tripled horizontal
+  padding on `.topbar-link` (desktop `.6rem` → `1.8rem`, mobile `.3rem` → `.9rem`)
+  and centered text on all three mobile nav items (were left/center/right).
+- **Heart (fav) buttons too small.** Increased `.fav-btn` `font-size` from `1rem` →
+  `1.3rem` (desktop) and `1.15rem` → `1.45rem` (mobile).
+
+### Added
+- **"Add to my playlists" button on shared view.** When viewing a shared playlist,
+  logged-in users see a button in the shared header that bulk-claims all tracks and
+  creates a new playlist in one action. New endpoint:
+  `POST /player/api/shared/<token>/add-playlist`.
+
+---
+
 ## [4.7.0] - 2026-03-25
 
 ### Added

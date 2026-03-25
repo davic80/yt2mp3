@@ -42,8 +42,8 @@
     .topbar-nav { display: flex; align-items: center; gap: .4rem; flex: 1; margin-left: 1.2rem; }
     .topbar-link {
       color: var(--muted2); text-decoration: none; font-size: .82rem;
-      padding: .22rem .6rem; border-radius: var(--radius);
-      transition: color .15s, background .15s; white-space: nowrap;
+      padding: .22rem 1.8rem; border-radius: var(--radius);
+      transition: color .15s, background .15s; white-space: nowrap; text-align: center;
     }
     .topbar-link:hover { color: var(--text); background: var(--surface2); }
     .topbar-link-active { color: var(--neon) !important; background: var(--neon-dim) !important; }
@@ -291,10 +291,10 @@
         grid-template-columns: 1fr 1fr 1fr;
         padding: .15rem 0;
       }
-      .topbar-nav [data-path="/"]              { order: 1; text-align: left; }
+      .topbar-nav [data-path="/"]              { order: 1; text-align: center; }
       .topbar-nav [data-path="/player"]        { order: 2; text-align: center; }
-      .topbar-nav [data-path="/mis-descargas"] { order: 3; text-align: right; }
-      .topbar-link { font-size: .72rem; padding: .22rem .3rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .topbar-nav [data-path="/mis-descargas"] { order: 3; text-align: center; }
+      .topbar-link { font-size: .72rem; padding: .22rem .9rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
       /* Lang toggle: show flag + text, with spacing from avatar */
       .lang-btn      { padding: .2rem .35rem; font-size: .7rem; }
