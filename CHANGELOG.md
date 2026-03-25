@@ -6,6 +6,23 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.6.11] - 2026-03-25
+
+### Fixed
+- **Player bar sin artwork ni icono de letras fuera de /player.** Al cargar `/` (Descargar) u
+  otra página con sesión activa, al pulsar play la música sonaba pero no se mostraba la
+  miniatura ni el micrófono de letras. `_restoreState()` en `player.js` ahora auto-carga
+  tracks y features desde la API para que el player bar funcione en cualquier página.
+- **Enlace compartido `/player/s/<token>` mostraba Player vacío.** El SPA añadía `fragment=1`
+  a la URL, pero el redirect 302 del servidor lo perdía, devolviendo `shell.html` completo en
+  vez del fragmento. El redirect ahora preserva `fragment=1` si estaba presente.
+
+### Added
+- **Link "Mis descargas" en el sidebar izquierdo del Player**, debajo de Favoritas. Navega a
+  `/mis-descargas` vía SPA.
+
+---
+
 ## [4.6.10] - 2026-03-25
 
 ### Fixed

@@ -49,6 +49,7 @@
     transition: color .12s;
   }
   .sidebar-pl-share:hover { color: var(--neon); }
+  .sidebar-link { text-decoration: none; color: inherit; }
   /* ── Hamburger button (hidden on desktop) ── */
   .btn-sidebar-toggle {
     display: none;
@@ -229,6 +230,9 @@
       <div class="sidebar-item" id="view-favorites" onclick="setView('favorites')">
         <span class="pl-name" id="sidebar-fav-label"></span>
       </div>
+      <a href="/mis-descargas" class="sidebar-item sidebar-link" id="view-mis-descargas">
+        <span class="pl-name">↓ Mis descargas</span>
+      </a>
     </div>
     <div class="sidebar-div"></div>
     <div class="sidebar-section">

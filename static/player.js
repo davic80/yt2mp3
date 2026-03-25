@@ -290,6 +290,34 @@ window.Player = (function () {
       audio.currentTime = s.time || 0;
       audio.play().catch(() => {});  // browsers may block without user gesture
     }, { once: true });
+
+    // Self-sufficient metadata fetch: if no fragment has loaded tracks yet
+    // (e.g. user is on / or /mis-descargas), fetch them so artwork, media
+    // session, and lyrics button work from any page.
+    if (!state.tracks.length) {
+      Promise.all([
+        fetch('/player/api/tracks').then(r => r.ok ? r.json() : []),
+        fetch('/player/api/me/features').then(r => r.ok ? r.json() : {}),
+      ]).then(([tracks, features]) => {
+        // Only populate if a fragment hasn't loaded tracks in the meantime
+        if (!state.tracks.length && tracks.length) {
+          state.tracks = tracks;
+          state.queue  = tracks.map(t => t.job_id);
+          const idx    = state.queue.indexOf(state.currentJob);
+          state.queueIndex = idx >= 0 ? idx : 0;
+        }
+        // Re-run _updateTitle now that state.tracks is populated
+        if (state.currentJob) {
+          const track = state.tracks.find(t => t.job_id === state.currentJob);
+          _updateTitle(state.currentJob, track ? track.title : s.title);
+        }
+        // Enable lyrics if the user has the feature
+        if (features.lyrics_enabled) {
+          if (window.Lyrics)        window.Lyrics.setEnabled(true);
+          if (window._showLyricsBtn) window._showLyricsBtn(true);
+        }
+      }).catch(() => {});
+    }
   }
 
   function clearSavedState() {

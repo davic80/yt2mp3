@@ -507,8 +507,10 @@ def api_shared_playlist(token: str):
 @player_bp.route("/s/<token>")
 def shared_redirect(token: str):
     """Canonical short URL for shared playlists: /player/s/<token> → /player?shared=<token>.
-    Works whether the user is logged in or not; login redirect preserves the ?shared= param."""
-    return redirect(f"/player?shared={token}")
+    Works whether the user is logged in or not; login redirect preserves the ?shared= param.
+    Preserves fragment=1 query param so SPA fetch gets the fragment, not the full shell."""
+    frag = "&fragment=1" if request.args.get("fragment") else ""
+    return redirect(f"/player?shared={token}{frag}")
 
 
 @player_bp.route("/api/shared/<token>/claim/<job_id>", methods=["POST"])
