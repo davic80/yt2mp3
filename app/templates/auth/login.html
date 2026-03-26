@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>yt2mp3 · iniciar sesion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1c1c1c; --surface: #222; --surface2: #2a2a2a;
+      --border: #333; --border2: #3a3a3a;
+      --neon: #39FF14; --neon-dim: rgba(57,255,20,.15);
+      --text: #e0e0e0; --muted: #777; --muted2: #aaa;
+      --red: #ff4d4d;
+      --radius: 6px; --font: 'Inter', system-ui, sans-serif;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--font); font-size: 14px;
+      min-height: 100vh; display: flex; align-items: flex-start; justify-content: center;
+      padding-top: clamp(3rem, calc(35vh - 140px), 18rem);
+    }
+
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 2.5rem 2rem 2rem;
+      width: 100%; max-width: 380px;
+    }
+
+    .login-logo {
+      text-align: center; font-size: 1.4rem; font-weight: 600;
+      letter-spacing: -.5px; margin-bottom: 1.8rem;
+    }
+    .login-logo .sep { color: #27a008; }
+    .login-logo .mp3 { color: var(--neon); }
+
+    .login-error {
+      background: rgba(255,77,77,.1); border: 1px solid rgba(255,77,77,.3);
+      border-radius: var(--radius); padding: .5rem .75rem;
+      font-size: .82rem; color: var(--red); margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label {
+      display: block; font-size: .78rem; color: var(--muted2);
+      margin-bottom: .35rem; font-weight: 500;
+    }
+    .form-group input {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: var(--radius); color: var(--text); font-family: var(--font);
+      font-size: .88rem; padding: .55rem .75rem; outline: none;
+      transition: border-color .15s;
+    }
+    .form-group input:focus { border-color: var(--neon); }
+    .form-group input::placeholder { color: var(--muted); }
+
+    .btn-login {
+      width: 100%; padding: .6rem 1rem; border: none; border-radius: var(--radius);
+      background: var(--neon); color: #111; font-family: var(--font);
+      font-size: .88rem; font-weight: 600; cursor: pointer;
+      transition: opacity .15s; margin-top: .25rem;
+    }
+    .btn-login:hover { opacity: .85; }
+
+    .divider {
+      display: flex; align-items: center; gap: .75rem;
+      margin: 1.4rem 0;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .divider span { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+
+    .btn-google {
+      display: flex; align-items: center; justify-content: center; gap: .6rem;
+      width: 100%; padding: .55rem 1rem; border: 1px solid var(--border2);
+      border-radius: var(--radius); background: var(--surface2);
+      color: var(--text); font-family: var(--font); font-size: .85rem;
+      cursor: pointer; text-decoration: none; transition: border-color .15s, background .15s;
+    }
+    .btn-google:hover { border-color: var(--neon); background: var(--surface); }
+    .btn-google svg { flex-shrink: 0; }
+
+    .version-badge {
+      position: fixed; bottom: .75rem; right: .75rem;
+      font-size: .65rem; color: var(--muted); letter-spacing: .04em;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-logo">
+    <span>yt</span><span class="sep">2</span><span class="mp3">mp3</span>
+  </div>
+
+  {% if error %}
+  <div class="login-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST" action="/auth/login">
+    <input type="hidden" name="next" value="{{ next_url }}" />
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" placeholder="tu@email.com" required autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" placeholder="********" required autocomplete="current-password" />
+    </div>
+    <button type="submit" class="btn-login">Iniciar sesion</button>
+  </form>
+
+  <div class="divider"><span>o</span></div>
+
+  <a href="/auth/google?next={{ next_url | urlencode }}" class="btn-google">
+    <svg width="18" height="18" viewBox="0 0 48 48">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+    Iniciar sesion con Google
+  </a>
+</div>
+
+<div class="version-badge">v{{ version }}</div>
+
+</body>
+</html>

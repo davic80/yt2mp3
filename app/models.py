@@ -3,17 +3,18 @@ from app import db
 
 
 class User(db.Model):
-    """OAuth user — created/updated on every login via Auth0."""
+    """User — created via OAuth or local password registration."""
     __tablename__ = "users"
 
-    email      = db.Column(db.String(256), primary_key=True)
-    name       = db.Column(db.String(256), nullable=True)
-    picture    = db.Column(db.Text, nullable=True)       # avatar URL from provider
-    provider   = db.Column(db.String(16), nullable=True) # 'google' | 'facebook'
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    last_login = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    is_admin   = db.Column(db.Boolean, default=False)
-    is_enabled = db.Column(db.Boolean, default=True)
+    email         = db.Column(db.String(256), primary_key=True)
+    name          = db.Column(db.String(256), nullable=True)
+    picture       = db.Column(db.Text, nullable=True)       # avatar URL from provider
+    provider      = db.Column(db.String(16), nullable=True) # 'google' | 'local'
+    password_hash = db.Column(db.Text, nullable=True)       # PBKDF2 hash (local users only)
+    created_at    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    last_login    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    is_admin      = db.Column(db.Boolean, default=False)
+    is_enabled    = db.Column(db.Boolean, default=True)
 
     downloads = db.relationship("Download", back_populates="user", lazy="dynamic")
 

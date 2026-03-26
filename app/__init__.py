@@ -55,7 +55,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.8.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.9.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -200,6 +200,17 @@ def create_app():
                     conn.commit()
             except Exception:
                 pass
+
+        # v4.9.0 — local password auth
+        for col_sql in (
+            "ALTER TABLE users ADD COLUMN password_hash TEXT",
+        ):
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text(col_sql))
+                    conn.commit()
+            except Exception:
+                pass  # column already exists
 
     from app.routes import bp
     from app.admin_routes import admin_bp

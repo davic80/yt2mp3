@@ -18,7 +18,7 @@
       --red: #ff4d4d; --red-dim: rgba(255,77,77,.1);
       --radius: 6px; --font: 'Inter', system-ui, sans-serif;
       --mono: 'JetBrains Mono', monospace;
-      --topbar-h: 52px; --player-h: 80px;
+      --topbar-h: 72px; --player-h: 80px;
     }
 
     html, body {
@@ -42,7 +42,7 @@
     .topbar-nav { display: flex; align-items: center; gap: .4rem; flex: 1; margin-left: 1.2rem; }
     .topbar-link {
       color: var(--muted2); text-decoration: none; font-size: .82rem;
-      padding: .22rem 1.8rem; border-radius: var(--radius);
+      padding: .6rem 1.8rem; border-radius: var(--radius);
       transition: color .15s, background .15s; white-space: nowrap; text-align: center;
     }
     .topbar-link:hover { color: var(--text); background: var(--surface2); }
@@ -86,6 +86,15 @@
     .auth-btn.login { border-color: var(--neon); color: var(--neon); }
     .hidden { display: none !important; }
 
+    /* ── Admin panel link (topbar, visible to admins) ── */
+    .admin-link {
+      font-size: .75rem; color: var(--muted2); text-decoration: none;
+      border: 1px solid var(--border2); border-radius: var(--radius);
+      padding: .25rem .65rem; white-space: nowrap;
+      transition: border-color .15s, color .15s;
+    }
+    .admin-link:hover { border-color: var(--neon); color: var(--neon); }
+
     /* ── Admin user picker (local only) ── */
     .admin-user-picker {
       display: flex; align-items: center; gap: .4rem; flex-shrink: 0;
@@ -106,7 +115,7 @@
 
     /* ── Topbar responsive ── */
     @media (max-width: 600px) {
-      :root { --topbar-h: 96px; }
+      :root { --topbar-h: 104px; }
       /* Two-row topbar */
       .topbar {
         flex-wrap: wrap;
@@ -119,6 +128,7 @@
       /* Row 1: logo (left) + lang + auth (right) */
       .topbar-logo { order: 1; flex: 1; font-size: 1rem; }
       .lang-toggle { order: 1; }
+      .admin-link  { order: 1; font-size: .7rem; padding: .2rem .45rem; }
       .auth-zone   { order: 1; }
     }
     /* Always show full labels; short spans are unused */
@@ -294,7 +304,7 @@
       .topbar-nav [data-path="/"]              { order: 1; text-align: center; }
       .topbar-nav [data-path="/player"]        { order: 2; text-align: center; }
       .topbar-nav [data-path="/mis-descargas"] { order: 3; text-align: center; }
-      .topbar-link { font-size: .72rem; padding: .22rem .9rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .topbar-link { font-size: .72rem; padding: .45rem .9rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
       /* Lang toggle: show flag + text, with spacing from avatar */
       .lang-btn      { padding: .2rem .35rem; font-size: .7rem; }
@@ -335,6 +345,8 @@
     <span class="lang-sep">|</span>
     <button class="lang-btn" data-lang="en" onclick="I18n.setLang('en')"><span class="lang-flag">🇬🇧</span><span class="lang-btn-text"> EN</span></button>
   </div>
+  <!-- Admin panel link (shown by JS if user is admin, or always for local) -->
+  <a href="/db" class="admin-link {% if not is_local %}hidden{% endif %}" id="admin-link">Admin Panel</a>
   {% if is_local %}
   <!-- Admin user picker — only rendered for local (admin) requests -->
   <div class="admin-user-picker" id="admin-user-picker" style="display:none">

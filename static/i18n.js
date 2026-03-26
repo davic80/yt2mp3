@@ -22,6 +22,9 @@ window.I18n = (function () {
       'auth.logout':      'salir',
       'auth.goto_player': 'ir al player',
 
+      // ── Admin ──
+      'nav.admin_panel':  'Admin Panel',
+
       // ── Player bar ──
       'player_bar.no_track': 'Sin reproducción',
 
@@ -109,6 +112,9 @@ window.I18n = (function () {
       'auth.login':       'sign in',
       'auth.logout':      'sign out',
       'auth.goto_player': 'go to player',
+
+      // ── Admin ──
+      'nav.admin_panel':  'Admin Panel',
 
       // ── Player bar ──
       'player_bar.no_track': 'Nothing playing',
@@ -232,6 +238,10 @@ window.I18n = (function () {
       const full = a.querySelector('.link-full');
       if (full) full.textContent = t(key);
     });
+
+    // Admin link
+    const adminLink = document.getElementById('admin-link');
+    if (adminLink) adminLink.textContent = t('nav.admin_panel');
 
     // Auth buttons
     const loginBtn = document.querySelector('#auth-loggedout .auth-btn');

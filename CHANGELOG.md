@@ -6,6 +6,37 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.9.0] - 2026-03-26
+
+### Added
+- **Local user creation with password authentication.** Admin can create local users
+  from `/db/users` via an inline form (name + optional email + password). If email is
+  omitted, a `slug@local` email is auto-generated from the name. Passwords are hashed
+  with werkzeug's PBKDF2 (`generate_password_hash`) — zero new dependencies.
+  New endpoint: `POST /db/api/users` (`@admin_or_local`).
+- **Login page with email + password form.** `GET /auth/login` now renders a standalone
+  dark-themed HTML page (`auth/login.html`) with an email/password form and a
+  "or sign in with Google" button (with SVG logo). `POST /auth/login` authenticates
+  against the `password_hash` column. Google OAuth redirect moved to `/auth/google`.
+- **`is_admin` field in `/auth/me` response.** Cached in session at login time (both
+  password and OAuth paths) for performance; falls back to DB lookup if missing.
+- **Admin Panel link in topbar.** Always visible for local (LAN) requests via Jinja
+  `{% if not is_local %}hidden{% endif %}`. For remote users, `app.js` shows the link
+  when `/auth/me` returns `is_admin: true`. Translated via i18n (`nav.admin_panel`).
+- **`password_hash` column on User model** (`TEXT`, nullable). Inline migration added
+  for existing databases.
+
+### Changed
+- **Taller topbar buttons.** Desktop nav link vertical padding increased from `.22rem`
+  to `.6rem`; mobile from `.22rem` to `.45rem`. Desktop topbar height: `52px` → `72px`;
+  mobile: `96px` → `104px`.
+- **`/auth/login` route split.** `GET` renders the login template; `POST` handles
+  password auth. Google OAuth initiation moved to `GET /auth/google`.
+- **`/auth/callback`** now also sets `session["is_admin"]` on OAuth login.
+- **`docker-compose.yml`** `APP_VERSION` default bumped to `4.9.0`.
+
+---
+
 ## [4.8.0] - 2026-03-25
 
 ### Removed

@@ -22,6 +22,11 @@
         zoneLoggedIn.style.display = 'flex';
         document.body.classList.add('has-session');
         if (window.Player && window.Player.setSession) window.Player.setSession(true);
+        // Show admin panel link if user is admin
+        if (data.is_admin) {
+          const adminLink = document.getElementById('admin-link');
+          if (adminLink) { adminLink.classList.remove('hidden'); adminLink.style.display = ''; }
+        }
         // Clear saved playback state on logout
         const logoutLink = document.querySelector('a[href="/auth/logout"]');
         if (logoutLink) {

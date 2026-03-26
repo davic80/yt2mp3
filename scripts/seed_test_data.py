@@ -28,6 +28,8 @@ os.environ.setdefault("DATABASE_URL", f"sqlite:///{ROOT}/database/yt2mp3.db")
 os.environ.setdefault("SECRET_KEY", "dev-secret-change-me")
 os.environ.setdefault("DOWNLOAD_DIR", str(ROOT / "downloads"))
 
+from werkzeug.security import generate_password_hash
+
 from app import create_app, db
 from app.models import User, Download
 from app.player_models import Playlist, PlaylistTrack, UserFeature
@@ -44,6 +46,22 @@ USERS = [
         "name": "Usuario Test 2",
         "picture": None,
         "provider": "google",
+    },
+    # Local password users (provider='local')
+    {
+        "email": "maria@local",
+        "name": "María García",
+        "picture": None,
+        "provider": "local",
+        "password": "test1234",
+    },
+    {
+        "email": "carlos@local",
+        "name": "Carlos López",
+        "picture": None,
+        "provider": "local",
+        "password": "test1234",
+        "is_admin": True,
     },
 ]
 
@@ -143,7 +161,17 @@ def seed():
         # ── Usuarios ──────────────────────────────────────────────────────────
         for u_data in USERS:
             if not db.session.get(User, u_data["email"]):
-                db.session.add(User(**u_data))
+                user_kwargs = {
+                    "email": u_data["email"],
+                    "name": u_data["name"],
+                    "picture": u_data.get("picture"),
+                    "provider": u_data["provider"],
+                }
+                if u_data.get("password"):
+                    user_kwargs["password_hash"] = generate_password_hash(u_data["password"])
+                if u_data.get("is_admin"):
+                    user_kwargs["is_admin"] = True
+                db.session.add(User(**user_kwargs))
                 created["users"] += 1
             else:
                 print(f"  · Usuario ya existe: {u_data['email']}")

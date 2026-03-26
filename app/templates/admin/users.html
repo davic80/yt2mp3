@@ -61,6 +61,46 @@
     }
     .stat-pill span { color: var(--neon); font-weight: 600; }
 
+    /* ── Create-user inline form ── */
+    .create-user-form {
+      padding: 0 1.5rem .6rem;
+    }
+    .create-user-toggle {
+      background: none; border: 1px solid var(--neon); border-radius: var(--radius);
+      color: var(--neon); font-family: var(--font); font-size: .78rem; font-weight: 600;
+      padding: .3rem .8rem; cursor: pointer; transition: background .15s, color .15s;
+    }
+    .create-user-toggle:hover { background: var(--neon); color: #111; }
+    .create-user-fields {
+      display: none; margin-top: .6rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem 1.2rem;
+    }
+    .create-user-fields.open { display: flex; flex-wrap: wrap; gap: .6rem; align-items: flex-end; }
+    .cuf-group { display: flex; flex-direction: column; gap: .2rem; }
+    .cuf-group label { font-size: .72rem; color: var(--muted); font-weight: 500; }
+    .cuf-group input {
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: var(--radius); color: var(--text); font-family: var(--font);
+      font-size: .82rem; padding: .35rem .6rem; outline: none; width: 180px;
+      transition: border-color .15s;
+    }
+    .cuf-group input:focus { border-color: var(--neon); }
+    .cuf-group input::placeholder { color: var(--muted); }
+    .btn-create-user {
+      background: var(--neon); color: #111; border: none; border-radius: var(--radius);
+      font-family: var(--font); font-size: .82rem; font-weight: 600;
+      padding: .4rem 1rem; cursor: pointer; transition: opacity .15s;
+      height: fit-content;
+    }
+    .btn-create-user:hover { opacity: .85; }
+    .btn-create-user:disabled { opacity: .4; cursor: not-allowed; }
+    .cuf-error {
+      width: 100%; font-size: .78rem; color: #ff4d4d; margin-top: .2rem;
+      display: none;
+    }
+    .cuf-error.show { display: block; }
+
     /* ── Table ── */
     .table-wrap { padding: 0 1.5rem 2rem; overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
@@ -144,6 +184,26 @@
          oninput="filterTable()" />
   <div class="stat-pill" id="user-count">
     <span id="stat-users">—</span> usuarios
+  </div>
+</div>
+
+<div class="create-user-form">
+  <button class="create-user-toggle" onclick="toggleCreateForm()">+ Crear usuario</button>
+  <div class="create-user-fields" id="create-user-fields">
+    <div class="cuf-group">
+      <label for="cuf-name">Nombre *</label>
+      <input type="text" id="cuf-name" placeholder="Juan Perez" />
+    </div>
+    <div class="cuf-group">
+      <label for="cuf-email">Email (opcional)</label>
+      <input type="email" id="cuf-email" placeholder="juan@local" />
+    </div>
+    <div class="cuf-group">
+      <label for="cuf-pass">Password *</label>
+      <input type="password" id="cuf-pass" placeholder="****" />
+    </div>
+    <button class="btn-create-user" id="btn-create-user" onclick="createUser()">Crear</button>
+    <div class="cuf-error" id="cuf-error"></div>
   </div>
 </div>
 
@@ -309,6 +369,55 @@
   window.sortBy       = sortBy;
   window.filterTable  = filterTable;
   window.toggleFeature = toggleFeature;
+
+  // ── Create user form ──────────────────────────────────────────────────────
+  window.toggleCreateForm = function () {
+    document.getElementById('create-user-fields').classList.toggle('open');
+  };
+
+  window.createUser = async function () {
+    const nameEl  = document.getElementById('cuf-name');
+    const emailEl = document.getElementById('cuf-email');
+    const passEl  = document.getElementById('cuf-pass');
+    const errEl   = document.getElementById('cuf-error');
+    const btn     = document.getElementById('btn-create-user');
+
+    errEl.classList.remove('show');
+    errEl.textContent = '';
+
+    const name     = nameEl.value.trim();
+    const email    = emailEl.value.trim();
+    const password = passEl.value;
+
+    if (!name) { errEl.textContent = 'El nombre es obligatorio.'; errEl.classList.add('show'); return; }
+    if (!password || password.length < 4) { errEl.textContent = 'La contraseña debe tener al menos 4 caracteres.'; errEl.classList.add('show'); return; }
+
+    btn.disabled = true;
+    try {
+      const res = await fetch('/db/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: email || undefined, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Error al crear usuario.';
+        errEl.classList.add('show');
+        return;
+      }
+      showToast(`Usuario creado: ${data.email}`);
+      nameEl.value = '';
+      emailEl.value = '';
+      passEl.value = '';
+      document.getElementById('create-user-fields').classList.remove('open');
+      load();  // refresh table
+    } catch (_) {
+      errEl.textContent = 'Error de conexion.';
+      errEl.classList.add('show');
+    } finally {
+      btn.disabled = false;
+    }
+  };
 
   load();
 })();
