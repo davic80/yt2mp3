@@ -55,7 +55,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.9.2")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.10.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -84,7 +84,7 @@ def create_app():
     with app.app_context():
         from sqlalchemy import text
         from app.models import User, Download  # noqa: F401
-        from app.player_models import Playlist, PlaylistTrack, PlaylistShare, UserFeature, PlayEvent, LyricsCache, LyricsBlacklist  # noqa: F401
+        from app.player_models import Playlist, PlaylistTrack, PlaylistShare, PlaylistMember, UserFeature, PlayEvent, LyricsCache, LyricsBlacklist  # noqa: F401
         db.create_all()
 
         # ── Inline migrations: add new columns if they don't exist yet ──
@@ -211,6 +211,49 @@ def create_app():
                     conn.commit()
             except Exception:
                 pass  # column already exists
+
+        # v4.10.0 — collaborative playlists
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS playlist_members ("
+                    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    "  playlist_id INTEGER NOT NULL,"
+                    "  user_email VARCHAR(256) NOT NULL,"
+                    "  role VARCHAR(16) NOT NULL DEFAULT 'editor',"
+                    "  joined_at DATETIME,"
+                    "  FOREIGN KEY (playlist_id) REFERENCES playlists(id),"
+                    "  FOREIGN KEY (user_email) REFERENCES users(email),"
+                    "  UNIQUE (playlist_id, user_email)"
+                    ")"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
+        for col_sql in (
+            "ALTER TABLE playlist_tracks ADD COLUMN added_by VARCHAR(256)",
+            "ALTER TABLE playlist_shares ADD COLUMN mode VARCHAR(16) DEFAULT 'view'",
+        ):
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text(col_sql))
+                    conn.commit()
+            except Exception:
+                pass  # column already exists
+
+        # v4.10.0 — seed playlist_members with owners for existing playlists
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "INSERT OR IGNORE INTO playlist_members (playlist_id, user_email, role, joined_at) "
+                    "SELECT id, user_email, 'owner', created_at FROM playlists "
+                    "WHERE user_email IS NOT NULL "
+                    "AND user_email NOT IN (SELECT user_email FROM playlist_members WHERE playlist_id = playlists.id AND role = 'owner')"
+                ))
+                conn.commit()
+        except Exception:
+            pass
 
     from app.routes import bp
     from app.admin_routes import admin_bp

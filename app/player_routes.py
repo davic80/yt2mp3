@@ -10,9 +10,39 @@ from flask import Blueprint, Response, abort, jsonify, redirect, render_template
 from app import db
 from app.auth_utils import _is_local_request, get_current_user_email, user_required
 from app.models import Download
-from app.player_models import Playlist, PlaylistShare, PlaylistTrack, UserFeature, PlayEvent
+from app.player_models import Playlist, PlaylistShare, PlaylistMember, PlaylistTrack, UserFeature, PlayEvent
 
 player_bp = Blueprint("player", __name__, url_prefix="/player")
+
+
+# ── Collaborative playlist helpers ─────────────────────────────────────────────
+
+def _can_edit(pl, email):
+    """Return True if the user can add/remove/reorder tracks in this playlist."""
+    if not email:
+        return True  # local/admin bypass
+    if pl.user_email == email:
+        return True  # owner
+    member = PlaylistMember.query.filter_by(
+        playlist_id=pl.id, user_email=email
+    ).first()
+    return member is not None and member.role in ("owner", "editor")
+
+
+def _is_owner(pl, email):
+    """Return True if the user is the playlist owner (or local admin)."""
+    if not email:
+        return True  # local/admin bypass
+    return pl.user_email == email
+
+
+def _user_display_name(email):
+    """Return user display name for an email, or the email itself as fallback."""
+    if not email:
+        return None
+    from app.models import User
+    u = User.query.get(email)
+    return u.name if u and u.name else email
 
 
 # ── Page ───────────────────────────────────────────────────────────────────────
@@ -76,7 +106,8 @@ def _stream_mp3(record: Download) -> Response:
 def stream(job_id: str):
     record = Download.query.filter_by(job_id=job_id, status="done").first_or_404()
 
-    # Remote users may only stream their own tracks OR tracks in any shared playlist
+    # Remote users may only stream their own tracks, tracks in any shared playlist,
+    # or tracks in a collaborative playlist they are a member of
     email = get_current_user_email()
     if email and record.user_email != email:
         shared_accessible = (
@@ -86,7 +117,14 @@ def stream(job_id: str):
             .filter(PlaylistTrack.job_id == job_id)
             .first()
         )
-        if not shared_accessible:
+        member_accessible = (
+            db.session.query(PlaylistMember)
+            .join(Playlist, PlaylistMember.playlist_id == Playlist.id)
+            .join(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
+            .filter(PlaylistMember.user_email == email, PlaylistTrack.job_id == job_id)
+            .first()
+        )
+        if not shared_accessible and not member_accessible:
             abort(403)
 
     return _stream_mp3(record)
@@ -286,41 +324,68 @@ def api_artwork_patch(job_id: str):
 @player_bp.route("/api/playlists")
 @user_required
 def api_playlists():
-    from sqlalchemy import case, func
+    from sqlalchemy import case, func, literal, or_
     email = get_current_user_email()
 
     # Local admin can impersonate a user with ?as=email to see their playlists
     if not email and _is_local_request():
         email = request.args.get("as") or None
 
-    query = (
+    # ── Owned playlists ──
+    owned_q = (
         db.session.query(
             Playlist,
             func.count(PlaylistTrack.id).label("track_count"),
+            literal("owner").label("role"),
         )
         .outerjoin(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
         .group_by(Playlist.id)
     )
-
-    # Remote users / local with ?as → filter by email; local without ?as → all playlists
     if email:
-        query = query.filter(Playlist.user_email == email)
+        owned_q = owned_q.filter(Playlist.user_email == email)
 
-    rows = query.order_by(
+    # ── Collaborative playlists (where user is an editor) ──
+    collab_rows = []
+    if email:
+        collab_q = (
+            db.session.query(
+                Playlist,
+                func.count(PlaylistTrack.id).label("track_count"),
+                PlaylistMember.role.label("role"),
+            )
+            .join(PlaylistMember, PlaylistMember.playlist_id == Playlist.id)
+            .outerjoin(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
+            .filter(PlaylistMember.user_email == email, PlaylistMember.role == "editor")
+            .group_by(Playlist.id)
+        )
+        collab_rows = collab_q.all()
+
+    owned_rows = owned_q.order_by(
         case((Playlist.last_added.is_(None), 1), else_=0),
         Playlist.last_added.desc(),
         Playlist.created_at.desc(),
     ).all()
 
-    return jsonify([
-        {
-            "id":          pl.id,
-            "name":        pl.name,
-            "track_count": tc,
-            "last_added":  pl.last_added.isoformat() if pl.last_added else None,
-        }
-        for pl, tc in rows
-    ])
+    # Merge, owned first, then collaborative (avoiding duplicates)
+    seen_ids = set()
+    result = []
+    for pl, tc, role in list(owned_rows) + list(collab_rows):
+        if pl.id in seen_ids:
+            continue
+        seen_ids.add(pl.id)
+        member_count = PlaylistMember.query.filter_by(playlist_id=pl.id).count()
+        is_collab = member_count > 1 or role == "editor"
+        result.append({
+            "id":               pl.id,
+            "name":             pl.name,
+            "track_count":      tc,
+            "last_added":       pl.last_added.isoformat() if pl.last_added else None,
+            "is_collaborative": is_collab,
+            "role":             role if isinstance(role, str) else str(role),
+            "member_count":     member_count,
+        })
+
+    return jsonify(result)
 
 
 @player_bp.route("/api/playlists", methods=["POST"])
@@ -334,6 +399,12 @@ def api_create_playlist():
     email = get_current_user_email()
     pl = Playlist(name=name, user_email=email)
     db.session.add(pl)
+    db.session.flush()
+
+    # Register creator as owner in playlist_members
+    if email:
+        db.session.add(PlaylistMember(playlist_id=pl.id, user_email=email, role="owner"))
+
     db.session.commit()
     return jsonify({"id": pl.id, "name": pl.name}), 201
 
@@ -343,11 +414,14 @@ def api_create_playlist():
 def api_delete_playlist(pid: int):
     pl = Playlist.query.get_or_404(pid)
 
-    # Ownership check for remote users
+    # Owner-only operation
     email = get_current_user_email()
-    if email and pl.user_email != email:
+    if not _is_owner(pl, email):
         abort(403)
 
+    # Delete members + shares before the playlist itself
+    PlaylistMember.query.filter_by(playlist_id=pid).delete(synchronize_session=False)
+    PlaylistShare.query.filter_by(playlist_id=pid).delete(synchronize_session=False)
     db.session.delete(pl)
     db.session.commit()
     return jsonify({"ok": True})
@@ -359,7 +433,7 @@ def api_playlist_tracks(pid: int):
     pl = Playlist.query.get_or_404(pid)
 
     email = get_current_user_email()
-    if email and pl.user_email != email:
+    if not _can_edit(pl, email):
         abort(403)
 
     tracks = (
@@ -370,12 +444,14 @@ def api_playlist_tracks(pid: int):
     )
     return jsonify([
         {
-            "job_id":      t.job_id,
-            "position":    t.position,
-            "title":       t.download.title or t.job_id,
-            "file_name":   t.download.file_name,
-            "file_size":   t.download.file_size,
-            "is_favorite": bool(t.download.is_favorite),
+            "job_id":        t.job_id,
+            "position":      t.position,
+            "title":         t.download.title or t.job_id,
+            "file_name":     t.download.file_name,
+            "file_size":     t.download.file_size,
+            "is_favorite":   bool(t.download.is_favorite),
+            "added_by":      t.added_by,
+            "added_by_name": _user_display_name(t.added_by) if t.added_by else None,
         }
         for t in tracks
     ])
@@ -391,7 +467,7 @@ def api_add_to_playlist(pid: int):
         return jsonify({"error": "job_id required"}), 400
 
     email = get_current_user_email()
-    if email and pl.user_email != email:
+    if not _can_edit(pl, email):
         abort(403)
 
     Download.query.filter_by(job_id=job_id).first_or_404()
@@ -405,7 +481,7 @@ def api_add_to_playlist(pid: int):
         db.func.max(PlaylistTrack.position)
     ).filter_by(playlist_id=pid).scalar() or -1
 
-    pt = PlaylistTrack(playlist_id=pid, job_id=job_id, position=max_pos + 1)
+    pt = PlaylistTrack(playlist_id=pid, job_id=job_id, position=max_pos + 1, added_by=email)
     pl.last_added = datetime.now(timezone.utc)
     db.session.add(pt)
     db.session.commit()
@@ -418,7 +494,7 @@ def api_remove_from_playlist(pid: int, job_id: str):
     pl = Playlist.query.get_or_404(pid)
 
     email = get_current_user_email()
-    if email and pl.user_email != email:
+    if not _can_edit(pl, email):
         abort(403)
 
     pt = PlaylistTrack.query.filter_by(playlist_id=pid, job_id=job_id).first_or_404()
@@ -448,7 +524,7 @@ def api_reorder_playlist(pid: int):
     pl = Playlist.query.get_or_404(pid)
 
     email = get_current_user_email()
-    if email and pl.user_email != email:
+    if not _can_edit(pl, email):
         abort(403)
 
     data  = request.get_json(silent=True) or {}
@@ -472,34 +548,47 @@ def api_reorder_playlist(pid: int):
 @player_bp.route("/api/playlists/<int:pid>/share", methods=["POST"])
 @user_required
 def api_share_playlist(pid: int):
-    """Create (or return existing) share token for a playlist."""
+    """Create (or return existing) share token for a playlist. Accepts optional 'mode'."""
     pl = Playlist.query.get_or_404(pid)
 
     email = get_current_user_email()
-    if email and pl.user_email != email:
+    if not _is_owner(pl, email):
         abort(403)
+
+    data = request.get_json(silent=True) or {}
+    mode = data.get("mode")  # None means "don't change"
+    if mode and mode not in ("view", "collaborate"):
+        mode = None
 
     share = PlaylistShare.query.filter_by(playlist_id=pid).first()
     if not share:
-        share = PlaylistShare(playlist_id=pid, token=str(uuid.uuid4()))
+        share = PlaylistShare(playlist_id=pid, token=str(uuid.uuid4()), mode=mode or "view")
         db.session.add(share)
         db.session.commit()
+    elif mode and share.mode != mode:
+        share.mode = mode
+        db.session.commit()
 
-    return jsonify({"token": share.token})
+    return jsonify({"token": share.token, "mode": share.mode})
 
 
 @player_bp.route("/api/playlists/<int:pid>/share", methods=["DELETE"])
 @user_required
 def api_revoke_share(pid: int):
-    """Revoke (delete) the share token for a playlist."""
+    """Revoke (delete) the share token for a playlist. Also removes editor members."""
     pl = Playlist.query.get_or_404(pid)
 
     email = get_current_user_email()
-    if email and pl.user_email != email:
+    if not _is_owner(pl, email):
         abort(403)
 
     share = PlaylistShare.query.filter_by(playlist_id=pid).first()
     if share:
+        # If it was a collaborative share, remove all editors
+        if share.mode == "collaborate":
+            PlaylistMember.query.filter_by(playlist_id=pid, role="editor").delete(
+                synchronize_session=False
+            )
         db.session.delete(share)
         db.session.commit()
 
@@ -511,7 +600,7 @@ def api_shared_playlist(token: str):
     """Return playlist name + tracks for a shared token (no login required — token is the auth)."""
     share = PlaylistShare.query.filter_by(token=token).first()
     if not share:
-        return jsonify({"name": None, "tracks": []})
+        return jsonify({"name": None, "tracks": [], "mode": "view"})
 
     pl = share.playlist
     tracks = (
@@ -520,15 +609,37 @@ def api_shared_playlist(token: str):
         .order_by(PlaylistTrack.position)
         .all()
     )
+
+    # Check if requesting user is already a member (for collaborative playlists)
+    is_member = False
+    member_role = None
+    try:
+        email = get_current_user_email()
+        if email:
+            member = PlaylistMember.query.filter_by(
+                playlist_id=pl.id, user_email=email
+            ).first()
+            if member:
+                is_member = True
+                member_role = member.role
+    except Exception:
+        pass
+
     return jsonify({
-        "name": pl.name,
+        "name":        pl.name,
+        "mode":        share.mode or "view",
+        "is_member":   is_member,
+        "member_role": member_role,
+        "playlist_id": pl.id,
         "tracks": [
             {
-                "job_id":    t.job_id,
-                "position":  t.position,
-                "title":     t.download.title or t.job_id,
-                "file_name": t.download.file_name,
-                "file_size": t.download.file_size,
+                "job_id":        t.job_id,
+                "position":      t.position,
+                "title":         t.download.title or t.job_id,
+                "file_name":     t.download.file_name,
+                "file_size":     t.download.file_size,
+                "added_by":      t.added_by,
+                "added_by_name": _user_display_name(t.added_by) if t.added_by else None,
             }
             for t in tracks
         ],
@@ -542,6 +653,41 @@ def shared_redirect(token: str):
     Preserves fragment=1 query param so SPA fetch gets the fragment, not the full shell."""
     frag = "&fragment=1" if request.args.get("fragment") else ""
     return redirect(f"/player?shared={token}{frag}")
+
+
+@player_bp.route("/api/shared/<token>/join", methods=["POST"])
+@user_required
+def api_join_shared(token: str):
+    """Join a collaborative playlist as an editor. Token must have mode='collaborate'."""
+    email = get_current_user_email()
+    if not email:
+        return jsonify({"ok": True, "role": "admin"})  # local admin — no membership needed
+
+    share = PlaylistShare.query.filter_by(token=token).first()
+    if not share:
+        return jsonify({"error": "invalid token"}), 404
+
+    if (share.mode or "view") != "collaborate":
+        return jsonify({"error": "not a collaborative link"}), 400
+
+    pl = share.playlist
+
+    # Already the owner
+    if pl.user_email == email:
+        return jsonify({"ok": True, "role": "owner", "playlist_id": pl.id})
+
+    # Already a member
+    existing = PlaylistMember.query.filter_by(
+        playlist_id=pl.id, user_email=email
+    ).first()
+    if existing:
+        return jsonify({"ok": True, "role": existing.role, "playlist_id": pl.id})
+
+    # Join as editor
+    member = PlaylistMember(playlist_id=pl.id, user_email=email, role="editor")
+    db.session.add(member)
+    db.session.commit()
+    return jsonify({"ok": True, "role": "editor", "playlist_id": pl.id}), 201
 
 
 @player_bp.route("/api/shared/<token>/claim/<job_id>", methods=["POST"])
@@ -778,7 +924,7 @@ def api_lyrics(job_id: str):
 
     record = Download.query.filter_by(job_id=job_id, status="done").first_or_404()
 
-    # Ownership / shared-access check (reuse stream logic)
+    # Ownership / shared-access / member-access check (reuse stream logic)
     if email and record.user_email != email:
         shared_accessible = (
             db.session.query(PlaylistShare)
@@ -787,7 +933,14 @@ def api_lyrics(job_id: str):
             .filter(PlaylistTrack.job_id == job_id)
             .first()
         )
-        if not shared_accessible:
+        member_accessible = (
+            db.session.query(PlaylistMember)
+            .join(Playlist, PlaylistMember.playlist_id == Playlist.id)
+            .join(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
+            .filter(PlaylistMember.user_email == email, PlaylistTrack.job_id == job_id)
+            .first()
+        )
+        if not shared_accessible and not member_accessible:
             abort(403)
 
     # Check lyrics cache (skip if blacklisted for all sources)

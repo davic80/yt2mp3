@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.10.0] - 2026-03-26
+
+### Added
+- **Collaborative playlists.** Share a playlist with a "Colaborativa" toggle — anyone
+  with the link who clicks "Unirme a esta lista" joins as an editor. Editors can add
+  tracks, remove tracks, and reorder — same as the owner. Owner retains exclusive
+  rights: delete playlist, share/revoke.
+- **New table `playlist_members`** tracks playlist membership with roles (`owner`/`editor`).
+  Existing playlist owners are auto-migrated. New endpoint: `POST /player/api/shared/<token>/join`.
+- **`added_by` on playlist tracks.** Each track shows who added it (small "por [name]"
+  label in collaborative playlists). New column `playlist_tracks.added_by`.
+- **Share mode toggle.** Share dialog has a toggle between "Solo ver" (view-only, copy-based)
+  and "Colaborativa" (join-based). New column `playlist_shares.mode`.
+- **Sidebar badges** for collaborative playlists ("colab" tag). Editors cannot drag-delete
+  playlists they don't own; share button hidden for non-owners.
+
+---
+
 ## [4.9.2] - 2026-03-26
 
 ### Fixed

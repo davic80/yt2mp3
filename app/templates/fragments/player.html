@@ -231,6 +231,57 @@
     border-color: #ff4d4d; background: rgba(255,77,77,.1); color: #ff4d4d;
   }
 
+  /* ── Collaborative badges ── */
+  .pl-collab-badge {
+    font-size: .62rem; color: var(--neon); background: rgba(57,255,20,.1);
+    border-radius: 6px; padding: .05rem .35rem; flex-shrink: 0;
+    letter-spacing: .02em; line-height: 1.4;
+  }
+  .sidebar-item.active .pl-collab-badge { background: rgba(57,255,20,.2); }
+  .added-by-label {
+    font-size: .68rem; color: var(--muted); display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ── Share mode toggle ── */
+  .share-mode-row {
+    display: flex; align-items: center; gap: .65rem; margin-bottom: 1rem;
+    font-size: .82rem; color: var(--muted2);
+  }
+  .share-mode-toggle {
+    position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0;
+  }
+  .share-mode-toggle input { opacity: 0; width: 0; height: 0; }
+  .share-mode-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 20px; transition: background .2s, border-color .2s;
+  }
+  .share-mode-slider::before {
+    content: ""; position: absolute; height: 14px; width: 14px;
+    left: 2px; bottom: 2px; background: var(--muted);
+    border-radius: 50%; transition: transform .2s, background .2s;
+  }
+  .share-mode-toggle input:checked + .share-mode-slider {
+    background: var(--neon-dim); border-color: var(--neon);
+  }
+  .share-mode-toggle input:checked + .share-mode-slider::before {
+    transform: translateX(16px); background: var(--neon);
+  }
+  .share-mode-label { cursor: pointer; user-select: none; }
+
+  /* ── Join button (collaborative shared view) ── */
+  .btn-shared-join {
+    margin-left: auto;
+    background: none; border: 1px solid var(--neon); border-radius: var(--radius);
+    color: var(--neon); font-size: .82rem; padding: .35rem 1rem; cursor: pointer;
+    font-family: var(--font); font-weight: 600; transition: all .15s; white-space: nowrap;
+  }
+  .btn-shared-join:hover { background: var(--neon-dim); }
+  .btn-shared-join.joined {
+    border-color: transparent; color: var(--muted); cursor: default; font-weight: 400;
+  }
+
   /* Lyrics panel CSS is in static/style.css */
 </style>
 
@@ -301,6 +352,13 @@
 <div class="share-modal-overlay" id="share-modal-overlay" onclick="closeShareModal()">
   <div class="share-modal" onclick="event.stopPropagation()">
     <div class="share-modal-title" id="share-modal-title"></div>
+    <div class="share-mode-row">
+      <label class="share-mode-toggle">
+        <input type="checkbox" id="share-mode-check" onchange="toggleShareMode(this.checked)">
+        <span class="share-mode-slider"></span>
+      </label>
+      <label class="share-mode-label" for="share-mode-check" id="share-mode-label"></label>
+    </div>
     <div class="share-modal-url" id="share-modal-url"></div>
     <div class="share-modal-actions">
       <button class="primary" onclick="copyShareUrl()" id="share-copy-btn"></button>
@@ -408,20 +466,24 @@
   function renderSidebar() {
     const el = document.getElementById('playlist-list');
     if (!state.playlists.length) { el.innerHTML = ''; return; }
-    el.innerHTML = state.playlists.map(pl => `
+    el.innerHTML = state.playlists.map(pl => {
+      const isCollab = pl.is_collaborative;
+      const isOwner  = pl.role === 'owner' || !pl.role;
+      const showShare = state.shareEnabled && isOwner;
+      return `
       <div class="sidebar-item ${state.view == pl.id ? 'active' : ''}"
            onclick="setView(${pl.id})" data-plid="${pl.id}"
-           draggable="true"
-           ondragstart="_plDragStart(event,${pl.id})"
-           ondragend="_plDragEnd(event)"
+           draggable="${isOwner}"
+           ${isOwner ? `ondragstart="_plDragStart(event,${pl.id})" ondragend="_plDragEnd(event)"` : ''}
            ondragover="_sidebarOver(event)" ondragleave="_sidebarLeave(event)"
            ondrop="_sidebarDrop(event,${pl.id})">
         <span class="pl-name">${esc(pl.name)}</span>
+        ${isCollab ? `<span class="pl-collab-badge">${window.I18n.t('player.collaborative')}</span>` : ''}
         <span class="pl-count">${pl.track_count}</span>
-        ${state.shareEnabled ? `<button class="sidebar-pl-share" onclick="event.stopPropagation();sharePlaylist(${pl.id},'${esc(pl.name)}')"
+        ${showShare ? `<button class="sidebar-pl-share" onclick="event.stopPropagation();sharePlaylist(${pl.id},'${esc(pl.name)}')"
                 title="${window.I18n.t('player.share')}">⇗</button>` : ''}
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
 
   // ── View switching ───────────────────────────────────────────────────────────
@@ -447,7 +509,11 @@
     if (!pl) return [];
     return pl.map(pt => {
       const full = state.tracks.find(t => t.job_id === pt.job_id);
-      return full || pt;
+      if (full) {
+        // Merge: take full track data but keep added_by from playlist response
+        return Object.assign({}, full, { added_by: pt.added_by, added_by_name: pt.added_by_name });
+      }
+      return pt;
     });
   }
 
@@ -462,6 +528,11 @@
     const tracks = getFilteredTracks();
     const container = document.getElementById('track-container');
     const I = window.I18n;
+
+    // Check if current view is a collaborative playlist
+    const plMeta = typeof state.view === 'number'
+      ? state.playlists.find(p => p.id === state.view) : null;
+    const isCollab = plMeta && plMeta.is_collaborative;
 
     // Update queue in global player
     const jobIds = tracks.map(t => t.job_id);
@@ -503,6 +574,7 @@
               </td>
               <td class="col-title">
                 <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
+                ${isCollab && t.added_by_name ? `<span class="added-by-label">${esc(I.t('player.added_by').replace('{name}', t.added_by_name))}</span>` : ''}
               </td>
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-date">${fmtDate(t.created_at)}</td>
@@ -657,6 +729,9 @@
   }
 
   async function deletePlaylist(pid) {
+    const pl = state.playlists.find(p => p.id === pid);
+    // Editors can't delete — only owners can
+    if (pl && pl.role === 'editor') return;
     if (!confirm(window.I18n.t('player.confirm_del_pl'))) return;
     await fetch(`/player/api/playlists/${pid}`, { method: 'DELETE' });
     state.playlists = state.playlists.filter(p => p.id !== pid);
@@ -761,12 +836,19 @@
   // ── Share ────────────────────────────────────────────────────────────────────
   let _sharePid   = null;
   let _shareToken = null;
+  let _shareMode  = 'view';
 
   async function sharePlaylist(pid, name) {
-    const res  = await fetch(`/player/api/playlists/${pid}/share`, { method: 'POST' });
+    // First, get or create share (without changing mode if it already exists)
+    const res  = await fetch(`/player/api/playlists/${pid}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
     const data = await res.json();
     _sharePid   = pid;
     _shareToken = data.token;
+    _shareMode  = data.mode || 'view';
     const url   = `${location.origin}/player/s/${data.token}`;
     const I = window.I18n;
     document.getElementById('share-modal-title').textContent  = I.t('player.share_title') + ': ' + name;
@@ -774,12 +856,35 @@
     document.getElementById('share-copy-btn').textContent     = I.t('player.share_copy');
     document.getElementById('share-revoke-btn').textContent   = I.t('player.share_revoke');
     document.getElementById('share-close-btn').textContent    = I.t('player.share_close');
+    // Mode toggle
+    const modeCheck = document.getElementById('share-mode-check');
+    const modeLabel = document.getElementById('share-mode-label');
+    modeCheck.checked = _shareMode === 'collaborate';
+    modeLabel.textContent = modeCheck.checked
+      ? I.t('player.share_mode_collaborate')
+      : I.t('player.share_mode_view');
     document.getElementById('share-modal-overlay').classList.add('open');
+  }
+
+  async function toggleShareMode(checked) {
+    const mode = checked ? 'collaborate' : 'view';
+    _shareMode = mode;
+    const I = window.I18n;
+    document.getElementById('share-mode-label').textContent = checked
+      ? I.t('player.share_mode_collaborate')
+      : I.t('player.share_mode_view');
+    if (!_sharePid) return;
+    // Update mode on server
+    await fetch(`/player/api/playlists/${_sharePid}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    });
   }
 
   function closeShareModal() {
     document.getElementById('share-modal-overlay').classList.remove('open');
-    _sharePid = null; _shareToken = null;
+    _sharePid = null; _shareToken = null; _shareMode = 'view';
   }
 
   async function copyShareUrl() {
@@ -812,23 +917,53 @@
     const data = await res.json();
     const I    = window.I18n;
 
+    const isCollab  = data.mode === 'collaborate';
+    const isMember  = data.is_member;
+    const hasSession = window.Player && window.Player.hasSession ? window.Player.hasSession() : document.body.classList.contains('has-session');
+
+    // If already a member of a collaborative playlist, redirect to normal view
+    if (isCollab && isMember && data.playlist_id) {
+      document.getElementById('sidebar').style.display = '';
+      // Reload playlists to ensure the collaborative one is in the sidebar
+      const plRes = await fetch('/player/api/playlists');
+      state.playlists = await plRes.json();
+      renderSidebar();
+      await setView(data.playlist_id);
+      return;
+    }
+
     // Hide sidebar, show shared header above main
     document.getElementById('sidebar').style.display = 'none';
     const main = document.querySelector('.main');
-    const hasSession = window.Player && window.Player.hasSession ? window.Player.hasSession() : document.body.classList.contains('has-session');
 
     const header = document.createElement('div');
     header.className = 'shared-header';
-    header.innerHTML = `
-      <div>
-        <div class="shared-header-name">${data.name ? esc(data.name) : I.t('player.shared_invalid')}</div>
-        <div class="shared-header-sub">${I.t('player.shared_view')}</div>
-      </div>
-      ${data.name && hasSession ? `
-      <button class="btn-shared-add" id="btn-shared-add"
-              onclick="addSharedPlaylist('${token}')">
-        ${I.t('player.shared_add_pl')}
-      </button>` : ''}`;
+
+    if (isCollab && hasSession) {
+      // Collaborative link — show join button
+      header.innerHTML = `
+        <div>
+          <div class="shared-header-name">${data.name ? esc(data.name) : I.t('player.shared_invalid')}</div>
+          <div class="shared-header-sub">${I.t('player.share_mode_collaborate')}</div>
+        </div>
+        ${data.name ? `
+        <button class="btn-shared-join" id="btn-shared-join"
+                onclick="joinCollabPlaylist('${token}')">
+          ${I.t('player.join_playlist')}
+        </button>` : ''}`;
+    } else {
+      // View-only shared link — same as before
+      header.innerHTML = `
+        <div>
+          <div class="shared-header-name">${data.name ? esc(data.name) : I.t('player.shared_invalid')}</div>
+          <div class="shared-header-sub">${I.t('player.shared_view')}</div>
+        </div>
+        ${data.name && hasSession ? `
+        <button class="btn-shared-add" id="btn-shared-add"
+                onclick="addSharedPlaylist('${token}')">
+          ${I.t('player.shared_add_pl')}
+        </button>` : ''}`;
+    }
     main.prepend(header);
 
     if (!data.name) {
@@ -837,7 +972,7 @@
       return;
     }
 
-    // Build track list — mark which ones the current user already owns
+    // Build track list
     const ownedIds = new Set(state.tracks.map(t => t.job_id));
     const tracks = data.tracks;
 
@@ -849,44 +984,97 @@
       return;
     }
 
-    document.getElementById('track-container').innerHTML = `
-      <table class="track-list">
-        <thead>
-          <tr>
-            ${hasSession ? `<th class="col-claim"></th>` : ''}
-            <th>${I.t('player.col_title')}</th>
-            <th class="col-size">${I.t('player.col_size')}</th>
-            <th class="col-menu"></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tracks.map((t, i) => {
-            const owned = ownedIds.has(t.job_id);
-            return `
+    if (isCollab) {
+      // Collaborative view — show tracks with added_by but no claim buttons
+      document.getElementById('track-container').innerHTML = `
+        <table class="track-list">
+          <thead>
+            <tr>
+              <th>${I.t('player.col_title')}</th>
+              <th class="col-size">${I.t('player.col_size')}</th>
+              <th class="col-menu"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tracks.map((t, i) => `
             <tr data-job="${t.job_id}" data-idx="${i}"
                 class="${state.currentJob === t.job_id ? 'playing' : ''}"
                 onclick="playTrack('${t.job_id}', ${i})">
-              ${hasSession ? `
-              <td class="col-claim" onclick="event.stopPropagation()">
-                <button class="claim-btn ${owned ? 'claimed' : ''}"
-                        id="claim-${t.job_id}"
-                        onclick="${owned ? '' : `claimTrack('${token}','${t.job_id}',this)`}"
-                        ${owned ? 'disabled' : ''}>
-                  ${owned ? I.t('player.claimed') : I.t('player.claim')}
-                </button>
-              </td>` : ''}
               <td class="col-title">
                 <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
+                ${t.added_by_name ? `<span class="added-by-label">${esc(I.t('player.added_by').replace('{name}', t.added_by_name))}</span>` : ''}
               </td>
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-menu"></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>`;
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } else {
+      // View-only — show claim buttons
+      document.getElementById('track-container').innerHTML = `
+        <table class="track-list">
+          <thead>
+            <tr>
+              ${hasSession ? `<th class="col-claim"></th>` : ''}
+              <th>${I.t('player.col_title')}</th>
+              <th class="col-size">${I.t('player.col_size')}</th>
+              <th class="col-menu"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tracks.map((t, i) => {
+              const owned = ownedIds.has(t.job_id);
+              return `
+              <tr data-job="${t.job_id}" data-idx="${i}"
+                  class="${state.currentJob === t.job_id ? 'playing' : ''}"
+                  onclick="playTrack('${t.job_id}', ${i})">
+                ${hasSession ? `
+                <td class="col-claim" onclick="event.stopPropagation()">
+                  <button class="claim-btn ${owned ? 'claimed' : ''}"
+                          id="claim-${t.job_id}"
+                          onclick="${owned ? '' : `claimTrack('${token}','${t.job_id}',this)`}"
+                          ${owned ? 'disabled' : ''}>
+                    ${owned ? I.t('player.claimed') : I.t('player.claim')}
+                  </button>
+                </td>` : ''}
+                <td class="col-title">
+                  <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
+                </td>
+                <td class="col-size">${fmtSize(t.file_size)}</td>
+                <td class="col-menu"></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    }
 
     // Load shared tracks into player track registry so titles work
     if (window.Player) window.Player.loadTracks(tracks);
+  }
+
+  async function joinCollabPlaylist(token) {
+    const btn = document.getElementById('btn-shared-join');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const res  = await fetch(`/player/api/shared/${token}/join`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        if (btn) {
+          btn.textContent = window.I18n.t('player.joined_playlist');
+          btn.classList.add('joined');
+        }
+        // Reload playlists and switch to the collaborative playlist
+        const plRes = await fetch('/player/api/playlists');
+        state.playlists = await plRes.json();
+        // Remove shared header and show sidebar
+        document.querySelector('.shared-header')?.remove();
+        document.getElementById('sidebar').style.display = '';
+        renderSidebar();
+        if (data.playlist_id) await setView(data.playlist_id);
+      }
+    } catch {
+      if (btn) { btn.disabled = false; btn.textContent = window.I18n.t('player.join_playlist'); }
+    }
   }
 
   async function claimTrack(token, jobId, btn) {
@@ -1089,8 +1277,10 @@
   window.copyShareUrl        = copyShareUrl;
   window.revokeShare         = revokeShare;
   window.closeShareModal     = closeShareModal;
+  window.toggleShareMode     = toggleShareMode;
   window.claimTrack          = claimTrack;
   window.addSharedPlaylist   = addSharedPlaylist;
+  window.joinCollabPlaylist  = joinCollabPlaylist;
   window._rowDragStart       = _rowDragStart;
   window._rowDragEnd         = _rowDragEnd;
   window._rowOver            = _rowOver;

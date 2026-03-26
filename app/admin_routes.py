@@ -301,7 +301,7 @@ def api_create_user():
 @admin_or_local
 def api_delete_user(email: str):
     """Delete a user and all associated data. Downloads are kept as anonymous."""
-    from app.player_models import Playlist, PlaylistShare, UserFeature, PlayEvent
+    from app.player_models import Playlist, PlaylistShare, PlaylistMember, UserFeature, PlayEvent
 
     user = User.query.get(email)
     if not user:
@@ -313,8 +313,13 @@ def api_delete_user(email: str):
         PlaylistShare.query.filter(PlaylistShare.playlist_id.in_(pl_ids)).delete(
             synchronize_session=False
         )
+        PlaylistMember.query.filter(PlaylistMember.playlist_id.in_(pl_ids)).delete(
+            synchronize_session=False
+        )
     # 2. Delete playlists (cascade deletes PlaylistTrack rows)
     Playlist.query.filter_by(user_email=email).delete(synchronize_session=False)
+    # 2b. Remove user from collaborative playlists they are a member of
+    PlaylistMember.query.filter_by(user_email=email).delete(synchronize_session=False)
     # 3. Delete user features
     UserFeature.query.filter_by(user_email=email).delete(synchronize_session=False)
     # 4. Delete play events

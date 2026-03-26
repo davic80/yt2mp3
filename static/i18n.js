@@ -73,6 +73,14 @@ window.I18n = (function () {
       'player.shared_add_pl':  'Agregar a mis playlists',
       'player.shared_added_pl':'Playlist creada ✓',
 
+      // ── Player — collaborative ──
+      'player.share_mode_view':        'Solo ver',
+      'player.share_mode_collaborate': 'Colaborativa',
+      'player.join_playlist':          'Unirme a esta lista',
+      'player.joined_playlist':        'Te uniste ✓',
+      'player.added_by':               'por {name}',
+      'player.collaborative':          'colab',
+
       // ── Player — lyrics ──
       'player.lyrics':           'Letras',
       'player.lyrics_loading':   'Buscando letras...',
@@ -163,6 +171,14 @@ window.I18n = (function () {
       'player.shared_invalid': 'This link is no longer available.',
       'player.shared_add_pl':  'Add to my playlists',
       'player.shared_added_pl':'Playlist created ✓',
+
+      // ── Player — collaborative ──
+      'player.share_mode_view':        'View only',
+      'player.share_mode_collaborate': 'Collaborative',
+      'player.join_playlist':          'Join this playlist',
+      'player.joined_playlist':        'Joined ✓',
+      'player.added_by':               'by {name}',
+      'player.collaborative':          'collab',
 
       // ── Player — lyrics ──
       'player.lyrics':           'Lyrics',

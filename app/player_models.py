@@ -29,6 +29,7 @@ class PlaylistTrack(db.Model):
     playlist_id = db.Column(db.Integer, db.ForeignKey("playlists.id"), nullable=False)
     job_id      = db.Column(db.String(64), db.ForeignKey("downloads.job_id"), nullable=False)
     position    = db.Column(db.Integer, nullable=False, default=0)
+    added_by    = db.Column(db.String(256), nullable=True)  # v4.10.0 — email of who added
 
     playlist = db.relationship("Playlist", back_populates="tracks")
     download = db.relationship("Download")
@@ -42,8 +43,27 @@ class PlaylistShare(db.Model):
     token       = db.Column(db.String(36), unique=True, nullable=False,
                             default=lambda: str(uuid.uuid4()))
     created_at  = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    mode        = db.Column(db.String(16), nullable=False, default="view")  # v4.10.0 — 'view' | 'collaborate'
 
     playlist = db.relationship("Playlist")
+
+
+class PlaylistMember(db.Model):
+    """Collaborative playlist membership (v4.10.0)."""
+    __tablename__ = "playlist_members"
+
+    id          = db.Column(db.Integer, primary_key=True)
+    playlist_id = db.Column(db.Integer, db.ForeignKey("playlists.id"), nullable=False)
+    user_email  = db.Column(db.String(256), db.ForeignKey("users.email"), nullable=False)
+    role        = db.Column(db.String(16), nullable=False, default="editor")  # 'owner' | 'editor'
+    joined_at   = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        db.UniqueConstraint("playlist_id", "user_email", name="uq_playlist_member"),
+    )
+
+    playlist = db.relationship("Playlist", backref=db.backref("members", cascade="all, delete-orphan"))
+    user     = db.relationship("User")
 
 
 class UserFeature(db.Model):
