@@ -266,6 +266,7 @@ window.I18n = (function () {
   // Apply on initial load (after DOM ready — called from shell.html inline script)
   function init() {
     _applyShell();
+    document.dispatchEvent(new CustomEvent('i18n:change', { detail: { lang: getLang() } }));
   }
 
   return { t, getLang, setLang, init };

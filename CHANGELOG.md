@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.9.2] - 2026-03-26
+
+### Fixed
+- **Player page blank on full browser reload.** `I18n.init()` did not dispatch the
+  `i18n:change` event, so the player fragment — which waits for that event when
+  `window.I18n` isn't loaded yet — never called `loadAll()`. Added the event dispatch
+  to `init()` in `i18n.js`.
+
+---
+
 ## [4.9.1] - 2026-03-26
 
 ### Added
