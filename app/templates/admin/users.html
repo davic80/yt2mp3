@@ -150,6 +150,14 @@
     /* ── Empty / loading ── */
     .empty-msg { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: .9rem; }
 
+    /* ── Delete button ── */
+    .btn-delete-user {
+      background: none; border: 1px solid var(--border2); border-radius: var(--radius);
+      color: var(--muted); font-size: .72rem; padding: .2rem .5rem; cursor: pointer;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .btn-delete-user:hover { border-color: #ff4d4d; color: #ff4d4d; background: rgba(255,77,77,.08); }
+
     /* ── Toast ── */
     .toast {
       position: fixed; bottom: 1.5rem; right: 1.5rem;
@@ -265,6 +273,7 @@
       { key: 'is_admin',       label: 'Admin' },
       { key: 'lyrics_enabled', label: 'Lyrics' },
       { key: 'share_enabled',  label: 'Compartir' },
+      { key: null,             label: '' },
     ];
 
     if (!rows.length) {
@@ -277,10 +286,11 @@
       <table>
         <thead>
           <tr>
-            ${cols.map(c => `
-              <th class="${_sortCol === c.key ? 'sorted' + (_sortAsc ? ' asc' : '') : ''}"
-                  onclick="sortBy('${c.key}')">${c.label}</th>
-            `).join('')}
+            ${cols.map(c => c.key
+              ? `<th class="${_sortCol === c.key ? 'sorted' + (_sortAsc ? ' asc' : '') : ''}"
+                     onclick="sortBy('${c.key}')">${c.label}</th>`
+              : `<th style="cursor:default"></th>`
+            ).join('')}
           </tr>
         </thead>
         <tbody>
@@ -320,6 +330,9 @@
                          onchange="toggleFeature('${esc(u.email)}', 'share_enabled', this)" />
                   <span class="slider"></span>
                 </label>
+              </td>
+              <td>
+                <button class="btn-delete-user" onclick="deleteUser('${esc(u.email)}')" title="Eliminar usuario">✕</button>
               </td>
             </tr>
           `).join('')}
@@ -369,6 +382,24 @@
   window.sortBy       = sortBy;
   window.filterTable  = filterTable;
   window.toggleFeature = toggleFeature;
+
+  // ── Delete user ───────────────────────────────────────────────────────────
+  window.deleteUser = async function (email) {
+    if (!confirm(`¿Eliminar usuario "${email}"?\n\nSe borrarán sus playlists, features y historial de reproducción.\nSus descargas se conservarán como anónimas.`)) return;
+
+    try {
+      const res = await fetch(`/db/api/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Error al eliminar usuario.');
+        return;
+      }
+      showToast(`Usuario eliminado: ${email}`);
+      load();
+    } catch (_) {
+      showToast('Error de conexión.');
+    }
+  };
 
   // ── Create user form ──────────────────────────────────────────────────────
   window.toggleCreateForm = function () {

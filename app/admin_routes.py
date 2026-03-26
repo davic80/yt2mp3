@@ -297,6 +297,39 @@ def api_create_user():
     return jsonify({"ok": True, "email": user.email, "name": user.name}), 201
 
 
+@admin_bp.route("/api/users/<path:email>", methods=["DELETE"])
+@admin_or_local
+def api_delete_user(email: str):
+    """Delete a user and all associated data. Downloads are kept as anonymous."""
+    from app.player_models import Playlist, PlaylistShare, UserFeature, PlayEvent
+
+    user = User.query.get(email)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado."}), 404
+
+    # 1. Delete playlist shares for user's playlists
+    pl_ids = [p.id for p in Playlist.query.filter_by(user_email=email).all()]
+    if pl_ids:
+        PlaylistShare.query.filter(PlaylistShare.playlist_id.in_(pl_ids)).delete(
+            synchronize_session=False
+        )
+    # 2. Delete playlists (cascade deletes PlaylistTrack rows)
+    Playlist.query.filter_by(user_email=email).delete(synchronize_session=False)
+    # 3. Delete user features
+    UserFeature.query.filter_by(user_email=email).delete(synchronize_session=False)
+    # 4. Delete play events
+    PlayEvent.query.filter_by(user_email=email).delete(synchronize_session=False)
+    # 5. De-associate downloads (keep as anonymous)
+    Download.query.filter_by(user_email=email).update(
+        {"user_email": None}, synchronize_session=False
+    )
+    # 6. Delete user
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify({"ok": True, "email": email})
+
+
 @admin_bp.route("/api/users/<path:email>/features", methods=["POST"])
 @admin_or_local
 def api_set_user_features(email: str):

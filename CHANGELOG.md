@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.9.1] - 2026-03-26
+
+### Added
+- **Delete user from admin panel.** Red `✕` button on each row in `/db/users` with
+  `confirm()` dialog. Deleting a user removes their playlists (+ shared links),
+  play events, and user features. Downloads are kept as anonymous (`user_email` set
+  to `NULL`). New endpoint: `DELETE /db/api/users/<email>` (`@admin_or_local`).
+
+---
+
 ## [4.9.0] - 2026-03-26
 
 ### Added
