@@ -70,6 +70,25 @@
       width: 2.4rem; height: 2.4rem; border-radius: 50%;
       object-fit: cover; border: 1px solid var(--neon);
     }
+    .auth-avatar-wrap {
+      width: 2.4rem; height: 2.4rem; flex-shrink: 0;
+      position: relative;
+    }
+    .avatar-initial {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%; color: #fff; font-weight: 600;
+      text-transform: uppercase; user-select: none; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,.15);
+    }
+    .avatar-initial--topbar {
+      width: 2.4rem; height: 2.4rem; font-size: .92rem;
+      border: 1px solid var(--neon);
+    }
+    .avatar-initial--sm {
+      width: 1rem; height: 1rem; font-size: .52rem;
+      display: inline-flex; vertical-align: middle; margin-right: .2rem;
+      border: none;
+    }
     .auth-name {
       font-size: .78rem; color: #aaa; max-width: 120px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -313,6 +332,8 @@
 
       /* Avatar */
       .auth-avatar { width: 2.2rem; height: 2.2rem; }
+      .auth-avatar-wrap { width: 2.2rem; height: 2.2rem; }
+      .avatar-initial--topbar { width: 2.2rem; height: 2.2rem; font-size: .82rem; }
       .auth-name   { display: none; }
     }
 
@@ -359,7 +380,7 @@
   <!-- Auth zone -->
   <div class="auth-zone" id="auth-zone">
     <div id="auth-loggedin" class="hidden" style="display:flex;align-items:center;gap:.6rem;">
-      <img id="auth-avatar" class="auth-avatar" src="" alt="avatar" />
+      <div class="auth-avatar-wrap" id="auth-avatar-wrap"></div>
       <a id="auth-name" class="auth-name" href="/player" title="ir al player"></a>
       <a href="/auth/logout" class="auth-btn">salir</a>
     </div>

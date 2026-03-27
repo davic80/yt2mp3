@@ -158,6 +158,21 @@
     }
     .btn-delete-user:hover { border-color: #ff4d4d; color: #ff4d4d; background: rgba(255,77,77,.08); }
 
+    /* ── Avatar (table) ── */
+    .td-avatar { width: 2rem; padding-right: 0; }
+    .avatar-initial-tbl {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1.6rem; height: 1.6rem; border-radius: 50%;
+      color: #fff; font-weight: 600; font-size: .65rem;
+      text-transform: uppercase; user-select: none;
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .avatar-img-tbl {
+      width: 1.6rem; height: 1.6rem; border-radius: 50%;
+      object-fit: cover; vertical-align: middle;
+      border: 1px solid rgba(255,255,255,.12);
+    }
+
     /* ── Toast ── */
     .toast {
       position: fixed; bottom: 1.5rem; right: 1.5rem;
@@ -204,7 +219,7 @@
     </div>
     <div class="cuf-group">
       <label for="cuf-email">Email (opcional)</label>
-      <input type="email" id="cuf-email" placeholder="juan@local" />
+      <input type="email" id="cuf-email" placeholder="juan@example.com" />
     </div>
     <div class="cuf-group">
       <label for="cuf-pass">Password *</label>
@@ -228,6 +243,21 @@
   let _users = [];
   let _sortCol = 'play_count';
   let _sortAsc  = false;
+
+  function avatarHue(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return ((h % 360) + 360) % 360;
+  }
+
+  function renderAvatar(u) {
+    if (u.picture) {
+      return `<img class="avatar-img-tbl" src="${esc(u.picture)}" alt="" />`;
+    }
+    const letter = (u.name || u.email || '?').charAt(0).toUpperCase();
+    const hue = avatarHue(u.name || u.email || '?');
+    return `<span class="avatar-initial-tbl" style="background:hsl(${hue},55%,42%)">${letter}</span>`;
+  }
 
   async function load() {
     const res = await fetch('/db/api/users');
@@ -262,6 +292,7 @@
     });
 
     const cols = [
+      { key: null,             label: '',          isAvatar: true },
       { key: 'email',          label: 'Email' },
       { key: 'name',           label: 'Nombre' },
       { key: 'created_at',     label: 'Alta' },
@@ -286,16 +317,19 @@
       <table>
         <thead>
           <tr>
-            ${cols.map(c => c.key
-              ? `<th class="${_sortCol === c.key ? 'sorted' + (_sortAsc ? ' asc' : '') : ''}"
-                     onclick="sortBy('${c.key}')">${c.label}</th>`
-              : `<th style="cursor:default"></th>`
+            ${cols.map(c => c.isAvatar
+              ? `<th style="cursor:default;width:2rem"></th>`
+              : c.key
+                ? `<th class="${_sortCol === c.key ? 'sorted' + (_sortAsc ? ' asc' : '') : ''}"
+                       onclick="sortBy('${c.key}')">${c.label}</th>`
+                : `<th style="cursor:default"></th>`
             ).join('')}
           </tr>
         </thead>
         <tbody>
           ${rows.map(u => `
             <tr>
+              <td class="td-avatar">${renderAvatar(u)}</td>
               <td class="td-email" title="${esc(u.email)}">${esc(u.email)}</td>
               <td class="td-name"  title="${esc(u.name)}">${esc(u.name) || '<span style="color:var(--muted)">—</span>'}</td>
               <td class="td-date">${fmtDate(u.created_at)}</td>
@@ -421,6 +455,7 @@
     const password = passEl.value;
 
     if (!name) { errEl.textContent = 'El nombre es obligatorio.'; errEl.classList.add('show'); return; }
+    if (name.includes('@')) { errEl.textContent = 'El nombre no puede contener \'@\'.'; errEl.classList.add('show'); return; }
     if (!password || password.length < 4) { errEl.textContent = 'La contraseña debe tener al menos 4 caracteres.'; errEl.classList.add('show'); return; }
 
     btn.disabled = true;

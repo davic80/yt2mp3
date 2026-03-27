@@ -1,6 +1,25 @@
 (function () {
   'use strict';
 
+  // ── Avatar helpers ────────────────────────────────────────────────────────
+
+  function avatarHue(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return ((h % 360) + 360) % 360;
+  }
+
+  function avatarInitialHTML(name, cls) {
+    const letter = (name || '?').charAt(0).toUpperCase();
+    const hue = avatarHue(name || '?');
+    const bg = `hsl(${hue}, 55%, 42%)`;
+    return `<span class="avatar-initial ${cls}" style="background:${bg}">${letter}</span>`;
+  }
+
+  // Expose globally so player.html and users.html can reuse
+  window._avatarHue = avatarHue;
+  window._avatarInitialHTML = avatarInitialHTML;
+
   // ── Auth zone (runs once when shell loads) ────────────────────────────────
 
   async function initAuthZone() {
@@ -14,9 +33,15 @@
       const data = await resp.json();
 
       if (data && data.email) {
-        const avatar = document.getElementById('auth-avatar');
-        const name   = document.getElementById('auth-name');
-        if (avatar && data.picture) avatar.src = data.picture;
+        const avatarWrap = document.getElementById('auth-avatar-wrap');
+        const name       = document.getElementById('auth-name');
+        if (avatarWrap) {
+          if (data.picture) {
+            avatarWrap.innerHTML = `<img class="auth-avatar" src="${data.picture}" alt="avatar" />`;
+          } else {
+            avatarWrap.innerHTML = avatarInitialHTML(data.name || data.email, 'avatar-initial--topbar');
+          }
+        }
         if (name)   name.textContent = (data.name || data.email) + ' \u266a';
         zoneLoggedIn.classList.remove('hidden');
         zoneLoggedIn.style.display = 'flex';

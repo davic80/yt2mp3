@@ -95,6 +95,7 @@
   <nav class="topbar-nav topbar-right">
     <a href="/db/">Tabla</a>
     <a href="/db/analytics" class="active">Analytics</a>
+    <a href="/db/users">Usuarios</a>
   </nav>
 </div>
 
@@ -143,6 +144,14 @@
       <h2>Top 10 países</h2>
       <div class="chart-wrap" style="height:300px">
         <canvas id="chart-countries"></canvas>
+      </div>
+    </div>
+
+    <!-- Top downloaders -->
+    <div class="chart-card">
+      <h2>Top 10 descargas por usuario</h2>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="chart-users"></canvas>
       </div>
     </div>
 
@@ -253,6 +262,38 @@ new Chart(document.getElementById('chart-countries'), {
     scales: {
       x: { grid: gridOpts(), ticks: { ...tickOpts(), precision: 0 }, beginAtZero: true },
       y: { grid: { display: false }, ticks: tickOpts() },
+    },
+  },
+});
+
+// ── Top downloaders (horizontal bar) ─────────────────────────────────────────
+new Chart(document.getElementById('chart-users'), {
+  type: 'bar',
+  data: {
+    labels: {{ user_labels | safe }},
+    datasets: [{
+      label: 'descargas',
+      data: {{ user_counts | safe }},
+      backgroundColor: 'rgba(255,170,57,0.15)',
+      borderColor: '#ffaa39',
+      borderWidth: 1,
+      borderRadius: 3,
+    }],
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: gridOpts(), ticks: { ...tickOpts(), precision: 0 }, beginAtZero: true },
+      y: { grid: { display: false }, ticks: {
+        ...tickOpts(),
+        callback: function(val) {
+          const label = this.getLabelForValue(val);
+          return label && label.length > 20 ? label.slice(0, 20) + '…' : label;
+        }
+      }},
     },
   },
 });

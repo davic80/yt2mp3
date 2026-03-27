@@ -370,6 +370,20 @@
 
 <script>
 (function () {
+  // ── Avatar helper (reuse global if available) ──────────────────────────────
+  function avatarHue(name) {
+    if (window._avatarHue) return window._avatarHue(name);
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return ((h % 360) + 360) % 360;
+  }
+  function addedByWithAvatar(nameStr) {
+    const letter = (nameStr || '?').charAt(0).toUpperCase();
+    const hue = avatarHue(nameStr || '?');
+    const bg = `hsl(${hue},55%,42%)`;
+    return `<span class="avatar-initial avatar-initial--sm" style="background:${bg}">${letter}</span>`;
+  }
+
   // ── State ───────────────────────────────────────────────────────────────────
   const state = {
     view:         'all',
@@ -574,7 +588,7 @@
               </td>
               <td class="col-title">
                 <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
-                ${isCollab && t.added_by_name ? `<span class="added-by-label">${esc(I.t('player.added_by').replace('{name}', t.added_by_name))}</span>` : ''}
+                ${isCollab && t.added_by_name ? `<span class="added-by-label">${addedByWithAvatar(t.added_by_name)}${esc(I.t('player.added_by').replace('{name}', t.added_by_name))}</span>` : ''}
               </td>
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-date">${fmtDate(t.created_at)}</td>
@@ -1002,7 +1016,7 @@
                 onclick="playTrack('${t.job_id}', ${i})">
               <td class="col-title">
                 <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
-                ${t.added_by_name ? `<span class="added-by-label">${esc(I.t('player.added_by').replace('{name}', t.added_by_name))}</span>` : ''}
+                ${t.added_by_name ? `<span class="added-by-label">${addedByWithAvatar(t.added_by_name)}${esc(I.t('player.added_by').replace('{name}', t.added_by_name))}</span>` : ''}
               </td>
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-menu"></td>

@@ -105,6 +105,27 @@ def analytics():
     total_done = Download.query.filter_by(status="done").count()
     total_error = Download.query.filter_by(status="error").count()
 
+    # ── Top 10 downloaders ───────────────────────────────────────────────────
+    user_rows = (
+        db.session.query(
+            Download.user_email,
+            func.count(Download.id).label("cnt"),
+        )
+        .filter(Download.user_email != None, Download.status == "done")  # noqa: E711
+        .group_by(Download.user_email)
+        .order_by(func.count(Download.id).desc())
+        .limit(10)
+        .all()
+    )
+    # Resolve emails → display names
+    user_emails = [r.user_email for r in user_rows]
+    name_map = {}
+    if user_emails:
+        for u in User.query.filter(User.email.in_(user_emails)).all():
+            name_map[u.email] = u.name or u.email
+    user_labels = [name_map.get(r.user_email, r.user_email) for r in user_rows]
+    user_counts = [r.cnt for r in user_rows]
+
     return render_template(
         "admin/analytics.html",
         daily_labels=json.dumps(daily_labels),
@@ -113,6 +134,8 @@ def analytics():
         song_counts=json.dumps(song_counts),
         country_labels=json.dumps(country_labels),
         country_counts=json.dumps(country_counts),
+        user_labels=json.dumps(user_labels),
+        user_counts=json.dumps(user_counts),
         total=total,
         total_done=total_done,
         total_error=total_error,
@@ -243,6 +266,8 @@ def api_users():
         {
             "email":           u.email,
             "name":            u.name or "",
+            "picture":         u.picture or "",
+            "provider":        u.provider or "local",
             "created_at":      u.created_at.isoformat() if u.created_at else None,
             "track_count":     tc or 0,
             "play_count":      pc or 0,
@@ -268,6 +293,8 @@ def api_create_user():
 
     if not name:
         return jsonify({"error": "El nombre es obligatorio."}), 400
+    if "@" in name:
+        return jsonify({"error": "El nombre no puede contener '@'."}), 400
     if not password or len(password) < 4:
         return jsonify({"error": "La contraseña debe tener al menos 4 caracteres."}), 400
 

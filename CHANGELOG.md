@@ -6,6 +6,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.11.0] - 2026-03-27
+
+### Added
+- **User avatars.** Local users (and any user without a Google profile picture) now
+  display a coloured initial-letter circle. Shown in the topbar, admin user table,
+  and collaborative playlist "added by" labels. Google users continue to show their
+  profile photo. Colour is deterministic per name.
+- **Downloads-by-user analytics chart.** New "Top 10 descargas por usuario" horizontal
+  bar chart on the admin analytics page, showing which users download the most.
+  Resolves emails to display names.
+- **Usuarios nav link in analytics page.** The analytics topbar now links to the
+  users admin page for easier navigation.
+
+### Changed
+- **Lyrics enabled by default.** New users (without a `UserFeature` row) now get
+  `lyrics_enabled: true` instead of `false`. Admin can still disable per user.
+- **Admin users API** now returns `picture` and `provider` fields per user.
+
+### Fixed
+- **Local user name validation.** Names containing `@` are now rejected (backend +
+  frontend) to prevent confusion with email addresses.
+- **Create-user email placeholder** changed from `juan@local` to `juan@example.com`.
+
+---
+
 ## [4.10.0] - 2026-03-26
 
 ### Added
