@@ -562,7 +562,7 @@ def api_share_playlist(pid: int):
 
     share = PlaylistShare.query.filter_by(playlist_id=pid).first()
     if not share:
-        share = PlaylistShare(playlist_id=pid, token=str(uuid.uuid4()), mode=mode or "view")
+        share = PlaylistShare(playlist_id=pid, token=str(uuid.uuid4()), mode=mode or "collaborate")
         db.session.add(share)
         db.session.commit()
     elif mode and share.mode != mode:

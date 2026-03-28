@@ -337,7 +337,7 @@ window.Player = (function () {
     const videoId    = track ? (track.video_id   || null) : null;
     const artworkUrl = track ? (track.artwork_url || null) : null;
 
-    _updateArtworkImg(jobId, artworkUrl, videoId);
+    _updateArtworkImg(jobId, artworkUrl, videoId, title);
     _updateMediaSession(title, videoId, artworkUrl);
 
     // Lazy-fetch artwork from backend if not yet cached
@@ -350,7 +350,7 @@ window.Player = (function () {
           if (track) track.artwork_url = artwork_url;
           // Only update UI if this is still the active track
           if (state.currentJob === jobId) {
-            _updateArtworkImg(jobId, artwork_url, videoId);
+            _updateArtworkImg(jobId, artwork_url, videoId, title);
             _updateMediaSession(title, videoId, artwork_url);
           }
         })
@@ -360,23 +360,73 @@ window.Player = (function () {
 
   // ── Artwork image in player bar ──────────────────────────────────────────────
 
-  function _updateArtworkImg(jobId, artworkUrl, videoId) {
-    const img = document.getElementById('player-artwork');
+  /**
+   * Build initials from a track title.
+   * "Tengo ganas de verte - Valerie Luh" → "T-VL"
+   * "Song Title"                         → "ST"
+   */
+  function _trackInitials(title) {
+    if (!title) return '?';
+    const idx = title.indexOf(' - ');
+    let song, artist;
+    if (idx !== -1) {
+      song   = title.slice(0, idx).trim();
+      artist = title.slice(idx + 3).trim();
+    } else {
+      // No artist separator — use first letters of words
+      const words = title.split(/\s+/).filter(Boolean);
+      return words.slice(0, 3).map(w => w.charAt(0).toUpperCase()).join('');
+    }
+    const sInit = song   ? song.charAt(0).toUpperCase() : '';
+    const aInit = artist ? artist.split(/\s+/).filter(Boolean).map(w => w.charAt(0).toUpperCase()).join('') : '';
+    return aInit ? sInit + '-' + aInit : sInit;
+  }
+
+  /** Deterministic hue from a string (same algo as avatarHue in app.js). */
+  function _titleHue(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+    return ((h % 360) + 360) % 360;
+  }
+
+  function _updateArtworkImg(jobId, artworkUrl, videoId, title) {
+    const img      = document.getElementById('player-artwork');
+    const initDiv  = document.getElementById('player-artwork-initials');
     if (!img) return;
-    // Priority: DB artwork → YouTube thumbnail → hide
+
+    // Priority: DB artwork → YouTube thumbnail → initials fallback
     const src = artworkUrl
       || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null);
-    if (!src) {
+
+    if (src) {
+      // Hide initials, show image
+      if (initDiv) { initDiv.classList.remove('visible'); initDiv.textContent = ''; }
+      if (img.src === src) return;
+      img.classList.remove('loaded');
+      img.onload  = () => img.classList.add('loaded');
+      img.onerror = () => {
+        // Image failed — show initials instead
+        img.classList.remove('loaded');
+        img.src = '';
+        _showArtworkInitials(title);
+      };
+      img.src = src;
+    } else {
+      // No external artwork — show initials fallback
       img.classList.remove('loaded');
       img.src = '';
-      return;
+      _showArtworkInitials(title);
     }
-    // Avoid flickering if same src
-    if (img.src === src) return;
-    img.classList.remove('loaded');
-    img.onload  = () => img.classList.add('loaded');
-    img.onerror = () => { img.classList.remove('loaded'); };
-    img.src = src;
+  }
+
+  function _showArtworkInitials(title) {
+    const initDiv = document.getElementById('player-artwork-initials');
+    if (!initDiv) return;
+    const initials = _trackInitials(title);
+    const hue = _titleHue(title || '?');
+    initDiv.textContent = initials;
+    initDiv.style.background = `hsl(${hue}, 45%, 32%)`;
+    initDiv.classList.add('visible');
   }
 
   // ── Media Session API (lock screen / headphone controls) ────────────────────

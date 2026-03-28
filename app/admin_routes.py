@@ -334,6 +334,12 @@ def api_delete_user(email: str):
     if not user:
         return jsonify({"error": "Usuario no encontrado."}), 404
 
+    # Prevent deleting the last admin
+    if user.is_admin:
+        admin_count = User.query.filter_by(is_admin=True).count()
+        if admin_count <= 1:
+            return jsonify({"error": "No se puede eliminar el último administrador."}), 400
+
     # 1. Delete playlist shares for user's playlists
     pl_ids = [p.id for p in Playlist.query.filter_by(user_email=email).all()]
     if pl_ids:
@@ -384,6 +390,11 @@ def api_set_user_features(email: str):
     user = User.query.get(email)
     if user:
         if "is_admin" in data:
+            # Prevent demoting the last admin
+            if user.is_admin and not bool(data["is_admin"]):
+                admin_count = User.query.filter_by(is_admin=True).count()
+                if admin_count <= 1:
+                    return jsonify({"error": "No se puede quitar admin al último administrador."}), 400
             user.is_admin = bool(data["is_admin"])
         if "is_enabled" in data:
             user.is_enabled = bool(data["is_enabled"])

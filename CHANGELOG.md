@@ -6,6 +6,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.11.1] - 2026-03-28
+
+### Fixed
+- **Drag-and-drop tracks to sidebar playlists broken.** `effectAllowed` was set to
+  `'move'` but the sidebar drop handler used `dropEffect = 'copy'` — incompatible per
+  the HTML5 DnD spec, causing the browser to silently reject the drop. Changed
+  `effectAllowed` to `'copyMove'` so both reordering (move) and adding to playlists
+  (copy) work.
+- **Collaborative playlist not syncing for other editors.** Playlist data was fetched
+  once and cached with no refresh mechanism. Added 10-second polling
+  (`_startCollabSync`/`_stopCollabSync`/`_pollCollabPlaylist`) that re-fetches tracks
+  when viewing a collaborative playlist. Compares job_id fingerprints to avoid
+  unnecessary re-renders. Polling starts/stops automatically on view changes and SPA
+  navigation via `_playerFragmentCleanup`.
+- **Last admin could be deleted or demoted.** Backend now returns 400 if attempting to
+  delete the last admin or remove their `is_admin` flag. Frontend shows client-side
+  guard and server error toast.
+
+### Added
+- **Fallback artwork initials in player bar.** When no artwork URL or YouTube thumbnail
+  is available, the player bar shows a coloured circle with initials derived from the
+  track title (e.g. "Tengo ganas de verte - Valerie Luh" → `T·VL`). Uses deterministic
+  HSL hue from title hash (same algorithm as the avatar system). Includes expanded and
+  mobile styles. Clicking the initials opens the expanded view, same as artwork.
+- **Feature flag confirmation dialog.** `toggleFeature` in the admin users page now shows
+  a `confirm()` dialog before toggling any feature ("¿activar/desactivar 'Label' para
+  email?"). Cancelled toggles revert the checkbox. Server errors also revert and show
+  a toast.
+
+### Changed
+- **Default share mode** for new playlist shares changed from `'view'` to `'collaborate'`.
+
+---
+
 ## [4.11.0] - 2026-03-27
 
 ### Added

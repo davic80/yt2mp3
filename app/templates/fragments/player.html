@@ -503,6 +503,7 @@
   // ── View switching ───────────────────────────────────────────────────────────
   async function setView(view) {
     closeDrawer();
+    _stopCollabSync();
     state.view = view;
     document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
     if (view === 'all')            document.getElementById('view-all').classList.add('active');
@@ -513,6 +514,12 @@
     }
     if (typeof view === 'number') await loadPlaylistTracks(view);
     renderTracks();
+
+    // Start polling if viewing a collaborative playlist
+    if (typeof view === 'number') {
+      const plMeta = state.playlists.find(p => p.id === view);
+      if (plMeta && plMeta.is_collaborative) _startCollabSync(view);
+    }
   }
 
   // ── Track list ───────────────────────────────────────────────────────────────
@@ -1140,7 +1147,7 @@
     _dragType  = 'track';
     _dragJobId = jobId;
     _dragPlId  = null;
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = 'copyMove';
     e.dataTransfer.setData('text/plain', jobId);
     e.currentTarget.classList.add('dragging');
   }
@@ -1274,6 +1281,41 @@
     document.querySelectorAll('.dragging-pl').forEach(el => el.classList.remove('dragging-pl'));
   }
 
+  // ── Collaborative playlist polling (real-time sync) ─────────────────────────
+  let _syncTimer = null;
+  const _SYNC_INTERVAL = 10000;  // 10 seconds
+
+  function _startCollabSync(pid) {
+    _stopCollabSync();
+    _syncTimer = setInterval(() => _pollCollabPlaylist(pid), _SYNC_INTERVAL);
+  }
+
+  function _stopCollabSync() {
+    if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
+  }
+
+  async function _pollCollabPlaylist(pid) {
+    try {
+      const res = await fetch(`/player/api/playlists/${pid}/tracks`);
+      if (!res.ok) return;
+      const freshTracks = await res.json();
+      const cached = state.plTracks[pid];
+
+      // Build fingerprints to detect changes (job_id order + count)
+      const freshFP = freshTracks.map(t => t.job_id).join(',');
+      const cacheFP = cached ? cached.map(t => t.job_id).join(',') : '';
+
+      if (freshFP !== cacheFP) {
+        state.plTracks[pid] = freshTracks;
+        // Update track_count in sidebar
+        const pl = state.playlists.find(p => p.id === pid);
+        if (pl) pl.track_count = freshTracks.length;
+        renderSidebar();
+        if (state.view === pid) renderTracks();
+      }
+    } catch (_) {}
+  }
+
   // Expose to onclick attrs in generated HTML
   window.setView             = setView;
   window.playTrack           = playTrack;
@@ -1333,5 +1375,10 @@
       document.addEventListener('i18n:change', _onLangChange);
     }, { once: true });
   }
+
+  // Stop polling when SPA navigates away from this fragment
+  window._playerFragmentCleanup = function () {
+    _stopCollabSync();
+  };
 })();
 </script>

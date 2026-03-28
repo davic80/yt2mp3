@@ -43,6 +43,12 @@
     const container = document.getElementById('page-content');
     if (!container) return;
 
+    // Clean up previous fragment (e.g. stop collaborative playlist polling)
+    if (window._playerFragmentCleanup) {
+      window._playerFragmentCleanup();
+      window._playerFragmentCleanup = null;
+    }
+
     // Clear trackChange listeners registered by the previous fragment
     if (window.Player) window.Player.offTrackChange();
 

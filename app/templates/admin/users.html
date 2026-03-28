@@ -376,6 +376,15 @@
 
   async function toggleFeature(email, feature, checkbox) {
     const enabled = checkbox.checked;
+    const labels = { lyrics_enabled: 'Lyrics', share_enabled: 'Compartir', is_enabled: 'Habilitado', is_admin: 'Admin' };
+    const label = labels[feature] || feature;
+    const action = enabled ? 'activar' : 'desactivar';
+
+    if (!confirm(`¿${action} "${label}" para ${email}?`)) {
+      checkbox.checked = !enabled;
+      return;
+    }
+
     try {
       const res = await fetch(`/db/api/users/${encodeURIComponent(email)}/features`, {
         method: 'POST',
@@ -383,11 +392,14 @@
         body: JSON.stringify({ [feature]: enabled }),
       });
       const data = await res.json();
-      if (!data.ok) throw new Error('error');
+      if (!res.ok) {
+        checkbox.checked = !enabled;
+        showToast(data.error || 'Error al guardar');
+        return;
+      }
       const u = _users.find(u => u.email === email);
       if (u) u[feature] = data[feature];
-      const labels = { lyrics_enabled: 'Lyrics', share_enabled: 'Compartir', is_enabled: 'Habilitado', is_admin: 'Admin' };
-      showToast(`${labels[feature] || feature} ${enabled ? 'activado' : 'desactivado'} para ${email}`);
+      showToast(`${label} ${enabled ? 'activado' : 'desactivado'} para ${email}`);
     } catch (_) {
       checkbox.checked = !enabled;
       showToast('Error al guardar');
@@ -419,6 +431,16 @@
 
   // ── Delete user ───────────────────────────────────────────────────────────
   window.deleteUser = async function (email) {
+    // Prevent deleting the last admin on the client side
+    const targetUser = _users.find(u => u.email === email);
+    if (targetUser && targetUser.is_admin) {
+      const adminCount = _users.filter(u => u.is_admin).length;
+      if (adminCount <= 1) {
+        showToast('No se puede eliminar el último administrador.');
+        return;
+      }
+    }
+
     if (!confirm(`¿Eliminar usuario "${email}"?\n\nSe borrarán sus playlists, features y historial de reproducción.\nSus descargas se conservarán como anónimas.`)) return;
 
     try {

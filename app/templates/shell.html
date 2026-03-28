@@ -178,6 +178,15 @@
       cursor: default;
     }
     .player-artwork.loaded { opacity: 1; cursor: pointer; }
+    .player-artwork-initials {
+      width: 48px; height: 48px; border-radius: 8px;
+      flex-shrink: 0; display: none;
+      align-items: center; justify-content: center;
+      font-weight: 700; font-size: .82rem; color: #fff;
+      text-transform: uppercase; user-select: none;
+      letter-spacing: .04em; cursor: default;
+    }
+    .player-artwork-initials.visible { display: flex; }
     .player-info { flex: 1; min-width: 0; }
     .player-title {
       font-size: .84rem; white-space: nowrap; overflow: hidden;
@@ -246,6 +255,14 @@
       cursor: pointer;
       order: 0;
     }
+    .player-bar.expanded .player-artwork-initials {
+      width: 240px; height: 240px;
+      border-radius: 12px;
+      margin: 0 auto;
+      font-size: 2.8rem;
+      letter-spacing: .06em;
+      order: 0;
+    }
     .btn-artwork-close {
       display: none;
       position: absolute;
@@ -264,6 +281,10 @@
       .player-bar.expanded .player-artwork {
         width: min(70vw, 280px); height: min(70vw, 280px);
       }
+      .player-bar.expanded .player-artwork-initials {
+        width: min(70vw, 280px); height: min(70vw, 280px);
+        font-size: 2.2rem;
+      }
     }
 
     /* ── Player bar responsive ── */
@@ -276,6 +297,7 @@
         padding: .35rem .75rem; column-gap: .2rem; row-gap: .45rem; align-content: center;
       }
       .player-artwork { width: 40px; height: 40px; border-radius: 6px; order: 0; }
+      .player-artwork-initials { width: 40px; height: 40px; border-radius: 6px; font-size: .7rem; order: 0; }
       /* Row 1: title (left, flex-1) */
       .player-info {
         order: 1; flex: 1; min-width: 0; width: auto;
@@ -399,6 +421,7 @@
 <div class="player-bar">
   <button class="btn-artwork-close" id="btn-artwork-close" title="Cerrar">✕</button>
   <img id="player-artwork" class="player-artwork" src="" alt="" aria-hidden="true">
+  <div id="player-artwork-initials" class="player-artwork-initials" aria-hidden="true"></div>
   <div class="player-info">
     <div class="player-title player-title-empty" id="player-title">Sin reproducción</div>
   </div>
@@ -505,6 +528,12 @@
     const bar = document.querySelector('.player-bar');
     const hasArt = document.getElementById('player-artwork').classList.contains('loaded');
     if (!hasArt) return;
+    bar.classList.toggle('expanded');
+  });
+  document.getElementById('player-artwork-initials').addEventListener('click', () => {
+    const bar = document.querySelector('.player-bar');
+    const initials = document.getElementById('player-artwork-initials');
+    if (!initials.classList.contains('visible')) return;
     bar.classList.toggle('expanded');
   });
   document.getElementById('btn-artwork-close').addEventListener('click', () => {
