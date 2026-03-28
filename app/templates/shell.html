@@ -501,6 +501,7 @@
 </div>
 
 <script src="/static/i18n.js"></script>
+<script src="/static/cache-manager.js"></script>
 <script src="/static/player.js"></script>
 <script src="/static/lyrics.js"></script>
 <script src="/static/spa.js"></script>
@@ -508,6 +509,9 @@
 <script>
   // Apply i18n to shell elements once DOM and i18n.js are ready
   I18n.init();
+
+  // Register Service Worker and initialise the audio/metadata cache manager
+  if (window.CacheManager) CacheManager.init();
 
   // ── Lyrics button helpers (called by fragments) ────────────────────────────
   function _showLyricsBtn(enabled) {

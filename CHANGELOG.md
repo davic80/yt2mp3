@@ -6,6 +6,41 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.13.0] - 2026-03-29
+
+### Added
+- **Browser audio cache (Service Worker + Cache API).** A new Service Worker
+  (`static/sw.js`) intercepts `/player/stream/*` requests with a cache-first
+  strategy, storing full MP3 responses in the browser. Caching is passive
+  (cache-on-play) — tracks are cached automatically on first playback.
+- **CacheManager module (`static/cache-manager.js`).** Manages which tracks
+  should remain cached based on a configurable eviction policy:
+  - Last 10 played tracks
+  - Last 10 downloaded tracks
+  - All favorites
+  - 250 MB max total cache size
+  Tracks outside the "keep set" are evicted automatically via `postMessage`
+  to the Service Worker.
+- **Metadata cache (localStorage, 24h TTL).** Track titles, artwork URLs,
+  and favorite state are cached in `localStorage` for instant offline-first
+  UI rendering. The player fragment now renders from cache immediately, then
+  refreshes from the API in the background.
+- **HTTP cache headers on stream responses.** `Cache-Control: public,
+  max-age=31536000, immutable` and `Accept-Ranges: bytes` are now set on
+  all `/player/stream/*` responses, enabling the browser's native HTTP cache
+  as a backup layer.
+
+### Changed
+- **`player.js`** now notifies `CacheManager` on every `playTrack()` and
+  `loadTracks()` call, keeping the recently-played/downloaded lists and
+  metadata cache in sync.
+- **`player.html` fragment** uses offline-first rendering: cached tracks are
+  shown instantly, then replaced with fresh API data when available. Favorite
+  toggles also update the metadata cache.
+- **`docker-compose.yml`** `APP_VERSION` default bumped to `4.13.0`.
+
+---
+
 ## [4.12.0] - 2026-03-28
 
 ### Removed

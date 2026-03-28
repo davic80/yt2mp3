@@ -130,6 +130,8 @@ window.Player = (function () {
     _updateTitle(jobId, title);
     _emit('trackChange', jobId);
     _saveState();
+    // Notify cache manager that this track was played (for eviction policy)
+    if (window.CacheManager) window.CacheManager.trackPlayed(jobId);
   }
 
   function togglePlay() {
@@ -220,6 +222,12 @@ window.Player = (function () {
     // Keep queueIndex pointing at the same job if still present
     const idx = state.queue.indexOf(state.currentJob);
     state.queueIndex = idx >= 0 ? idx : 0;
+    // Update cache manager with metadata + recently downloaded list
+    if (window.CacheManager) {
+      window.CacheManager.updateMetadata(tracks);
+      window.CacheManager.updateDownloaded(tracks);
+      window.CacheManager.evict();
+    }
   }
 
   /**
@@ -305,6 +313,12 @@ window.Player = (function () {
           state.queue  = tracks.map(t => t.job_id);
           const idx    = state.queue.indexOf(state.currentJob);
           state.queueIndex = idx >= 0 ? idx : 0;
+        }
+        // Update cache manager with fresh metadata + downloaded list
+        if (tracks.length && window.CacheManager) {
+          window.CacheManager.updateMetadata(tracks);
+          window.CacheManager.updateDownloaded(tracks);
+          window.CacheManager.evict();
         }
         // Re-run _updateTitle now that state.tracks is populated
         if (state.currentJob) {

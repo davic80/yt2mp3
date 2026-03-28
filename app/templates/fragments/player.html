@@ -417,6 +417,21 @@
   // ── API ─────────────────────────────────────────────────────────────────────
   async function loadAll() {
     applyStaticStrings();
+
+    // ── Offline-first: render from metadata cache immediately ─────────────
+    const sharedToken = new URLSearchParams(location.search).get('shared');
+    if (!sharedToken && window.CacheManager) {
+      const cached = window.CacheManager.getCachedTracks();
+      if (cached && cached.length) {
+        state.tracks = cached;
+        if (window.Player) window.Player.loadTracks(state.tracks);
+        renderSidebar();
+        renderTracks();
+        _registerHighlightCallback();
+      }
+    }
+
+    // ── Fetch fresh data from API in background ───────────────────────────
     try {
       // ?as=email allows a local admin to view a specific user's library
       const asEmail = new URLSearchParams(location.search).get('as');
@@ -440,7 +455,6 @@
       if (window.Player) window.Player.loadTracks(state.tracks);
 
       // Check for shared view mode
-      const sharedToken = new URLSearchParams(location.search).get('shared');
       if (sharedToken) {
         renderSidebar();
         await loadSharedView(sharedToken);
@@ -449,23 +463,31 @@
         renderTracks();
       }
 
-      // Register row-highlight callback
-      if (window.Player) {
-        window.Player.onTrackChange(function (jobId) {
-          state.currentJob = jobId;
-          highlightRow(jobId);
-        });
-        // Highlight immediately if something is already playing
-        const ps = window.Player.getState();
-        if (ps.currentJob) {
-          state.currentJob = ps.currentJob;
-          highlightRow(ps.currentJob);
-        }
-      }
+      _registerHighlightCallback();
     } catch (err) {
       console.error('[player] loadAll failed:', err);
-      const el = document.getElementById('track-list');
-      if (el) el.innerHTML = '<p style="color:#f66;padding:1rem">Failed to load player data. Please refresh.</p>';
+      // If we already rendered from cache, the user still sees data
+      if (!state.tracks.length) {
+        const el = document.getElementById('track-container');
+        if (el) el.innerHTML = '<p style="color:#f66;padding:1rem">Failed to load player data. Please refresh.</p>';
+      }
+    }
+  }
+
+  /** Register the row-highlight callback (idempotent). */
+  let _highlightBound = false;
+  function _registerHighlightCallback() {
+    if (_highlightBound || !window.Player) return;
+    _highlightBound = true;
+    window.Player.onTrackChange(function (jobId) {
+      state.currentJob = jobId;
+      highlightRow(jobId);
+    });
+    // Highlight immediately if something is already playing
+    const ps = window.Player.getState();
+    if (ps.currentJob) {
+      state.currentJob = ps.currentJob;
+      highlightRow(ps.currentJob);
     }
   }
 
@@ -646,6 +668,11 @@
     btn.classList.toggle('on', isFav);
     btn.textContent = isFav ? '♥' : '♡';
     btn.title = isFav ? window.I18n.t('player.fav_remove') : window.I18n.t('player.fav_add');
+    // Update metadata cache + trigger eviction (favorites affect keep set)
+    if (window.CacheManager) {
+      window.CacheManager.updateFavorite(jobId, isFav);
+      window.CacheManager.evict();
+    }
     if (state.view === 'favorites') renderTracks();
   }
 

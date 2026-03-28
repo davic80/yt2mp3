@@ -72,6 +72,12 @@ def _stream_mp3(record: Download) -> Response:
     size = os.path.getsize(path)
     range_header = request.headers.get("Range")
 
+    # Cache headers: audio files are immutable (job_id is unique per download)
+    cache_headers = {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Accept-Ranges": "bytes",
+    }
+
     if range_header:
         start, end = _parse_range(range_header, size)
         length = end - start + 1
@@ -95,10 +101,13 @@ def _stream_mp3(record: Download) -> Response:
                 "Accept-Ranges":  "bytes",
                 "Content-Length": str(length),
                 "Content-Type":   "audio/mpeg",
+                "Cache-Control":  "public, max-age=31536000, immutable",
             },
         )
 
-    return send_file(path, mimetype="audio/mpeg")
+    resp = send_file(path, mimetype="audio/mpeg")
+    resp.headers.update(cache_headers)
+    return resp
 
 
 @player_bp.route("/stream/<job_id>")
