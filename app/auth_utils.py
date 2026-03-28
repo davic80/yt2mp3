@@ -1,7 +1,9 @@
 import re
+import hashlib
 import functools
+from datetime import datetime, timezone
 from urllib.parse import urlsplit, urlencode, parse_qs
-from flask import request, abort, session, redirect, url_for, make_response
+from flask import request, abort, session, redirect, url_for, make_response, g
 
 # RFC-1918 + loopback ranges
 _LOCAL_EXACT = {"127.0.0.1", "::1", "localhost"}
@@ -50,6 +52,36 @@ def _clean_next_url() -> str:
     return parts._replace(query=urlencode(qs, doseq=True)).geturl()
 
 
+def _authenticate_api_token() -> str | None:
+    """Check for ``Authorization: Bearer yt2_...`` header.
+
+    If a valid, active token is found, updates ``last_used_at``, stores the
+    user email in ``g.api_token_user`` and returns it.  Otherwise returns None.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer yt2_"):
+        return None
+    raw_token = auth[7:]  # strip "Bearer "
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+    from app.player_models import ApiToken
+    from app import db
+
+    tok = ApiToken.query.filter_by(token_hash=token_hash, is_active=True).first()
+    if not tok:
+        return None
+
+    # Update last_used_at (best-effort, don't fail the request)
+    try:
+        tok.last_used_at = datetime.now(timezone.utc)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    g.api_token_user = tok.user_email
+    return tok.user_email
+
+
 _DISABLED_HTML = """<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -89,11 +121,20 @@ _DISABLED_HTML = """<!DOCTYPE html>
 
 def user_required(f):
     """Local requests pass through unconditionally (admin sees everything).
+    API token requests (Authorization: Bearer yt2_...) are authenticated via token.
     Remote requests require session['user_email'] — redirects to /auth/login?next=<path>.
     If the user exists but is_enabled=False, returns a 'disabled account' page."""
     @functools.wraps(f)
     def decorated(*args, **kwargs):
         if _is_local_request():
+            return f(*args, **kwargs)
+        # Check API token auth (Bearer yt2_...)
+        token_email = _authenticate_api_token()
+        if token_email:
+            from app.models import User
+            user = User.query.get(token_email)
+            if user and not user.is_enabled:
+                return make_response(_DISABLED_HTML, 403)
             return f(*args, **kwargs)
         email = session.get("user_email")
         if not email:
@@ -126,10 +167,10 @@ def admin_or_local(f):
 
 
 def get_current_user_email() -> str | None:
-    """Return the logged-in user's email from session, or None.
+    """Return the logged-in user's email from session or API token, or None.
 
     For local (admin) requests this returns None intentionally — callers
     should apply no user filter when the return value is None AND the
     request is local.  Use _is_local_request() alongside this helper when
     you need to distinguish 'local no-filter' from 'anonymous remote'."""
-    return session.get("user_email")
+    return getattr(g, "api_token_user", None) or session.get("user_email")

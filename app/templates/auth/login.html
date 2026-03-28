@@ -44,37 +44,6 @@
       text-align: center;
     }
 
-    .form-group { margin-bottom: 1rem; }
-    .form-group label {
-      display: block; font-size: .78rem; color: var(--muted2);
-      margin-bottom: .35rem; font-weight: 500;
-    }
-    .form-group input {
-      width: 100%; background: var(--surface2); border: 1px solid var(--border2);
-      border-radius: var(--radius); color: var(--text); font-family: var(--font);
-      font-size: .88rem; padding: .55rem .75rem; outline: none;
-      transition: border-color .15s;
-    }
-    .form-group input:focus { border-color: var(--neon); }
-    .form-group input::placeholder { color: var(--muted); }
-
-    .btn-login {
-      width: 100%; padding: .6rem 1rem; border: none; border-radius: var(--radius);
-      background: var(--neon); color: #111; font-family: var(--font);
-      font-size: .88rem; font-weight: 600; cursor: pointer;
-      transition: opacity .15s; margin-top: .25rem;
-    }
-    .btn-login:hover { opacity: .85; }
-
-    .divider {
-      display: flex; align-items: center; gap: .75rem;
-      margin: 1.4rem 0;
-    }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
-    .divider span { font-size: .75rem; color: var(--muted); white-space: nowrap; }
-
     .btn-google {
       display: flex; align-items: center; justify-content: center; gap: .6rem;
       width: 100%; padding: .55rem 1rem; border: 1px solid var(--border2);
@@ -101,21 +70,6 @@
   {% if error %}
   <div class="login-error">{{ error }}</div>
   {% endif %}
-
-  <form method="POST" action="/auth/login">
-    <input type="hidden" name="next" value="{{ next_url }}" />
-    <div class="form-group">
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" placeholder="tu@email.com" required autocomplete="email" />
-    </div>
-    <div class="form-group">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" placeholder="********" required autocomplete="current-password" />
-    </div>
-    <button type="submit" class="btn-login">Iniciar sesion</button>
-  </form>
-
-  <div class="divider"><span>o</span></div>
 
   <a href="/auth/google?next={{ next_url | urlencode }}" class="btn-google">
     <svg width="18" height="18" viewBox="0 0 48 48">

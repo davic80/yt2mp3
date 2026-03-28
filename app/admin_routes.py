@@ -13,7 +13,6 @@ from flask import (
     request,
     send_file,
 )
-from werkzeug.security import generate_password_hash
 
 from app import db
 from app.models import Download, User
@@ -280,48 +279,6 @@ def api_users():
         }
         for u, tc, pc, sec, lp, le, se in rows
     ])
-
-
-@admin_bp.route("/api/users", methods=["POST"])
-@admin_or_local
-def api_create_user():
-    """Create a local user with password. Expects JSON {name, email (optional), password}."""
-    data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = (data.get("password") or "").strip()
-
-    if not name:
-        return jsonify({"error": "El nombre es obligatorio."}), 400
-    if "@" in name:
-        return jsonify({"error": "El nombre no puede contener '@'."}), 400
-    if not password or len(password) < 4:
-        return jsonify({"error": "La contraseña debe tener al menos 4 caracteres."}), 400
-
-    # Auto-generate email-like PK from name if email not provided
-    if not email:
-        # Sanitise name → slug: lowercase, replace spaces/special chars with dots
-        slug = re.sub(r"[^a-z0-9]+", ".", name.lower()).strip(".")
-        email = f"{slug}@local"
-
-    # Check for duplicates
-    if User.query.get(email):
-        return jsonify({"error": f"Ya existe un usuario con email '{email}'."}), 409
-
-    user = User(
-        email=email,
-        name=name,
-        provider="local",
-        password_hash=generate_password_hash(password),
-        created_at=datetime.now(timezone.utc),
-        last_login=datetime.now(timezone.utc),
-        is_admin=False,
-        is_enabled=True,
-    )
-    db.session.add(user)
-    db.session.commit()
-
-    return jsonify({"ok": True, "email": user.email, "name": user.name}), 201
 
 
 @admin_bp.route("/api/users/<path:email>", methods=["DELETE"])

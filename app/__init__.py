@@ -55,7 +55,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.11.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.12.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -71,6 +71,17 @@ def create_app():
     db.init_app(app)
     limiter.init_app(app)
 
+    # ── Rate-limit exemption: local requests + admin sessions bypass limits ──
+    @limiter.request_filter
+    def _rate_limit_exempt():
+        from app.auth_utils import _is_local_request
+        from flask import session as _sess
+        if _is_local_request():
+            return True
+        if _sess.get("is_admin"):
+            return True
+        return False
+
     # ── Google OAuth (Authlib) ────────────────────────────────────────────────
     oauth.init_app(app)
     oauth.register(
@@ -84,7 +95,7 @@ def create_app():
     with app.app_context():
         from sqlalchemy import text
         from app.models import User, Download  # noqa: F401
-        from app.player_models import Playlist, PlaylistTrack, PlaylistShare, PlaylistMember, UserFeature, PlayEvent, LyricsCache, LyricsBlacklist  # noqa: F401
+        from app.player_models import Playlist, PlaylistTrack, PlaylistShare, PlaylistMember, UserFeature, PlayEvent, LyricsCache, LyricsBlacklist, ApiToken  # noqa: F401
         db.create_all()
 
         # ── Inline migrations: add new columns if they don't exist yet ──
@@ -255,16 +266,38 @@ def create_app():
         except Exception:
             pass
 
+        # v4.12.0 — API tokens
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS api_tokens ("
+                    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    "  user_email VARCHAR(256) NOT NULL,"
+                    "  name VARCHAR(128) NOT NULL,"
+                    "  token_hash VARCHAR(128) UNIQUE NOT NULL,"
+                    "  token_prefix VARCHAR(8) NOT NULL,"
+                    "  created_at DATETIME,"
+                    "  last_used_at DATETIME,"
+                    "  is_active BOOLEAN NOT NULL DEFAULT 1,"
+                    "  FOREIGN KEY (user_email) REFERENCES users(email)"
+                    ")"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
     from app.routes import bp
     from app.admin_routes import admin_bp
     from app.player_routes import player_bp
     from app.auth_routes import auth_bp
     from app.mis_descargas_routes import mis_bp
+    from app.settings_routes import settings_bp
     app.register_blueprint(bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(player_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(mis_bp)
+    app.register_blueprint(settings_bp)
 
     @app.context_processor
     def inject_build_info():

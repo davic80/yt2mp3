@@ -1,0 +1,325 @@
+<!-- settings.html — user profile, feature flags, API tokens (v4.12.0) -->
+<style>
+  .settings-page {
+    max-width: 620px; margin: 2rem auto; padding: 0 1.25rem 3rem;
+  }
+  .settings-page h2 {
+    font-size: 1.1rem; font-weight: 600; margin-bottom: 1.2rem;
+    color: var(--text);
+  }
+  .settings-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem 1.4rem; margin-bottom: 1.5rem;
+  }
+  .settings-card h3 {
+    font-size: .82rem; font-weight: 600; color: var(--muted2);
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: .9rem;
+  }
+
+  /* ── Profile ── */
+  .profile-row {
+    display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;
+  }
+  .profile-avatar {
+    width: 3.5rem; height: 3.5rem; border-radius: 50%;
+    object-fit: cover; border: 2px solid var(--neon); flex-shrink: 0;
+  }
+  .profile-avatar-initial {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 3.5rem; height: 3.5rem; border-radius: 50%;
+    color: #fff; font-weight: 700; font-size: 1.2rem;
+    text-transform: uppercase; border: 2px solid var(--neon); flex-shrink: 0;
+  }
+  .profile-info { flex: 1; min-width: 0; }
+  .profile-name { font-size: 1rem; font-weight: 600; }
+  .profile-email { font-size: .82rem; color: var(--muted2); }
+  .profile-detail {
+    display: flex; gap: 2rem; flex-wrap: wrap; margin-top: .4rem;
+  }
+  .profile-detail .meta {
+    font-size: .76rem; color: var(--muted);
+  }
+  .profile-detail .meta span { color: var(--muted2); font-weight: 500; }
+
+  /* ── Feature flags ── */
+  .feat-list { list-style: none; }
+  .feat-list li {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .4rem 0; font-size: .85rem;
+  }
+  .feat-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .feat-dot.on  { background: var(--neon); }
+  .feat-dot.off { background: var(--muted); }
+  .feat-label { color: var(--text); }
+  .feat-status { font-size: .76rem; color: var(--muted); margin-left: auto; }
+
+  /* ── Tokens ── */
+  .token-form {
+    display: flex; gap: .5rem; margin-bottom: .8rem; flex-wrap: wrap;
+  }
+  .token-input {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius); color: var(--text); font-family: var(--font);
+    font-size: .84rem; padding: .4rem .7rem; outline: none; flex: 1; min-width: 140px;
+    transition: border-color .15s;
+  }
+  .token-input:focus { border-color: var(--neon); }
+  .token-input::placeholder { color: var(--muted); }
+  .btn-token-create {
+    background: var(--neon); color: #111; border: none; border-radius: var(--radius);
+    font-family: var(--font); font-size: .82rem; font-weight: 600;
+    padding: .4rem 1rem; cursor: pointer; transition: opacity .15s;
+    white-space: nowrap;
+  }
+  .btn-token-create:hover { opacity: .85; }
+  .btn-token-create:disabled { opacity: .4; cursor: not-allowed; }
+
+  .token-reveal {
+    background: var(--surface2); border: 1px solid var(--neon);
+    border-radius: var(--radius); padding: .55rem .75rem;
+    font-family: var(--mono); font-size: .78rem; color: var(--neon);
+    word-break: break-all; margin-bottom: .8rem;
+    display: none;
+  }
+  .token-reveal.show { display: block; }
+  .token-reveal-note {
+    font-size: .72rem; color: var(--muted); margin-top: .3rem;
+    font-family: var(--font);
+  }
+
+  .token-list { list-style: none; }
+  .token-list li {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .45rem 0; border-bottom: 1px solid var(--border);
+    font-size: .83rem;
+  }
+  .token-list li:last-child { border-bottom: none; }
+  .token-prefix {
+    font-family: var(--mono); font-size: .78rem; color: var(--muted2);
+    min-width: 70px;
+  }
+  .token-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .token-meta { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+  .btn-token-revoke {
+    background: none; border: 1px solid var(--border2); border-radius: var(--radius);
+    color: var(--muted); font-size: .72rem; padding: .15rem .45rem; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .btn-token-revoke:hover { border-color: var(--red); color: var(--red); }
+  .token-empty { font-size: .82rem; color: var(--muted); padding: .5rem 0; }
+
+  /* ── Toast (settings local) ── */
+  .settings-toast {
+    position: fixed; bottom: calc(var(--player-h) + 1rem); right: 1.5rem;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: .55rem 1rem;
+    font-size: .82rem; color: var(--text);
+    box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .2s, transform .2s; pointer-events: none;
+    z-index: 999;
+  }
+  .settings-toast.show { opacity: 1; transform: translateY(0); }
+</style>
+
+<div class="settings-page">
+  <h2>Ajustes</h2>
+
+  <!-- ── Profile ── -->
+  <div class="settings-card">
+    <h3>Perfil</h3>
+    <div class="profile-row" id="settings-profile-row">
+      <div class="profile-info">
+        <div class="profile-name" id="settings-name">—</div>
+        <div class="profile-email" id="settings-email">—</div>
+      </div>
+    </div>
+    <div class="profile-detail" id="settings-detail"></div>
+  </div>
+
+  <!-- ── Features ── -->
+  <div class="settings-card">
+    <h3>Funciones</h3>
+    <ul class="feat-list" id="settings-feat-list">
+      <li style="color:var(--muted); font-size:.82rem">Cargando...</li>
+    </ul>
+  </div>
+
+  <!-- ── API Tokens ── -->
+  <div class="settings-card">
+    <h3>API Tokens</h3>
+    <div class="token-form">
+      <input class="token-input" type="text" id="token-name-input"
+             placeholder="Nombre del token (ej. mi-script)" maxlength="128" />
+      <button class="btn-token-create" id="btn-token-create" onclick="_createToken()">Crear token</button>
+    </div>
+    <div class="token-reveal" id="token-reveal">
+      <div id="token-reveal-value"></div>
+      <div class="token-reveal-note">Copia este token ahora. No se mostrara de nuevo.</div>
+    </div>
+    <ul class="token-list" id="token-list">
+      <li class="token-empty">Cargando...</li>
+    </ul>
+  </div>
+</div>
+
+<div class="settings-toast" id="settings-toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function avatarHue(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return ((h % 360) + 360) % 360;
+  }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es', { year:'numeric', month:'2-digit', day:'2-digit' });
+  }
+  function showToast(msg) {
+    const t = document.getElementById('settings-toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // ── Load profile ──────────────────────────────────────────────────────────
+  async function loadProfile() {
+    try {
+      const res = await fetch('/auth/me');
+      const data = await res.json();
+      if (!data.email) { document.querySelector('.settings-page').innerHTML = '<div style="text-align:center;padding:3rem;color:var(--muted)">Inicia sesion para ver tus ajustes.</div>'; return; }
+
+      const row = document.getElementById('settings-profile-row');
+      // Avatar
+      if (data.picture) {
+        const img = document.createElement('img');
+        img.className = 'profile-avatar'; img.src = data.picture; img.alt = '';
+        row.insertBefore(img, row.firstChild);
+      } else {
+        const div = document.createElement('div');
+        div.className = 'profile-avatar-initial';
+        const letter = (data.name||data.email||'?').charAt(0).toUpperCase();
+        const hue = avatarHue(data.name||data.email||'?');
+        div.style.background = `hsl(${hue},55%,42%)`;
+        div.textContent = letter;
+        row.insertBefore(div, row.firstChild);
+      }
+      document.getElementById('settings-name').textContent = data.name || '—';
+      document.getElementById('settings-email').textContent = data.email;
+
+      // Extra profile detail from /settings/api/profile
+      const pRes = await fetch('/settings/api/profile');
+      if (pRes.ok) {
+        const p = await pRes.json();
+        const detail = document.getElementById('settings-detail');
+        detail.innerHTML = `
+          <div class="meta">Proveedor: <span>${esc(p.provider||'google')}</span></div>
+          <div class="meta">Miembro desde: <span>${fmtDate(p.created_at)}</span></div>
+          ${data.is_admin ? '<div class="meta">Rol: <span style="color:var(--neon)">Admin</span></div>' : ''}
+        `;
+      }
+    } catch (_) {}
+  }
+
+  // ── Load features ─────────────────────────────────────────────────────────
+  async function loadFeatures() {
+    try {
+      const res = await fetch('/player/api/me/features');
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = document.getElementById('settings-feat-list');
+      const feats = [
+        { key: 'lyrics_enabled', label: 'Letras de canciones' },
+        { key: 'share_enabled',  label: 'Compartir playlists' },
+      ];
+      list.innerHTML = feats.map(f => {
+        const on = !!data[f.key];
+        return `<li>
+          <span class="feat-dot ${on ? 'on' : 'off'}"></span>
+          <span class="feat-label">${f.label}</span>
+          <span class="feat-status">${on ? 'Activado' : 'Desactivado'}</span>
+        </li>`;
+      }).join('');
+    } catch (_) {}
+  }
+
+  // ── Load tokens ───────────────────────────────────────────────────────────
+  async function loadTokens() {
+    try {
+      const res = await fetch('/settings/api/tokens');
+      if (!res.ok) return;
+      const tokens = await res.json();
+      const list = document.getElementById('token-list');
+      if (!tokens.length) {
+        list.innerHTML = '<li class="token-empty">No tienes tokens.</li>';
+        return;
+      }
+      list.innerHTML = tokens.map(t => `
+        <li>
+          <span class="token-prefix">${esc(t.token_prefix)}...</span>
+          <span class="token-name" title="${esc(t.name)}">${esc(t.name)}</span>
+          <span class="token-meta">${fmtDate(t.created_at)}${t.last_used_at ? ' · usado ' + fmtDate(t.last_used_at) : ''}</span>
+          <button class="btn-token-revoke" onclick="_revokeToken(${t.id})" title="Revocar">revocar</button>
+        </li>
+      `).join('');
+    } catch (_) {}
+  }
+
+  // ── Create token ──────────────────────────────────────────────────────────
+  window._createToken = async function () {
+    const input = document.getElementById('token-name-input');
+    const name = input.value.trim();
+    if (!name) { showToast('Introduce un nombre para el token.'); return; }
+
+    const btn = document.getElementById('btn-token-create');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/settings/api/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'Error al crear token.'); return; }
+
+      // Show the raw token
+      const reveal = document.getElementById('token-reveal');
+      document.getElementById('token-reveal-value').textContent = data.token;
+      reveal.classList.add('show');
+
+      input.value = '';
+      showToast('Token creado.');
+      loadTokens();
+    } catch (_) {
+      showToast('Error de conexion.');
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  // ── Revoke token ──────────────────────────────────────────────────────────
+  window._revokeToken = async function (id) {
+    if (!confirm('¿Revocar este token? Las aplicaciones que lo usen dejaran de funcionar.')) return;
+    try {
+      const res = await fetch(`/settings/api/tokens/${id}`, { method: 'DELETE' });
+      if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error.'); return; }
+      showToast('Token revocado.');
+      loadTokens();
+    } catch (_) {
+      showToast('Error de conexion.');
+    }
+  };
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadProfile();
+  loadFeatures();
+  loadTokens();
+})();
+</script>

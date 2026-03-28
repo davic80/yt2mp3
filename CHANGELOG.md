@@ -6,6 +6,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.12.0] - 2026-03-28
+
+### Removed
+- **Local user/password authentication.** The email + password login form, the
+  `POST /auth/login` handler, and the "Crear usuario" form in the admin panel have
+  been removed. Google OAuth is now the only authentication method. The
+  `password_hash` column remains in the DB but is no longer written or read.
+  `scripts/seed_test_data.py` deleted.
+
+### Added
+- **Settings / profile page (`/settings`).** New SPA fragment accessible by clicking
+  the user name in the topbar. Shows profile info (avatar, name, email, provider,
+  member since, admin badge), read-only feature flags (lyrics, share), and an API
+  tokens management section.
+- **API tokens.** Users can create up to 10 personal API tokens from the settings
+  page for programmatic access. Tokens use the format `yt2_<32 hex chars>` — only
+  the SHA-256 hash is stored in the database. New table `api_tokens` with automatic
+  migration for existing databases. Token CRUD endpoints:
+  `GET /settings/api/tokens`, `POST /settings/api/tokens`,
+  `DELETE /settings/api/tokens/<id>`.
+- **Bearer token authentication.** API requests can authenticate via
+  `Authorization: Bearer yt2_...` header. The `@user_required` decorator now checks
+  for valid API tokens before falling back to session auth. `get_current_user_email()`
+  also returns the token owner's email for token-authenticated requests.
+- **Admin / local rate limit exemption.** Added `@limiter.request_filter` that
+  exempts local (RFC-1918/loopback) IPs and admin sessions from the download
+  rate limiter (`3/minute; 10/hour`).
+
+### Changed
+- **Topbar user name link** now points to `/settings` instead of `/player`.
+- **`docker-compose.yml`** `APP_VERSION` default bumped to `4.12.0`.
+
+---
+
 ## [4.11.1] - 2026-03-28
 
 ### Fixed

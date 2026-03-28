@@ -1,7 +1,7 @@
-"""Auth blueprint — /auth/login (form + Google), /auth/callback, /auth/logout, /auth/me
+"""Auth blueprint — /auth/login (Google-only), /auth/callback, /auth/logout, /auth/me
 
 v4.5.0: replaced Auth0 with direct Google OAuth via Authlib.
-v4.9.0: added local password login (email + password form) alongside Google OAuth.
+v4.12.0: removed local password login — Google OAuth only.
 Env vars required:
   GOOGLE_CLIENT_ID      — OAuth 2.0 client ID from Google Cloud Console
   GOOGLE_CLIENT_SECRET  — OAuth 2.0 client secret
@@ -11,7 +11,6 @@ import os
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash
 
 from app import db
 from app.models import User
@@ -25,46 +24,14 @@ def _oauth():
     return _oauth_obj
 
 
-# ── Login (GET = show form, POST = password auth) ────────────────────────────
+# ── Login (GET = show Google login page) ─────────────────────────────────────
 
-@auth_bp.route("/login", methods=["GET", "POST"])
+@auth_bp.route("/login")
 def login():
-    next_url = request.args.get("next") or request.form.get("next") or "/"
-
-    if request.method == "GET":
-        session["next"] = next_url
-        error = request.args.get("error")
-        return render_template("auth/login.html", next_url=next_url, error=error)
-
-    # POST — email + password login
-    email = (request.form.get("email") or "").strip().lower()
-    password = request.form.get("password") or ""
+    next_url = request.args.get("next") or "/"
     session["next"] = next_url
-
-    if not email or not password:
-        return render_template("auth/login.html", next_url=next_url,
-                               error="Introduce email y contraseña.")
-
-    user = User.query.get(email)
-    if not user or not user.password_hash or not check_password_hash(user.password_hash, password):
-        return render_template("auth/login.html", next_url=next_url,
-                               error="Email o contraseña incorrectos.")
-
-    if not user.is_enabled:
-        return render_template("auth/login.html", next_url=next_url,
-                               error="Tu cuenta ha sido deshabilitada.")
-
-    # Set session — same keys as Google OAuth callback
-    user.last_login = datetime.now(timezone.utc)
-    db.session.commit()
-
-    session["user_email"] = user.email
-    session["user_name"] = user.name
-    session["user_picture"] = user.picture
-    session["is_admin"] = bool(user.is_admin)
-    session.permanent = True
-
-    return redirect(session.pop("next", "/"))
+    error = request.args.get("error")
+    return render_template("auth/login.html", next_url=next_url, error=error)
 
 
 # ── Google OAuth redirect ─────────────────────────────────────────────────────

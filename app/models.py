@@ -3,7 +3,11 @@ from app import db
 
 
 class User(db.Model):
-    """User — created via OAuth or local password registration."""
+    """User — created via Google OAuth.
+
+    The password_hash and provider columns are retained for backward compatibility
+    with existing databases but are no longer used for authentication (v4.12.0).
+    """
     __tablename__ = "users"
 
     email         = db.Column(db.String(256), primary_key=True)
