@@ -45,6 +45,23 @@ def _user_display_name(email):
     return u.name if u and u.name else email
 
 
+def _require_admin():
+    """Inline admin-or-local check for endpoints that already use @user_required.
+
+    Local requests pass through (any user).  Remote requests require the
+    logged-in user to have ``is_admin=True``; otherwise abort(403).
+    """
+    if _is_local_request():
+        return
+    email = get_current_user_email()
+    if not email:
+        abort(403)
+    from app.models import User
+    user = User.query.get(email)
+    if not user or not user.is_admin:
+        abort(403)
+
+
 # ── Page ───────────────────────────────────────────────────────────────────────
 
 @player_bp.route("/")
@@ -290,9 +307,7 @@ def api_artwork(job_id: str):
 @user_required
 def api_artwork_delete(job_id: str):
     """Blacklist current artwork so next fetch tries again from external APIs."""
-    # Admin-only: only local requests (email is None)
-    if get_current_user_email() is not None:
-        abort(403)
+    _require_admin()
 
     record = Download.query.filter_by(job_id=job_id).first_or_404()
     record.artwork_url         = None
@@ -309,8 +324,7 @@ def api_artwork_delete(job_id: str):
 @user_required
 def api_artwork_patch(job_id: str):
     """Admin: set a custom artwork URL for a track, clearing any blacklist."""
-    if get_current_user_email() is not None:
-        abort(403)
+    _require_admin()
 
     data = request.get_json(silent=True) or {}
     url  = (data.get("url") or "").strip()
@@ -1059,8 +1073,7 @@ def api_lyrics(job_id: str):
 @user_required
 def api_lyrics_cache_delete(job_id: str):
     """Admin: blacklist cached lyrics for a track so next request re-fetches from external APIs."""
-    if get_current_user_email() is not None:
-        abort(403)
+    _require_admin()
 
     record = Download.query.filter_by(job_id=job_id).first_or_404()
 
@@ -1090,8 +1103,7 @@ def api_lyrics_cache_delete(job_id: str):
 @user_required
 def api_lyrics_cache_patch(job_id: str):
     """Admin: set custom lyrics for a track, clearing any blacklist."""
-    if get_current_user_email() is not None:
-        abort(403)
+    _require_admin()
 
     data   = request.get_json(silent=True) or {}
     lyrics = data.get("lyrics", "")

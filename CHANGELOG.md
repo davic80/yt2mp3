@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.13.1] - 2026-03-29
+
+### Fixed
+- **Artwork and lyrics admin endpoints now work for remote admin users.**
+  Four admin-only endpoints (`DELETE /player/api/artwork/<job_id>`,
+  `PATCH /player/api/artwork/<job_id>`, `DELETE /player/api/lyrics/<job_id>/cache`,
+  `PATCH /player/api/lyrics/<job_id>/cache`) incorrectly rejected all remote
+  requests — they checked `get_current_user_email() is not None` which always
+  returns an email for authenticated remote users.  Replaced with a proper
+  `_require_admin()` helper that allows local requests and remote users with
+  `is_admin=True`.
+
+---
+
 ## [4.13.0] - 2026-03-29
 
 ### Added
