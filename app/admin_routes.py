@@ -15,7 +15,7 @@ from flask import (
 )
 
 from app import db
-from app.models import Download, User
+from app.models import Download, PlaylistBatch, User
 from app.auth_utils import admin_or_local
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/db")
@@ -139,6 +139,19 @@ def analytics():
         total_done=total_done,
         total_error=total_error,
     )
+
+
+@admin_bp.route("/batches")
+@admin_or_local
+def batches():
+    """Playlist batch overview page."""
+    page = request.args.get("page", 1, type=int)
+    pagination = (
+        PlaylistBatch.query
+        .order_by(PlaylistBatch.created_at.desc())
+        .paginate(page=page, per_page=25, error_out=False)
+    )
+    return render_template("admin/batches.html", pagination=pagination)
 
 
 # ── ZIP download ───────────────────────────────────────────────────────────────

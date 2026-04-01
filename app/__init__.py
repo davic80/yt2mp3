@@ -55,7 +55,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "4.13.1")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.0.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -281,6 +281,43 @@ def create_app():
                     "  is_active BOOLEAN NOT NULL DEFAULT 1,"
                     "  FOREIGN KEY (user_email) REFERENCES users(email)"
                     ")"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
+        # v5.0.0 — Playlist batch downloads
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS playlist_batches ("
+                    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    "  batch_id VARCHAR(64) UNIQUE NOT NULL,"
+                    "  created_at DATETIME,"
+                    "  status VARCHAR(16) DEFAULT 'pending',"
+                    "  user_email VARCHAR(256),"
+                    "  youtube_url TEXT NOT NULL,"
+                    "  playlist_title TEXT,"
+                    "  track_count INTEGER DEFAULT 0,"
+                    "  completed INTEGER DEFAULT 0,"
+                    "  failed INTEGER DEFAULT 0,"
+                    "  skipped INTEGER DEFAULT 0,"
+                    "  app_playlist_id INTEGER,"
+                    "  error_message TEXT,"
+                    "  ip_address VARCHAR(64),"
+                    "  fingerprint_hash VARCHAR(256),"
+                    "  country_code VARCHAR(2),"
+                    "  city VARCHAR(128),"
+                    "  FOREIGN KEY (user_email) REFERENCES users(email)"
+                    ")"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE downloads ADD COLUMN batch_id VARCHAR(64)"
                 ))
                 conn.commit()
         except Exception:

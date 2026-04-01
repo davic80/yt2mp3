@@ -25,6 +25,7 @@
         <th>bot</th>
         <th>url</th>
         <th>user</th>
+        <th>batch</th>
       </tr>
     </thead>
     <tbody>
@@ -147,9 +148,16 @@
             <span style="color:var(--muted);font-size:.78rem;">anonymous</span>
           {% endif %}
         </td>
+        <td class="mono" style="max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="{{ row.batch_id or '' }}">
+          {% if row.batch_id %}
+            <span style="color:#f0c040;font-size:.72rem;">{{ row.batch_id[:8] }}</span>
+          {% else %}
+            <span style="color:var(--muted)">—</span>
+          {% endif %}
+        </td>
       </tr>
       <tr class="detail-row" id="detail-{{ row.id }}" style="display:none">
-        <td colspan="20">
+        <td colspan="21">
           <div class="detail-grid">
             <div class="detail-item">
               <span class="detail-label">YouTube URL</span>
@@ -206,6 +214,10 @@
             <div class="detail-item">
               <span class="detail-label">User</span>
               <span class="detail-value">{{ row.user_email or 'anonymous' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Batch ID</span>
+              <span class="detail-value">{{ row.batch_id or '—' }}</span>
             </div>
           </div>
         </td>

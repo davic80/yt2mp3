@@ -6,6 +6,41 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.0.0] - 2026-03-30
+
+### Added
+- **YouTube Playlist Download Support.** Paste a bare playlist URL (no `v=`
+  parameter) to download all tracks in a YouTube playlist as MP3 files.
+  - Confirmation banner shows playlist name and track count before starting.
+  - Controlled parallelism: 3 concurrent downloads via semaphore.
+  - Batch progress view with "Downloading 3/15..." label, progress bar, and
+    expandable per-track status list (queued / downloading / done / error).
+  - Auto-creates an in-app Playlist named after the YouTube playlist.
+  - ZIP download offered on completion alongside "Go to Playlist" link.
+  - Batch summary email sent on completion (per-track emails suppressed).
+  - Requires login (playlist needs an owner for auto-created playlist).
+  - Maximum 100 tracks per playlist. Rate limiting counts as 1 hit per playlist.
+  - Duplicate tracks (already-downloaded video IDs) are automatically skipped.
+- **`PlaylistBatch` database model** (`playlist_batches` table) tracks batch
+  metadata: status, track count, completed/failed/skipped counts, user, and
+  auto-created playlist ID.
+- **`Download.batch_id` column** links individual track downloads to their
+  parent playlist batch.
+- **Playlist batch API endpoints:**
+  - `POST /download` — detects bare playlist URLs, extracts metadata, returns
+    batch_id + title + track_count for confirmation.
+  - `POST /download/playlist/<batch_id>/confirm` — starts the batch download.
+  - `GET /download/playlist/<batch_id>/status` — returns batch progress with
+    per-track status list.
+  - `GET /download/playlist/<batch_id>/zip` — streams ZIP of completed MP3s.
+- **Admin Batches page** (`/db/batches`) — overview of all playlist batches
+  with status, track counts, user, and date.
+- **Admin downloads table** now includes a `batch` column showing the batch ID
+  for tracks that belong to a playlist batch, plus Batch ID in the detail row.
+- **16 new i18n keys** for playlist UI in both Spanish and English.
+
+---
+
 ## [4.13.1] - 2026-03-29
 
 ### Fixed

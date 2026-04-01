@@ -16,6 +16,62 @@
       padding-top: clamp(1.5rem, calc(35vh - 150px), 8rem);
     }
   }
+
+  /* ── Playlist batch UI (v5.0.0) ──────────────────────────────────────────── */
+  #pl-confirm, #pl-progress, #pl-result {
+    background: #222; border: 1px solid #333; border-radius: 8px;
+    padding: 1.5rem; margin-top: 1.5rem; text-align: center;
+  }
+  #pl-confirm h3, #pl-result h3 { margin: 0 0 .3rem; color: #e0e0e0; font-size: 1rem; }
+  #pl-confirm .pl-count { color: #888; font-size: .85rem; margin-bottom: 1rem; }
+  #pl-confirm .pl-actions { display: flex; gap: .75rem; justify-content: center; }
+  #pl-confirm .pl-actions button {
+    padding: .5rem 1.2rem; border: none; border-radius: 6px;
+    font-family: 'Inter', sans-serif; font-size: .85rem; cursor: pointer;
+  }
+  #btn-pl-confirm {
+    background: #39FF14; color: #111; font-weight: 600;
+  }
+  #btn-pl-confirm:hover { background: #2de010; }
+  #btn-pl-cancel { background: #333; color: #bbb; }
+  #btn-pl-cancel:hover { background: #444; }
+
+  /* Batch progress */
+  #pl-progress .pl-progress-label { color: #bbb; font-size: .9rem; margin-bottom: .6rem; }
+  #pl-progress .progress-bar-track { margin-bottom: .5rem; }
+  #pl-progress .pl-details-toggle {
+    background: none; border: none; color: #39FF14; font-size: .8rem;
+    cursor: pointer; font-family: 'Inter', sans-serif; margin-top: .3rem;
+  }
+  #pl-track-list {
+    max-height: 240px; overflow-y: auto; text-align: left;
+    margin-top: .5rem; font-size: .8rem; color: #999;
+    scrollbar-width: thin; scrollbar-color: #444 transparent;
+  }
+  #pl-track-list .track-item {
+    padding: .2rem 0; border-bottom: 1px solid #2a2a2a;
+    display: flex; align-items: center; gap: .4rem;
+  }
+  #pl-track-list .track-item .ti-icon { width: 1rem; text-align: center; flex-shrink: 0; }
+  #pl-track-list .track-item .ti-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ti-done  { color: #39FF14; }
+  .ti-dl    { color: #f0c040; }
+  .ti-err   { color: #e44; }
+  .ti-queue { color: #555; }
+
+  /* Batch result */
+  #pl-result .pl-stats { color: #888; font-size: .85rem; margin-bottom: 1rem; }
+  #pl-result .pl-result-actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+  #pl-result .pl-result-actions a,
+  #pl-result .pl-result-actions button {
+    padding: .5rem 1.2rem; border: none; border-radius: 6px;
+    font-family: 'Inter', sans-serif; font-size: .85rem; cursor: pointer;
+    text-decoration: none; display: inline-block;
+  }
+  #btn-pl-goto { background: #39FF14; color: #111; font-weight: 600; }
+  #btn-pl-goto:hover { background: #2de010; }
+  #btn-pl-zip { background: #333; color: #bbb; }
+  #btn-pl-zip:hover { background: #444; }
 </style>
 
 <div class="container">
@@ -39,7 +95,7 @@
       <button type="submit" id="btn-magic"></button>
     </form>
 
-    <!-- Progress area -->
+    <!-- Progress area (single track) -->
     <div id="progress-area" class="hidden">
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progress-bar-fill"></div>
@@ -47,7 +103,7 @@
       <p class="progress-label" id="progress-label"></p>
     </div>
 
-    <!-- Result area -->
+    <!-- Result area (single track) -->
     <div id="result-area" class="hidden">
       <a id="download-link" class="download-btn" href="#" download>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -65,6 +121,37 @@
     <div id="error-area" class="hidden">
       <p id="error-msg" class="error-msg"></p>
       <button class="reset-btn" id="btn-reset-err"></button>
+    </div>
+
+    <!-- Playlist confirmation (v5.0.0) -->
+    <div id="pl-confirm" class="hidden">
+      <h3 id="pl-confirm-title"></h3>
+      <div class="pl-count" id="pl-confirm-count"></div>
+      <div class="pl-actions">
+        <button id="btn-pl-confirm"></button>
+        <button id="btn-pl-cancel"></button>
+      </div>
+    </div>
+
+    <!-- Playlist batch progress (v5.0.0) -->
+    <div id="pl-progress" class="hidden">
+      <div class="pl-progress-label" id="pl-progress-label"></div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="pl-progress-fill"></div>
+      </div>
+      <button class="pl-details-toggle" id="pl-details-toggle"></button>
+      <div id="pl-track-list" class="hidden"></div>
+    </div>
+
+    <!-- Playlist batch result (v5.0.0) -->
+    <div id="pl-result" class="hidden">
+      <h3 id="pl-result-title"></h3>
+      <div class="pl-stats" id="pl-result-stats"></div>
+      <div class="pl-result-actions">
+        <a id="btn-pl-goto" href="#"></a>
+        <a id="btn-pl-zip" href="#" download></a>
+      </div>
+      <button class="reset-btn" id="btn-pl-reset" style="margin-top:.75rem"></button>
     </div>
   </main>
 </div>
@@ -143,6 +230,15 @@
     document.getElementById('download-label').textContent     = I.t('home.download_mp3');
     document.getElementById('btn-reset').textContent          = I.t('home.convert_another');
     document.getElementById('btn-reset-err').textContent      = I.t('home.retry');
+
+    // Playlist UI (v5.0.0) — set labels for elements visible mid-flow on lang change
+    const el = (id) => document.getElementById(id);
+    if (el('btn-pl-confirm'))    el('btn-pl-confirm').textContent    = I.t('pl.download_all');
+    if (el('btn-pl-cancel'))     el('btn-pl-cancel').textContent     = I.t('pl.cancel');
+    if (el('pl-details-toggle')) el('pl-details-toggle').textContent = I.t('pl.details_show');
+    if (el('btn-pl-goto'))       el('btn-pl-goto').textContent       = I.t('pl.goto_playlist');
+    if (el('btn-pl-zip'))        el('btn-pl-zip').textContent        = I.t('pl.download_zip');
+    if (el('btn-pl-reset'))      el('btn-pl-reset').textContent      = I.t('home.convert_another');
   }
 
   if (window.I18n) {

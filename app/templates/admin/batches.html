@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>yt2mp3 · admin · batches</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1c1c1c; --surface: #222; --surface2: #2a2a2a;
+      --border: #333; --border2: #3a3a3a;
+      --neon: #39FF14; --neon-dim: rgba(57,255,20,.15);
+      --text: #e0e0e0; --muted: #777; --mono: 'JetBrains Mono', monospace;
+      --radius: 6px; --font: 'Inter', system-ui, sans-serif;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+
+    .topbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: .75rem 1.5rem; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10; gap: 1rem; flex-wrap: wrap;
+    }
+    .topbar-logo { font-size: 1.1rem; font-weight: 600; letter-spacing: -.5px; flex-shrink: 0; }
+    .topbar-logo .sep { color: #27a008; }
+    .topbar-logo .mp3 { color: var(--neon); }
+    .topbar-logo .admin-label { font-size: .7rem; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-left: .5rem; }
+    .topbar-right { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+    .nav-link {
+      color: var(--muted); text-decoration: none; font-size: .82rem;
+      padding: .25rem .6rem; border-radius: var(--radius); transition: color .15s, background .15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.active { color: var(--neon); }
+
+    .main { padding: 1.5rem; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; white-space: nowrap; }
+    thead th {
+      background: var(--surface); border-bottom: 1px solid var(--border2);
+      color: var(--muted); font-weight: 600; padding: .6rem .8rem; text-align: left;
+      letter-spacing: .04em; font-size: .75rem; text-transform: uppercase;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--neon-dim); }
+    td { padding: .55rem .8rem; vertical-align: top; }
+    td.mono { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+
+    .status-badge { display: inline-block; padding: .12rem .5rem; border-radius: 4px; font-size: .72rem; font-weight: 600; }
+    .status-done   { background: rgba(57,255,20,.12);  color: #39FF14; }
+    .status-error  { background: rgba(255,77,77,.15);  color: #ff4d4d; }
+    .status-downloading { background: rgba(240,192,64,.12); color: #f0c040; }
+    .status-pending { background: rgba(130,130,255,.12); color: #8888ff; }
+
+    .pagination { display: flex; align-items: center; justify-content: center; gap: .5rem; margin-top: 1.25rem; }
+    .page-btn {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); font-family: var(--font); font-size: .82rem;
+      padding: .35rem .7rem; cursor: pointer; text-decoration: none; transition: border-color .15s, color .15s;
+    }
+    .page-btn:hover { border-color: var(--neon); color: var(--neon); }
+    .page-btn.active { border-color: var(--neon); color: var(--neon); background: var(--neon-dim); }
+    .page-btn.disabled { opacity: .35; pointer-events: none; }
+    .page-info { font-size: .8rem; color: var(--muted); }
+    .empty { text-align: center; padding: 3rem; color: var(--muted); }
+
+    .version-badge {
+      position: fixed; bottom: .75rem; right: 1rem;
+      font-size: .7rem; color: #555; letter-spacing: .03em; pointer-events: none; user-select: none;
+    }
+    .version-badge a { color: #555; text-decoration: none; pointer-events: all; }
+    .version-badge a:hover { color: #888; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <span class="yt">yt</span><span class="sep">2</span><span class="mp3">mp3</span>
+    <span class="admin-label">batches</span>
+  </div>
+  <div class="topbar-right">
+    <a href="/db/" class="nav-link">Downloads</a>
+    <a href="/db/analytics" class="nav-link">Analytics</a>
+    <a href="/db/batches" class="nav-link active">Batches</a>
+    <a href="/db/users" class="nav-link">Usuarios</a>
+    <a href="/player/" class="nav-link">→ Player</a>
+  </div>
+</div>
+
+<div class="main">
+{% if pagination.items %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>batch id</th>
+        <th>status</th>
+        <th>title</th>
+        <th>tracks</th>
+        <th>done</th>
+        <th>failed</th>
+        <th>skipped</th>
+        <th>user</th>
+        <th>country</th>
+        <th>date</th>
+        <th>url</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in pagination.items %}
+      <tr>
+        <td class="mono">{{ b.id }}</td>
+        <td class="mono" title="{{ b.batch_id }}">{{ b.batch_id[:8] }}</td>
+        <td>
+          {% if b.status == 'done' %}
+            <span class="status-badge status-done">done</span>
+          {% elif b.status == 'error' %}
+            <span class="status-badge status-error">error</span>
+          {% elif b.status == 'downloading' %}
+            <span class="status-badge status-downloading">downloading</span>
+          {% else %}
+            <span class="status-badge status-pending">{{ b.status }}</span>
+          {% endif %}
+        </td>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;" title="{{ b.playlist_title or '' }}">
+          {{ (b.playlist_title or '—') | truncate(40, True) }}
+        </td>
+        <td class="mono">{{ b.track_count }}</td>
+        <td class="mono" style="color:#39FF14;">{{ b.completed }}</td>
+        <td class="mono" style="color:#ff4d4d;">{{ b.failed }}</td>
+        <td class="mono" style="color:#f0c040;">{{ b.skipped }}</td>
+        <td class="mono" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;" title="{{ b.user_email or '' }}">
+          {% if b.user_email %}
+            <a href="/db/?user={{ b.user_email }}" style="color:var(--neon);text-decoration:none;font-size:.78rem;">
+              {{ b.user_email | truncate(22, True) }}
+            </a>
+          {% else %}
+            <span style="color:var(--muted);font-size:.78rem;">—</span>
+          {% endif %}
+        </td>
+        <td class="mono">{{ b.country_code or '—' }}</td>
+        <td class="mono">{{ b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else '—' }}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">
+          <a href="{{ b.youtube_url }}" target="_blank" rel="noopener"
+             style="color:var(--neon);text-decoration:none;font-size:.78rem;">
+            {{ b.youtube_url | truncate(35, True) }}
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pagination.pages > 1 %}
+<div class="pagination">
+  <a class="page-btn {{ 'disabled' if not pagination.has_prev }}"
+     href="?page={{ pagination.prev_num }}">&#8592;</a>
+  {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+    {% if p %}
+      <a class="page-btn {{ 'active' if p == pagination.page }}" href="?page={{ p }}">{{ p }}</a>
+    {% else %}
+      <span class="page-info">…</span>
+    {% endif %}
+  {% endfor %}
+  <a class="page-btn {{ 'disabled' if not pagination.has_next }}"
+     href="?page={{ pagination.next_num }}">&#8594;</a>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">No playlist batches yet.</div>
+{% endif %}
+</div>
+
+<div class="version-badge">
+  v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a>
+</div>
+
+</body>
+</html>

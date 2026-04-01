@@ -38,6 +38,22 @@ window.I18n = (function () {
       'home.retry':           'reintentar',
       'home.error_invalid':   'URL de YouTube no válida',
 
+      // ── Playlist batch (v5.0.0) ──
+      'pl.track_count':       '{n} pistas',
+      'pl.download_all':      'Descargar todo',
+      'pl.cancel':            'Cancelar',
+      'pl.starting':          'Iniciando...',
+      'pl.downloading_n':     'Descargando {done} / {total}...',
+      'pl.details_show':      'Detalles ▼',
+      'pl.details_hide':      'Detalles ▲',
+      'pl.result_title':      '{n} pistas descargadas',
+      'pl.result_failed':     '{n} fallidas',
+      'pl.result_skipped':    '{n} omitidas',
+      'pl.goto_playlist':     'Ir a la Playlist',
+      'pl.download_zip':      '↓ ZIP',
+      'pl.login_required':    'Inicia sesión para descargar playlists',
+      'pl.error_batch_start': 'No se pudo iniciar la descarga',
+
       // ── Player fragment ──
       'player.all':            'Todas',
       'player.favorites':      '♥ Favoritos',
@@ -136,6 +152,22 @@ window.I18n = (function () {
       'home.convert_another': 'convert another',
       'home.retry':           'try again',
       'home.error_invalid':   'Invalid YouTube URL',
+
+      // ── Playlist batch (v5.0.0) ──
+      'pl.track_count':       '{n} tracks',
+      'pl.download_all':      'Download All',
+      'pl.cancel':            'Cancel',
+      'pl.starting':          'Starting...',
+      'pl.downloading_n':     'Downloading {done} / {total}...',
+      'pl.details_show':      'Details ▼',
+      'pl.details_hide':      'Details ▲',
+      'pl.result_title':      '{n} tracks downloaded',
+      'pl.result_failed':     '{n} failed',
+      'pl.result_skipped':    '{n} skipped',
+      'pl.goto_playlist':     'Go to Playlist',
+      'pl.download_zip':      '↓ ZIP',
+      'pl.login_required':    'Sign in to download playlists',
+      'pl.error_batch_start': 'Could not start batch download',
 
       // ── Player fragment ──
       'player.all':            'All',

@@ -87,6 +87,9 @@ class Download(db.Model):
     artwork_url         = db.Column(db.Text,    nullable=True)
     artwork_blacklisted = db.Column(db.Boolean, default=False, nullable=False)
 
+    # Playlist batch (v5.0.0) — links to PlaylistBatch when downloaded as part of a YT playlist
+    batch_id = db.Column(db.String(64), nullable=True, index=True)
+
     def to_dict(self):
         return {
             "job_id": self.job_id,
@@ -96,3 +99,40 @@ class Download(db.Model):
             "file_size": self.file_size,
             "error_message": self.error_message,
         }
+
+
+class PlaylistBatch(db.Model):
+    """A YouTube playlist download batch (v5.0.0).
+
+    Tracks the lifecycle of downloading an entire YouTube playlist.
+    Individual tracks are linked via ``Download.batch_id``.
+    """
+    __tablename__ = "playlist_batches"
+
+    id              = db.Column(db.Integer, primary_key=True)
+    batch_id        = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at      = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    status          = db.Column(db.String(16), default="pending")
+    # statuses: pending → extracting → downloading → done | error
+
+    user_email      = db.Column(db.String(256), db.ForeignKey("users.email"), nullable=True)
+
+    # YouTube metadata (filled after extraction)
+    youtube_url     = db.Column(db.Text, nullable=False)
+    playlist_title  = db.Column(db.Text, nullable=True)
+    track_count     = db.Column(db.Integer, default=0)
+
+    # Progress counters
+    completed       = db.Column(db.Integer, default=0)
+    failed          = db.Column(db.Integer, default=0)
+    skipped         = db.Column(db.Integer, default=0)  # deduped tracks
+
+    # Result
+    app_playlist_id = db.Column(db.Integer, nullable=True)  # playlists.id after auto-creation
+    error_message   = db.Column(db.Text, nullable=True)
+
+    # Visitor metadata (subset — for analytics)
+    ip_address       = db.Column(db.String(64), nullable=True)
+    fingerprint_hash = db.Column(db.String(256), nullable=True)
+    country_code     = db.Column(db.String(2), nullable=True)
+    city             = db.Column(db.String(128), nullable=True)
