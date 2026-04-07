@@ -136,3 +136,7 @@ class PlaylistBatch(db.Model):
     fingerprint_hash = db.Column(db.String(256), nullable=True)
     country_code     = db.Column(db.String(2), nullable=True)
     city             = db.Column(db.String(128), nullable=True)
+
+    # Temporary storage for playlist entries between detection and confirmation.
+    # Stored as JSON text so it survives session expiry and cookie size limits.
+    entries_json     = db.Column(db.Text, nullable=True)

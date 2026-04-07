@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import uuid
@@ -160,11 +161,9 @@ def download():
             country_code=geo["country_code"],
             city=geo["city"],
         )
+        batch.entries_json = json.dumps(entries)
         db.session.add(batch)
         db.session.commit()
-
-        # Store entries in session for the confirm step
-        session[f"batch:{batch_id}:entries"] = entries
 
         return jsonify({
             "type": "playlist",
@@ -274,9 +273,16 @@ def playlist_confirm(batch_id: str):
     if batch_rec.status != "pending":
         return jsonify({"error": "Batch already started"}), 409
 
-    entries = session.pop(f"batch:{batch_id}:entries", None)
-    if not entries:
+    if not batch_rec.entries_json:
         return jsonify({"error": "Batch expired — please submit the URL again"}), 410
+
+    try:
+        entries = json.loads(batch_rec.entries_json)
+    except Exception:
+        return jsonify({"error": "Batch payload is invalid — please submit the URL again"}), 410
+    # Clear entries from DB now that they've been consumed
+    batch_rec.entries_json = None
+    db.session.commit()
 
     app_obj = current_app._get_current_object()
     download_dir = current_app.config["DOWNLOAD_DIR"]
@@ -355,6 +361,25 @@ def playlist_zip(batch_id: str):
     if not downloads:
         return jsonify({"error": "No completed tracks"}), 404
 
+    # Keep RAM usage bounded on Raspberry Pi (ZIP is built in memory).
+    max_zip_tracks = current_app.config.get("PLAYLIST_ZIP_MAX_TRACKS", 50)
+    if len(downloads) > max_zip_tracks:
+        return jsonify({
+            "error": f"Playlist ZIP is limited to {max_zip_tracks} tracks",
+            "completed_tracks": len(downloads),
+            "max_tracks": max_zip_tracks,
+        }), 413
+
+    def _safe_zip_entry(name: str) -> str:
+        # Avoid zip-slip/path traversal entries and normalize separators.
+        name = (name or "track.mp3").replace("\\", "/")
+        name = os.path.basename(name).strip()
+        if not name:
+            name = "track.mp3"
+        if not name.lower().endswith(".mp3"):
+            name += ".mp3"
+        return name
+
     # Build ZIP in memory
     buf = BytesIO()
     seen_names: dict[str, int] = {}
@@ -367,7 +392,7 @@ def playlist_zip(batch_id: str):
             if not os.path.isfile(mp3_path):
                 continue
 
-            name = dl.file_name or f"{dl.title or dl.job_id}.mp3"
+            name = _safe_zip_entry(dl.file_name or f"{dl.title or dl.job_id}.mp3")
             # Deduplicate filenames within the ZIP
             if name in seen_names:
                 seen_names[name] += 1
@@ -379,7 +404,7 @@ def playlist_zip(batch_id: str):
             zf.write(mp3_path, name)
 
     buf.seek(0)
-    zip_name = f"{batch_rec.playlist_title or 'playlist'}.zip"
+    zip_name = os.path.basename(f"{batch_rec.playlist_title or 'playlist'}.zip").strip() or "playlist.zip"
 
     return Response(
         buf.getvalue(),

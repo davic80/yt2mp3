@@ -12,6 +12,7 @@ import logging
 import os
 import smtplib
 import threading
+from html import escape
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -29,31 +30,32 @@ def _build_html(data: dict) -> str:
     browser = f"{data.get('ua_browser') or '—'} {data.get('ua_browser_version') or ''}".strip()
 
     base_url = os.environ.get("SITE_URL", "").rstrip("/")
-    job_id   = data.get("job_id") or ""
-    file_name = data.get("file_name") or "—"
+    job_id   = str(data.get("job_id") or "")
+    file_name = str(data.get("file_name") or "—")
     if base_url and job_id:
-        file_cell = f'<a href="{base_url}/files/{job_id}" style="color:#39FF14;">{file_name}</a>'
+        href = escape(f"{base_url}/files/{job_id}", quote=True)
+        file_cell = f'<a href="{href}" style="color:#39FF14;">{escape(file_name)}</a>'
     else:
-        file_cell = file_name
+        file_cell = escape(file_name)
 
     rows = [
-        ("Title",            data.get("title") or "—"),
+        ("Title",            escape(str(data.get("title") or "—"))),
         ("File",             file_cell),
-        ("YouTube URL",      data.get("youtube_url") or "—"),
-        ("Date",             created),
-        ("IP",               data.get("ip_address") or "—"),
-        ("Browser",          browser),
-        ("OS",               data.get("ua_os") or "—"),
-        ("Device",           data.get("ua_device") or "PC"),
-        ("Language",         data.get("accept_language") or "—"),
-        ("Fingerprint",      data.get("fingerprint_hash") or "—"),
+        ("YouTube URL",      escape(str(data.get("youtube_url") or "—"))),
+        ("Date",             escape(created)),
+        ("IP",               escape(str(data.get("ip_address") or "—"))),
+        ("Browser",          escape(browser)),
+        ("OS",               escape(str(data.get("ua_os") or "—"))),
+        ("Device",           escape(str(data.get("ua_device") or "PC"))),
+        ("Language",         escape(str(data.get("accept_language") or "—"))),
+        ("Fingerprint",      escape(str(data.get("fingerprint_hash") or "—"))),
     ]
 
     detail_rows_html = "".join(
         f"""
         <tr>
           <td style="padding:6px 12px;color:#888;font-size:12px;white-space:nowrap;
-                     border-bottom:1px solid #333;">{label}</td>
+                     border-bottom:1px solid #333;">{escape(label)}</td>
           <td style="padding:6px 12px;color:#e0e0e0;font-size:12px;word-break:break-all;
                      border-bottom:1px solid #333;font-family:'Courier New',monospace;">{value}</td>
         </tr>"""
@@ -123,7 +125,7 @@ def _send(data: dict) -> None:
         )
         return
 
-    title = data.get("title") or data.get("youtube_url") or "unknown"
+    title = str(data.get("title") or data.get("youtube_url") or "unknown").replace("\n", " ").replace("\r", " ")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"[yt2mp3] {title}"
     msg["From"]    = smtp_from
@@ -161,16 +163,16 @@ def _build_new_user_html(data: dict) -> str:
         else "—"
     )
     rows = [
-        ("Email",    data.get("email") or "—"),
-        ("Name",     data.get("name") or "—"),
-        ("Provider", data.get("provider") or "—"),
-        ("Date",     created),
+        ("Email",    escape(str(data.get("email") or "—"))),
+        ("Name",     escape(str(data.get("name") or "—"))),
+        ("Provider", escape(str(data.get("provider") or "—"))),
+        ("Date",     escape(created)),
     ]
     detail_rows_html = "".join(
         f"""
         <tr>
           <td style="padding:6px 12px;color:#888;font-size:12px;white-space:nowrap;
-                     border-bottom:1px solid #333;">{label}</td>
+                     border-bottom:1px solid #333;">{escape(label)}</td>
           <td style="padding:6px 12px;color:#e0e0e0;font-size:12px;word-break:break-all;
                      border-bottom:1px solid #333;font-family:'Courier New',monospace;">{value}</td>
         </tr>"""
@@ -238,7 +240,7 @@ def _send_new_user(data: dict) -> None:
         )
         return
 
-    email = data.get("email") or "unknown"
+    email = str(data.get("email") or "unknown").replace("\n", " ").replace("\r", " ")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"[yt2mp3] nuevo usuario: {email}"
     msg["From"]    = smtp_from

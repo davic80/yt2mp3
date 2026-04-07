@@ -3,6 +3,8 @@ import os
 import sys
 import threading
 from datetime import timedelta
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
@@ -41,6 +43,7 @@ def create_app():
     app.config["DOWNLOAD_DIR"] = os.environ.get("DOWNLOAD_DIR", "/app/downloads")
     app.config["RATE_LIMIT_PER_HOUR"] = os.environ.get("RATE_LIMIT_PER_HOUR", "10")
     app.config["RATE_LIMIT_PER_MINUTE"] = os.environ.get("RATE_LIMIT_PER_MINUTE", "3")
+    app.config["PLAYLIST_ZIP_MAX_TRACKS"] = int(os.environ.get("PLAYLIST_ZIP_MAX_TRACKS", 50))
 
     # Session config (server-side cookie, 8h admin session)
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
@@ -55,7 +58,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.0.0")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.1.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -70,6 +73,20 @@ def create_app():
 
     db.init_app(app)
     limiter.init_app(app)
+
+    # SQLite tuning for concurrent readers/writers on Raspberry Pi.
+    # WAL improves concurrency; busy_timeout reduces SQLITE_BUSY failures.
+    @event.listens_for(Engine, "connect")
+    def _sqlite_pragmas(dbapi_connection, _connection_record):
+        try:
+            if dbapi_connection.__class__.__module__.split(".")[0] != "sqlite3":
+                return
+            cur = dbapi_connection.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=5000")
+            cur.close()
+        except Exception:
+            pass
 
     # ── Rate-limit exemption: local requests + admin sessions bypass limits ──
     @limiter.request_filter
@@ -308,6 +325,7 @@ def create_app():
                     "  fingerprint_hash VARCHAR(256),"
                     "  country_code VARCHAR(2),"
                     "  city VARCHAR(128),"
+                    "  entries_json TEXT,"
                     "  FOREIGN KEY (user_email) REFERENCES users(email)"
                     ")"
                 ))
@@ -318,6 +336,16 @@ def create_app():
             with db.engine.connect() as conn:
                 conn.execute(text(
                     "ALTER TABLE downloads ADD COLUMN batch_id VARCHAR(64)"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
+        # v5.1.0 — store playlist entries in DB instead of session cookie
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE playlist_batches ADD COLUMN entries_json TEXT"
                 ))
                 conn.commit()
         except Exception:

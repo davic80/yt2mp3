@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import requests as _requests
 
 from flask import Blueprint, Response, abort, jsonify, redirect, render_template, request, send_file, url_for
+from sqlalchemy.orm import joinedload
 
 from app import db
 from app.auth_utils import _is_local_request, get_current_user_email, user_required
@@ -389,14 +390,27 @@ def api_playlists():
         Playlist.created_at.desc(),
     ).all()
 
+    # Preload member counts in one query (avoid N+1 counts inside the loop)
+    merged_rows = list(owned_rows) + list(collab_rows)
+    playlist_ids = [pl.id for pl, _tc, _role in merged_rows]
+    member_counts = {}
+    if playlist_ids:
+        count_rows = (
+            db.session.query(PlaylistMember.playlist_id, func.count(PlaylistMember.id))
+            .filter(PlaylistMember.playlist_id.in_(playlist_ids))
+            .group_by(PlaylistMember.playlist_id)
+            .all()
+        )
+        member_counts = {pid: cnt for pid, cnt in count_rows}
+
     # Merge, owned first, then collaborative (avoiding duplicates)
     seen_ids = set()
     result = []
-    for pl, tc, role in list(owned_rows) + list(collab_rows):
+    for pl, tc, role in merged_rows:
         if pl.id in seen_ids:
             continue
         seen_ids.add(pl.id)
-        member_count = PlaylistMember.query.filter_by(playlist_id=pl.id).count()
+        member_count = member_counts.get(pl.id, 0)
         is_collab = member_count > 1 or role == "editor"
         result.append({
             "id":               pl.id,
@@ -461,6 +475,7 @@ def api_playlist_tracks(pid: int):
 
     tracks = (
         PlaylistTrack.query
+        .options(joinedload(PlaylistTrack.download))
         .filter_by(playlist_id=pid)
         .order_by(PlaylistTrack.position)
         .all()
@@ -628,6 +643,7 @@ def api_shared_playlist(token: str):
     pl = share.playlist
     tracks = (
         PlaylistTrack.query
+        .options(joinedload(PlaylistTrack.download))
         .filter_by(playlist_id=pl.id)
         .order_by(PlaylistTrack.position)
         .all()

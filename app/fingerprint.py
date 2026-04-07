@@ -4,13 +4,11 @@ from user_agents import parse as ua_parse
 
 
 def _cf_ip(req) -> str:
-    """Prefer Cloudflare's real IP header, fallback to X-Forwarded-For, then remote_addr."""
-    return (
-        req.headers.get("CF-Connecting-IP")
-        or req.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        or req.remote_addr
-        or ""
-    )
+    """Prefer Cloudflare's real IP header; fallback to remote_addr.
+
+    Avoid trusting raw X-Forwarded-For because it can be spoofed.
+    """
+    return req.headers.get("CF-Connecting-IP") or req.remote_addr or ""
 
 
 def collect(client_fingerprint: str | None = None) -> dict:

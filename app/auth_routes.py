@@ -24,11 +24,21 @@ def _oauth():
     return _oauth_obj
 
 
+def _safe_next_url(candidate: str | None) -> str:
+    """Allow only local relative redirects, fallback to '/'."""
+    nxt = (candidate or "/").strip()
+    if not nxt.startswith("/"):
+        return "/"
+    if nxt.startswith("//"):
+        return "/"
+    return nxt
+
+
 # ── Login (GET = show Google login page) ─────────────────────────────────────
 
 @auth_bp.route("/login")
 def login():
-    next_url = request.args.get("next") or "/"
+    next_url = _safe_next_url(request.args.get("next"))
     session["next"] = next_url
     error = request.args.get("error")
     return render_template("auth/login.html", next_url=next_url, error=error)
@@ -39,7 +49,7 @@ def login():
 @auth_bp.route("/google")
 def google_login():
     """Redirect to Google OAuth. Separate route so the login form can link here."""
-    next_url = request.args.get("next", "/")
+    next_url = _safe_next_url(request.args.get("next", "/"))
     session["next"] = next_url
 
     callback = os.environ.get(
@@ -111,7 +121,7 @@ def callback():
         if updated:
             db.session.commit()
 
-    return redirect(session.pop("next", "/"))
+    return redirect(_safe_next_url(session.pop("next", "/")))
 
 
 # ── Logout ────────────────────────────────────────────────────────────────────

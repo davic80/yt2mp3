@@ -17,13 +17,12 @@ _LOCAL_RE = [
 
 
 def _client_ip() -> str:
-    """Real client IP — prefers Cloudflare header, then X-Forwarded-For."""
-    return (
-        request.headers.get("CF-Connecting-IP")
-        or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        or request.remote_addr
-        or ""
-    )
+    """Real client IP.
+
+    Trust Cloudflare's ``CF-Connecting-IP`` when present; otherwise use
+    ``remote_addr``. Do not trust raw ``X-Forwarded-For`` to avoid spoofing.
+    """
+    return request.headers.get("CF-Connecting-IP") or request.remote_addr or ""
 
 
 def _is_local_request() -> bool:

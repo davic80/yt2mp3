@@ -6,6 +6,38 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.1.0] - 2026-04-07
+
+### Fixed
+- **Gunicorn worker model now matches in-memory job tracking.** Docker runtime now
+  uses `--workers 1 --threads 4` to prevent cross-worker job/batch state
+  divergence for playlist progress polling.
+- **Playlist confirm flow no longer depends on cookie session size.** Playlist
+  entries are persisted in `playlist_batches.entries_json` (DB) instead of the
+  Flask session cookie, avoiding cookie overflows for large playlists.
+- **Open redirect hardening for OAuth login callbacks.** `next` redirect targets
+  are now validated to allow only safe local relative paths.
+- **Client IP trust model tightened.** Removed raw `X-Forwarded-For` trust in
+  auth/fingerprint helpers; only `CF-Connecting-IP` (when present) or
+  `remote_addr` is used.
+- **Notification email HTML escaping.** User/content-derived values are escaped
+  before HTML rendering to reduce injection risk in admin notification emails.
+- **Playlist ZIP safety and resource guardrails.** ZIP entry names are sanitized
+  to avoid path traversal entries and playlist ZIP generation is capped via
+  `PLAYLIST_ZIP_MAX_TRACKS` (default: 50) to bound RAM usage.
+- **Playlist tracks N+1 query reductions.** Added eager loading (`joinedload`) on
+  playlist/shared track list endpoints and preloaded member counts in the
+  playlists list API.
+
+### Added
+- **SQLite runtime pragmas for resilience.** On connect, SQLite now enables
+  `journal_mode=WAL` and `busy_timeout=5000` to reduce lock contention issues.
+
+### Changed
+- Default app version bumped to **5.1.0** in runtime/build config.
+
+---
+
 ## [5.0.0] - 2026-03-30
 
 ### Added
