@@ -894,7 +894,7 @@ def api_me_features():
             feat = UserFeature.query.filter_by(user_email=as_email).first()
             return jsonify({
                 "lyrics_enabled": bool(feat.lyrics_enabled) if feat else True,
-                "share_enabled":  bool(feat.share_enabled)  if feat else False,
+                "share_enabled":  bool(feat.share_enabled)  if feat else True,
             })
         # Local admin without ?as → all features on
         return jsonify({"lyrics_enabled": True, "share_enabled": True})
@@ -902,7 +902,7 @@ def api_me_features():
     feat = UserFeature.query.filter_by(user_email=email).first()
     return jsonify({
         "lyrics_enabled": bool(feat.lyrics_enabled) if feat else True,
-        "share_enabled":  bool(feat.share_enabled)  if feat else False,
+        "share_enabled":  bool(feat.share_enabled)  if feat else True,
     })
 
 

@@ -348,7 +348,7 @@ def api_set_user_features(email: str):
     # Handle UserFeature toggles (lyrics, share)
     feat = UserFeature.query.filter_by(user_email=email).first()
     if not feat:
-        feat = UserFeature(user_email=email, lyrics_enabled=False, share_enabled=False)
+        feat = UserFeature(user_email=email, lyrics_enabled=True, share_enabled=True)
         db.session.add(feat)
 
     if "lyrics_enabled" in data:

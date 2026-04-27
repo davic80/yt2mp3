@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.2.0] - 2026-04-27
+
+### Changed
+- **Share and lyrics features enabled by default for new users.** `UserFeature`
+  defaults for `share_enabled` and `lyrics_enabled` changed from `False` to
+  `True`, so newly registered users have both features active without requiring
+  admin intervention.
+
+---
+
 ## [5.1.0] - 2026-04-07
 
 ### Fixed
