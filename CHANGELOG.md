@@ -6,6 +6,30 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.0] - 2026-04-27
+
+### Changed
+- **Mobile UI overhaul — tap targets, scroll behavior and layout.** All touch
+  areas meet the 44–48 px minimum across navigation, player controls, sidebar
+  items, track-list rows, action buttons and checkboxes.
+  - `overscroll-behavior: none` on `html/body` prevents iOS rubber-band /
+    pull-to-refresh on the app chrome; `overscroll-behavior: contain` +
+    `-webkit-overflow-scrolling: touch` keep inner lists smooth and contained.
+  - `touch-action: manipulation` applied globally to `button`, `a` and
+    `[role=button]` — eliminates the 300 ms tap delay on all interactive elements.
+  - Topbar nav row: links now use `min-height: 48px` flex layout; topbar height
+    increased to 112 px to accommodate the extra row comfortably.
+  - Language toggle and auth button enlarged to 44 px tap targets.
+  - Player controls (`ctrl-btn`) increased to `min 44×44 px`; play/pause button
+    to 3.2 rem; progress bar gains an invisible 10 px top/bottom tap zone via
+    `::before` pseudo-element.
+  - Player sidebar: items and hamburger button enlarged to 48 px height; dropdown
+    items to 48 px with larger font.
+  - Mis descargas: row action buttons and checkboxes (20×20 px) enlarged; toolbar
+    buttons and search input increased to 44 px height.
+
+---
+
 ## [5.2.0] - 2026-04-27
 
 ### Changed

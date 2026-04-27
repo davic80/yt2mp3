@@ -142,9 +142,17 @@
     /* Show hamburger — rule also in shell.html for WebKit innerHTML compat */
     /* .btn-sidebar-toggle { display: flex; }  ← enforced by shell */
     /* Bigger touch targets in track list */
-    .track-list td { padding: .75rem .5rem; }
-    .menu-btn { padding: .35rem .55rem; font-size: 1.25rem; }
-    .fav-btn  { font-size: 1.45rem; padding: .1rem; }
+    .track-list td { padding: .85rem .5rem; }
+    .menu-btn { padding: .5rem .65rem; font-size: 1.3rem; min-width: 44px; min-height: 44px; }
+    .fav-btn  { font-size: 1.5rem; padding: .35rem; min-width: 44px; min-height: 44px; }
+    /* Sidebar items */
+    .sidebar-item { padding: .7rem .75rem; min-height: 48px; font-size: .9rem; }
+    .btn-new-pl   { padding: .7rem .75rem; min-height: 48px; font-size: .88rem; }
+    .btn-sidebar-toggle { padding: .7rem .75rem; font-size: 1.4rem; min-width: 48px; min-height: 48px; }
+    /* Dropdown items */
+    .dropdown-item { padding: .85rem 1.2rem; font-size: .92rem; min-height: 48px; }
+    /* Search input */
+    .search-input { padding: .65rem 1rem; font-size: .88rem; }
     /* Hide size and date columns */
     .col-size, .col-date,
     .track-list thead th.col-size,
