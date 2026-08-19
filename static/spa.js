@@ -92,6 +92,15 @@
       const s = document.createElement('script');
       // Copy all attributes (type, src, etc.)
       Array.from(old.attributes).forEach(attr => s.setAttribute(attr.name, attr.value));
+
+      // The nonce needs the IDL property, not the attribute. Browsers hide the
+      // nonce *content attribute* once the document has a nonce-based CSP, so
+      // copying attributes alone yields an empty one. Under 'strict-dynamic'
+      // this is belt and braces — these scripts are trusted because spa.js,
+      // which creates them, is itself nonced — but it keeps the fragments
+      // working if strict-dynamic is ever dropped.
+      if (old.nonce) s.nonce = old.nonce;
+
       s.textContent = old.textContent;
       old.parentNode.replaceChild(s, old);
     });

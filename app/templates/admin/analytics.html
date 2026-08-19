@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" nonce="{{ csp_nonce }}"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -162,7 +162,7 @@
   v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 const NEON       = '#39FF14';
 const NEON_DIM   = 'rgba(57,255,20,0.15)';
 const NEON_GRID  = 'rgba(255,255,255,0.06)';

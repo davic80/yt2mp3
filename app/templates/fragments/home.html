@@ -157,7 +157,7 @@
 </div>
 
 <!-- Minimal canvas + WebGL fingerprint (no external CDN, no cookie access) -->
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   window._fpData = { visitorId: null, components: {} };
 
@@ -219,7 +219,7 @@
 })();
 </script>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   function applyStrings() {
     const I = window.I18n;

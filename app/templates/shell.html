@@ -516,13 +516,13 @@
   v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
 </div>
 
-<script src="/static/i18n.js"></script>
-<script src="/static/cache-manager.js"></script>
-<script src="/static/player.js"></script>
-<script src="/static/lyrics.js"></script>
-<script src="/static/spa.js"></script>
-<script src="/static/app.js"></script>
-<script>
+<script src="/static/i18n.js" nonce="{{ csp_nonce }}"></script>
+<script src="/static/cache-manager.js" nonce="{{ csp_nonce }}"></script>
+<script src="/static/player.js" nonce="{{ csp_nonce }}"></script>
+<script src="/static/lyrics.js" nonce="{{ csp_nonce }}"></script>
+<script src="/static/spa.js" nonce="{{ csp_nonce }}"></script>
+<script src="/static/app.js" nonce="{{ csp_nonce }}"></script>
+<script nonce="{{ csp_nonce }}">
   // Apply i18n to shell elements once DOM and i18n.js are ready
   I18n.init();
 

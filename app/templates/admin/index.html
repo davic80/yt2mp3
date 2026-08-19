@@ -314,7 +314,7 @@
   v{{ version }} &middot; <a href="{{ repo_url }}/commit/{{ commit }}" target="_blank" rel="noopener">{{ commit[:7] }}</a> &middot; <a href="{{ repo_url }}" target="_blank" rel="noopener">github</a>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 // ── Config ──────────────────────────────────────────────────────────────────
 const REFRESH_INTERVAL = {{ refresh_interval }};  // seconds (0 = disabled)
 let currentPage    = {{ pagination.page }};

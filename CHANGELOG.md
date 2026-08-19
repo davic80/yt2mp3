@@ -6,6 +6,41 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.4.0] - 2026-08-19
+
+### Security
+- **The Content-Security-Policy no longer needs `'unsafe-inline'` for scripts.**
+  This is what the last several releases were building towards: with
+  `'unsafe-inline'`, an injected `<script>` runs whatever the policy says, so
+  the CSP added in 5.3.7 could stop script from an attacker's *host* but not
+  script injected into the page. Measured in a browser, injecting
+  `<img src=x onerror=…>`:
+
+  ```
+  baseline CSP ('unsafe-inline')   the handler runs
+  strict CSP   (nonce)             the handler is blocked
+  ```
+
+  - **All 93 inline event handlers are gone** (5.3.9 and the two commits after
+    it), which is what made this possible at all. Every `<script>` tag now
+    carries a per-request nonce, including the external module tags —
+    `'strict-dynamic'` causes browsers to ignore host allowlists, so `'self'`
+    no longer covers them.
+  - **`'strict-dynamic'` is what lets this coexist with the SPA.** Fragments
+    arrive in later requests, and a nonce minted for one of those would not
+    match the policy delivered with the document. `'strict-dynamic'` instead
+    trusts script inserted by already-trusted script, and `spa.js` — which
+    re-creates each fragment's scripts — is itself nonced.
+  - `spa.js` now copies the nonce through the IDL property. Browsers hide the
+    nonce *content attribute* once a document has a nonce-based CSP, so copying
+    attributes alone yields an empty one.
+  - **It ships in observation, not enforcement.** `CSP_MODE=enforce` (the
+    default) keeps enforcing the previous policy while sending the strict one
+    as `Content-Security-Policy-Report-Only`, so it can be watched under real
+    use. `CSP_MODE=strict` promotes it — an environment change, no redeploy.
+
+---
+
 ## [5.3.9] - 2026-08-19
 
 ### Fixed

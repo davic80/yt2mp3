@@ -1,11 +1,12 @@
 import logging
 import os
+import secrets
 import sys
 import threading
 from datetime import timedelta
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
-from flask import Flask, request
+from flask import Flask, g, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -64,7 +65,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.9")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.4.0")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -497,9 +498,54 @@ def create_app():
         "frame-ancestors 'none'",
     ])
 
-    # CSP_MODE: enforce (default) | report-only | off. An escape hatch that
-    # does not need a code change if the policy turns out to block something.
+    # ── The strict policy ─────────────────────────────────────────────────────
+    # With no inline event handlers left, script-src can finally drop
+    # 'unsafe-inline' and trust a per-request nonce instead. That is the point
+    # of the whole exercise: with 'unsafe-inline' an injected <script> runs
+    # regardless of the policy; with a nonce it does not, because the attacker
+    # cannot guess the nonce.
+    #
+    # 'strict-dynamic' is what makes this work with the SPA. Fragments arrive
+    # in later requests, and a nonce minted for one of those would not match
+    # the policy delivered with the document. 'strict-dynamic' says instead:
+    # script inserted by an already-trusted script is trusted. spa.js carries
+    # the nonce, so the fragment scripts it re-creates are allowed.
+    #
+    # Browsers honouring 'strict-dynamic' ignore 'self' and host sources; those
+    # remain only as a fallback for browsers that do not.
+    def _strict_csp(nonce):
+        return "; ".join([
+            "default-src 'self'",
+            f"script-src 'nonce-{nonce}' 'strict-dynamic' 'self' https://cdn.jsdelivr.net",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com",
+            "img-src 'self' data: https:",
+            "media-src 'self' blob:",
+            "connect-src 'self'",
+            "worker-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'",
+        ])
+
+    # CSP_MODE:
+    #   enforce (default) — enforce the baseline policy and send the strict one
+    #                       as report-only, so it can be watched under real use
+    #                       before it starts blocking anything
+    #   strict            — enforce the strict policy
+    #   report-only       — report-only baseline, nothing enforced
+    #   off               — no CSP at all
+    # An escape hatch in either direction that needs no code change.
     csp_mode = os.environ.get("CSP_MODE", "enforce").lower()
+
+    @app.before_request
+    def _make_csp_nonce():
+        g.csp_nonce = secrets.token_urlsafe(16)
+
+    @app.context_processor
+    def inject_csp_nonce():
+        return {"csp_nonce": getattr(g, "csp_nonce", "")}
 
     @app.after_request
     def _security_headers(response):
@@ -513,8 +559,13 @@ def create_app():
         # audio cache never worked.
         if request.path == "/static/sw.js":
             response.headers.setdefault("Service-Worker-Allowed", "/")
-        if csp_mode == "enforce":
+
+        strict = _strict_csp(getattr(g, "csp_nonce", ""))
+        if csp_mode == "strict":
+            response.headers.setdefault("Content-Security-Policy", strict)
+        elif csp_mode == "enforce":
             response.headers.setdefault("Content-Security-Policy", _CSP)
+            response.headers.setdefault("Content-Security-Policy-Report-Only", strict)
         elif csp_mode == "report-only":
             response.headers.setdefault("Content-Security-Policy-Report-Only", _CSP)
         return response
