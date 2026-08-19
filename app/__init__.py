@@ -64,7 +64,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.7")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.8")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -363,6 +363,60 @@ def create_app():
                 conn.commit()
         except Exception:
             pass
+
+        # v5.3.8 — drop columns the app stopped writing long ago.
+        # Verified empty across every row before removal: these are leftovers
+        # from a tracking-pixel experiment (Meta _fbp/_fbc, Google Analytics,
+        # Instagram) and an older playlist implementation. fingerprint.py has
+        # said "No cookie data is collected" for a while; the schema had not
+        # caught up. Their absence also unblocks rebuilding this table, which
+        # a naive rebuild from the model would otherwise have silently
+        # dropped along with any data they held.
+        _DEAD_COLUMNS = (
+            "cookies_json", "fb_fbc", "fb_fbp",
+            "ga_client", "ga_session", "ig_did", "playlist_url",
+        )
+        try:
+            with db.engine.connect() as conn:
+                present = {
+                    row[1] for row in
+                    conn.execute(text("PRAGMA table_info(downloads)")).fetchall()
+                }
+                for column in _DEAD_COLUMNS:
+                    if column not in present:
+                        continue
+                    # Only drop what is genuinely unused — never assume.
+                    used = conn.execute(text(
+                        f"SELECT COUNT(*) FROM downloads "
+                        f"WHERE {column} IS NOT NULL AND {column} != ''"
+                    )).scalar()
+                    if used:
+                        logging.getLogger("app").warning(
+                            "dead-column cleanup: %s holds %d values — kept",
+                            column, used,
+                        )
+                        continue
+                    conn.execute(text(f"ALTER TABLE downloads DROP COLUMN {column}"))
+                    logging.getLogger("app").info("dropped unused column downloads.%s", column)
+                conn.commit()
+        except Exception as exc:
+            logging.getLogger("app").warning("dead-column cleanup skipped: %s", exc)
+
+        # v5.3.8 — indexes the models declare but the database never got:
+        # those columns were added by ALTER TABLE, which does not create them.
+        # video_id matters most — the dedup check queries it on every download.
+        for index_sql in (
+            "CREATE INDEX IF NOT EXISTS ix_downloads_user_email ON downloads (user_email)",
+            "CREATE INDEX IF NOT EXISTS ix_downloads_video_id   ON downloads (video_id)",
+            "CREATE INDEX IF NOT EXISTS ix_downloads_audio_hash ON downloads (audio_hash)",
+            "CREATE INDEX IF NOT EXISTS ix_downloads_batch_id   ON downloads (batch_id)",
+        ):
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text(index_sql))
+                    conn.commit()
+            except Exception:
+                pass
 
         # v5.3.4 — clear rows left pointing at downloads deleted before the
         # delete paths went through app.downloads_service. Idempotent.

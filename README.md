@@ -192,6 +192,11 @@ SQLite at `/app/database/yt2mp3.db` (mounted as a volume).
 
 `downloads` table — relevant fields:
 - Request metadata (IP, parsed User-Agent, Accept-Language, Referrer)
+- Geolocation (country, city) resolved from the IP
 - Browser fingerprint (canvas, WebGL, fonts, screen, timezone)
-- Tracking cookies (Meta `_fbp`/`_fbc`, Google Analytics `_ga`, Instagram `ig_did`)
 - Job state and path of the downloaded file
+
+**No cookie data is collected.** Earlier versions carried columns for Meta
+`_fbp`/`_fbc`, Google Analytics and Instagram `ig_did`; the code stopped
+writing them long before this was written, they were empty in every row, and
+v5.3.8 removed them from the schema.

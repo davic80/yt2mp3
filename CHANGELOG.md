@@ -6,6 +6,30 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.8] - 2026-08-19
+
+### Removed
+- **Seven dead columns on `downloads`**: `cookies_json`, `fb_fbc`, `fb_fbp`,
+  `ga_client`, `ga_session`, `ig_did` and `playlist_url` — leftovers from a
+  tracking-pixel experiment and an older playlist implementation. The code had
+  long stopped writing them (`fingerprint.py` states "No cookie data is
+  collected") but the schema and the README still described them as collected.
+  Verified empty across all 115 production rows before removal, and the
+  migration re-checks each column at runtime and keeps any that holds data
+  rather than trusting that finding.
+  - This also clears the obstacle to enforcing the two remaining foreign keys:
+    a table rebuild generated from the model would have dropped these columns
+    silently, which is why that work was deferred in 5.3.6.
+
+### Fixed
+- **Four indexes the models declare but the database never had.**
+  `user_email`, `video_id`, `audio_hash` and `batch_id` were added to
+  `downloads` by `ALTER TABLE ADD COLUMN`, which does not create the indexes
+  that go with them. `video_id` is the one that mattered: the deduplication
+  check queries it on every single download and was scanning the table.
+
+---
+
 ## [5.3.7] - 2026-08-19
 
 ### Security
