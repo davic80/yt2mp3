@@ -288,13 +288,26 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
                 pass
 
 
-def start_download(app, youtube_url: str, download_dir: str,
-                   video_id: str | None = None) -> str:
-    """Create a job, start background thread, return job_id."""
-    job_id = str(uuid.uuid4())
+def new_job_id() -> str:
+    """Reserve a job id and register it in the in-memory store.
 
+    Split from :func:`start_download` so the caller can commit the matching
+    ``Download`` row *before* any worker thread looks for it — the worker
+    resolves the row by ``job_id``, and the dedup path resolves so fast that
+    it used to lose the race against the request handler's commit, leaving
+    the row stuck at "pending" forever.
+    """
+    job_id = str(uuid.uuid4())
     with _jobs_lock:
         _jobs[job_id] = {"status": "pending", "progress": 0}
+    return job_id
+
+
+def start_download(app, job_id: str, youtube_url: str, download_dir: str,
+                   video_id: str | None = None) -> str:
+    """Start the background download for an already-committed *job_id*."""
+    with _jobs_lock:
+        _jobs.setdefault(job_id, {"status": "pending", "progress": 0})
 
     t = threading.Thread(
         target=_run_download,

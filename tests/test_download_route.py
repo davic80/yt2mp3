@@ -11,9 +11,9 @@ def started(app, monkeypatch):
     """Capture the URL handed to the downloader instead of downloading."""
     calls = []
 
-    def fake_start_download(_app, url, _dir, video_id=None):
-        calls.append({"url": url, "video_id": video_id})
-        return "fake-job-id"
+    def fake_start_download(_app, job_id, url, _dir, video_id=None):
+        calls.append({"job_id": job_id, "url": url, "video_id": video_id})
+        return job_id
 
     monkeypatch.setattr("app.routes.start_download", fake_start_download)
     with app.app_context():

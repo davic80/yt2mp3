@@ -17,7 +17,7 @@ from flask import (
 from app import db, limiter
 from app.models import Download, PlaylistBatch
 from app.downloader import (
-    start_download, get_job, get_batch, extract_playlist,
+    start_download, new_job_id, get_job, get_batch, extract_playlist,
     start_playlist_download, PLAYLIST_MAX_TRACKS,
 )
 from app.fingerprint import collect
@@ -134,8 +134,13 @@ def download():
 
     video_id = extract_video_id(clean_url)
 
+    # Reserve the job id up front: the row must be committed and findable
+    # before the worker thread starts, or a dedup hit (which resolves with no
+    # download at all) races the commit and leaves the row stuck at "pending".
+    job_id = new_job_id()
+
     record = Download(
-        job_id="placeholder",
+        job_id=job_id,
         youtube_url=youtube_url,
         hardware_model=hardware,
         identity_hash=identity,
@@ -147,16 +152,14 @@ def download():
         **meta,
     )
     db.session.add(record)
-    db.session.flush()
+    db.session.commit()
 
     # v3.1.0 — remember the anonymous browser fingerprint so we can associate
     # these downloads with a user if they log in later in the same session.
     if not session.get("user_email") and identity:
         session["anon_identity_hash"] = identity
 
-    job_id = start_download(app_obj, clean_url, download_dir, video_id=video_id)
-    record.job_id = job_id
-    db.session.commit()
+    start_download(app_obj, job_id, clean_url, download_dir, video_id=video_id)
 
     return jsonify({"type": "single", "job_ids": [job_id]}), 202
 
@@ -195,9 +198,25 @@ def serve_file(filename: str):
 
     display_name = record.file_name or f"{job_id}.mp3"
 
+    # Deduplicated and claimed rows share another job's file, so <job_id>.mp3
+    # does not exist for them — fall back to the path stored on the record.
+    served_name = f"{job_id}.mp3"
+    if not os.path.isfile(os.path.join(download_dir, served_name)):
+        candidate = os.path.realpath(record.file_path)
+        root = os.path.realpath(download_dir)
+        # Keep the served file inside DOWNLOAD_DIR even though the path comes
+        # from our own DB rather than from the request.
+        try:
+            inside = os.path.commonpath([candidate, root]) == root
+        except ValueError:
+            inside = False
+        if not inside or not os.path.isfile(candidate):
+            abort(404)
+        served_name = os.path.basename(candidate)
+
     return send_from_directory(
         download_dir,
-        f"{job_id}.mp3",
+        served_name,
         as_attachment=True,
         download_name=display_name,
     )

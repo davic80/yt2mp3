@@ -6,6 +6,30 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.2] - 2026-08-19
+
+### Fixed
+- **Re-downloading an already-fetched video handed the browser a 207-byte 404
+  page instead of an MP3.** Two bugs stacked on the deduplication path:
+  - `POST /download` started the worker thread *before* committing the
+    `Download` row, and set the real `job_id` only afterwards (the row was
+    inserted as `job_id="placeholder"`). A dedup hit resolves instantly with
+    no download at all, so the worker's `filter_by(job_id=...)` lookup raced
+    the commit and found nothing — leaving the row stuck at `pending` while
+    the in-memory job store said `done`, so the UI offered a download link for
+    a row the file endpoint would reject. The row is now created with its
+    final `job_id` and committed before the thread starts.
+  - `GET /files/<job_id>` always served `<job_id>.mp3`, which does not exist
+    for a deduplicated or claimed row — its `file_path` points at the original
+    job's file. It now falls back to `file_path`, with a containment check
+    keeping the served file inside `DOWNLOAD_DIR`.
+
+### Added
+- `tests/test_dedup_serving.py` — regression tests for both bugs above,
+  verified to fail against the previous code.
+
+---
+
 ## [5.3.1] - 2026-08-19
 
 ### Fixed
