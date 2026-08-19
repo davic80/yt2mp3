@@ -5,13 +5,14 @@ SQLite does not enforce foreign keys by default, so a playlist_tracks row can
 outlive the Download it references. The player then dereferenced
 PlaylistTrack.download on a None and returned 500 for the whole playlist.
 """
+import contextlib
 import os
 
 import pytest
 
 from app import db
 from app.downloads_service import delete_downloads, purge_orphan_references
-from app.models import Download
+from app.models import Download, User
 from app.player_models import Playlist, PlaylistTrack, PlayEvent
 
 VID = "dw9IH-Vsyi8"
@@ -43,6 +44,12 @@ def seeded(app):
             table.query.delete()
         db.session.commit()
 
+        # A play event references a real user — fabricating one for an email
+        # that does not exist is invalid data, not a scenario worth testing.
+        if User.query.get("x@y.z") is None:
+            db.session.add(User(email="x@y.z", name="Oyente"))
+            db.session.commit()
+
         for jid in ("a", "b", "c"):
             db.session.add(_make_download(jid, download_dir))
         pl = Playlist(name="Lista", user_email=None)
@@ -53,6 +60,27 @@ def seeded(app):
         db.session.add(PlayEvent(user_email="x@y.z", job_id="b", seconds_played=42))
         db.session.commit()
         return pl.id
+
+
+
+@contextlib.contextmanager
+def foreign_keys_off():
+    """Build a scenario the foreign key constraint now prevents.
+
+    Orphans can no longer be created through the app — that is the point of
+    enabling the constraint. But databases that predate it may still hold
+    them, so the guards that tolerate one still need testing.
+    """
+    raw = db.engine.raw_connection()
+    try:
+        cur = raw.cursor()
+        cur.execute("PRAGMA foreign_keys=OFF")
+        yield cur
+        raw.commit()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+    finally:
+        raw.close()
 
 
 def test_delete_removes_playlist_tracks_and_play_events(app, seeded):
@@ -102,9 +130,9 @@ def test_missing_file_on_disk_is_not_an_error(app, seeded):
 def test_playlist_endpoint_skips_a_track_whose_download_vanished(app, client, seeded):
     """The regression: an orphan must be skipped, not crash the playlist."""
     with app.app_context():
-        # Delete the Download the way the old code did — row only, no cleanup.
-        Download.query.filter_by(job_id="b").delete(synchronize_session=False)
-        db.session.commit()
+        # Legacy data: the row was deleted before the constraint existed.
+        with foreign_keys_off() as cur:
+            cur.execute("DELETE FROM downloads WHERE job_id = 'b'")
         assert PlaylistTrack.query.filter_by(job_id="b").first() is not None
 
     resp = client.get(f"/player/api/playlists/{seeded}/tracks")
@@ -115,8 +143,8 @@ def test_playlist_endpoint_skips_a_track_whose_download_vanished(app, client, se
 
 def test_purge_orphan_references_cleans_existing_rows(app, seeded):
     with app.app_context():
-        Download.query.filter_by(job_id="b").delete(synchronize_session=False)
-        db.session.commit()
+        with foreign_keys_off() as cur:
+            cur.execute("DELETE FROM downloads WHERE job_id = 'b'")
 
         removed = purge_orphan_references()
 

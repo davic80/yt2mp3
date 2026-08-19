@@ -6,6 +6,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.6] - 2026-08-19
+
+### Security
+- **Deleting a user did not revoke their API tokens.** `user_required` checked
+  `if user and not user.is_enabled`, which falls straight through when the user
+  is gone — so a token belonging to a deleted account kept authenticating. The
+  check is now `if not user or not user.is_enabled`, and `api_delete_user`
+  deletes the token rows outright rather than leaving them behind. No exposure
+  in practice: no API tokens had been created.
+
+### Fixed
+- **Foreign keys are now enforced.** SQLite leaves `foreign_keys` off by
+  default, so the ten constraints declared in the schema were never applied and
+  every delete path had to remember its own cleanup by hand — which is how
+  `playlist_tracks` rows came to outlive their downloads and crash the player.
+  Enforcement is a per-connection pragma, so it reverts with one line and a
+  restart, with no data migration in either direction.
+- **Deleting a user left `api_tokens` and `playlist_batches` orphaned.** These
+  were the only two paths that would have failed under enforcement. Tokens are
+  deleted; batches are anonymised by nulling `user_email`, matching how
+  downloads were already treated.
+
+### Known debt
+- `downloads.user_email` and `playlists.user_email` are declared in the models
+  but have no foreign key in the database: they were added by
+  `ALTER TABLE ADD COLUMN`, which cannot attach a constraint. Enforcing them
+  means rebuilding both tables, and `downloads` carries seven columns the model
+  no longer knows about (`cookies_json`, `fb_fbc`, `fb_fbp`, `ga_client`,
+  `ga_session`, `ig_did`, `playlist_url`) which a naive rebuild from the model
+  would silently drop. Deferred: `api_delete_user` already nulls both columns,
+  so the constraint would forbid nothing that is not already prevented.
+
+---
+
 ## [5.3.5] - 2026-08-19
 
 ### Changed

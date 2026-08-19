@@ -274,7 +274,8 @@ def api_users():
 def api_delete_user(email: str):
     """Delete a user and all associated data. Downloads are kept as anonymous."""
     from app.player_models import (
-        Playlist, PlaylistShare, PlaylistMember, PlaylistTrack, UserFeature, PlayEvent,
+        ApiToken, Playlist, PlaylistShare, PlaylistMember, PlaylistTrack,
+        UserFeature, PlayEvent,
     )
 
     user = User.query.get(email)
@@ -311,8 +312,15 @@ def api_delete_user(email: str):
     UserFeature.query.filter_by(user_email=email).delete(synchronize_session=False)
     # 4. Delete play events
     PlayEvent.query.filter_by(user_email=email).delete(synchronize_session=False)
-    # 5. De-associate downloads (keep as anonymous)
+    # 4b. Delete API tokens. These must go, not merely be deactivated: a token
+    # row outliving its user kept authenticating, because user_required only
+    # rejected a user it could find and saw disabled.
+    ApiToken.query.filter_by(user_email=email).delete(synchronize_session=False)
+    # 5. De-associate downloads and playlist batches (keep them as anonymous)
     Download.query.filter_by(user_email=email).update(
+        {"user_email": None}, synchronize_session=False
+    )
+    PlaylistBatch.query.filter_by(user_email=email).update(
         {"user_email": None}, synchronize_session=False
     )
     # 6. Delete user

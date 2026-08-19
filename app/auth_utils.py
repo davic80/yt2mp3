@@ -132,7 +132,10 @@ def user_required(f):
         if token_email:
             from app.models import User
             user = User.query.get(token_email)
-            if user and not user.is_enabled:
+            # A token whose user was deleted must not authenticate. The old
+            # `if user and not user.is_enabled` fell straight through when the
+            # user was gone, so deleting an account left its tokens working.
+            if not user or not user.is_enabled:
                 return make_response(_DISABLED_HTML, 403)
             return f(*args, **kwargs)
         email = session.get("user_email")

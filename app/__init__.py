@@ -64,7 +64,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.5")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.6")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -82,6 +82,12 @@ def create_app():
 
     # SQLite tuning for concurrent readers/writers on Raspberry Pi.
     # WAL improves concurrency; busy_timeout reduces SQLITE_BUSY failures.
+    #
+    # foreign_keys is OFF by default in SQLite, which is how playlist_tracks
+    # rows came to outlive the downloads they referenced and crash the player.
+    # The constraints were declared all along, just never enforced. This is a
+    # per-connection setting, so it reverts with this one line and a restart —
+    # no data migration either way.
     @event.listens_for(Engine, "connect")
     def _sqlite_pragmas(dbapi_connection, _connection_record):
         try:
@@ -90,6 +96,7 @@ def create_app():
             cur = dbapi_connection.cursor()
             cur.execute("PRAGMA journal_mode=WAL")
             cur.execute("PRAGMA busy_timeout=5000")
+            cur.execute("PRAGMA foreign_keys=ON")
             cur.close()
         except Exception:
             pass
