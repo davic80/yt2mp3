@@ -480,6 +480,9 @@ def api_playlist_tracks(pid: int):
         .order_by(PlaylistTrack.position)
         .all()
     )
+    # Skip tracks whose Download is gone. SQLite does not enforce foreign keys,
+    # so a playlist_tracks row can outlive the download it points at; before
+    # this guard the whole playlist 500'd on the first missing one.
     return jsonify([
         {
             "job_id":        t.job_id,
@@ -492,6 +495,7 @@ def api_playlist_tracks(pid: int):
             "added_by_name": _user_display_name(t.added_by) if t.added_by else None,
         }
         for t in tracks
+        if t.download is not None
     ])
 
 
@@ -681,6 +685,7 @@ def api_shared_playlist(token: str):
                 "added_by_name": _user_display_name(t.added_by) if t.added_by else None,
             }
             for t in tracks
+            if t.download is not None
         ],
     })
 

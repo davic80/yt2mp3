@@ -1,6 +1,5 @@
 import io
 import json
-import os
 import re
 import zipfile
 from datetime import datetime, timezone
@@ -228,18 +227,10 @@ def delete_records():
     if not job_ids:
         return jsonify({"error": "no job_ids provided"}), 400
 
-    records = Download.query.filter(Download.job_id.in_(job_ids)).all()
-    deleted = 0
-    for r in records:
-        if r.file_path:
-            try:
-                os.remove(r.file_path)
-            except OSError:
-                pass
-        db.session.delete(r)
-        deleted += 1
-    db.session.commit()
-    return jsonify({"deleted": deleted})
+    from app.downloads_service import delete_downloads
+
+    result = delete_downloads(job_ids)
+    return jsonify(result)
 
 
 # ── Users management ──────────────────────────────────────────────────────────
@@ -298,7 +289,9 @@ def api_users():
 @admin_or_local
 def api_delete_user(email: str):
     """Delete a user and all associated data. Downloads are kept as anonymous."""
-    from app.player_models import Playlist, PlaylistShare, PlaylistMember, UserFeature, PlayEvent
+    from app.player_models import (
+        Playlist, PlaylistShare, PlaylistMember, PlaylistTrack, UserFeature, PlayEvent,
+    )
 
     user = User.query.get(email)
     if not user:
@@ -310,7 +303,7 @@ def api_delete_user(email: str):
         if admin_count <= 1:
             return jsonify({"error": "No se puede eliminar el último administrador."}), 400
 
-    # 1. Delete playlist shares for user's playlists
+    # 1. Delete playlist shares and members for the user's playlists
     pl_ids = [p.id for p in Playlist.query.filter_by(user_email=email).all()]
     if pl_ids:
         PlaylistShare.query.filter(PlaylistShare.playlist_id.in_(pl_ids)).delete(
@@ -319,7 +312,14 @@ def api_delete_user(email: str):
         PlaylistMember.query.filter(PlaylistMember.playlist_id.in_(pl_ids)).delete(
             synchronize_session=False
         )
-    # 2. Delete playlists (cascade deletes PlaylistTrack rows)
+        # The tracks must go explicitly. The delete-orphan cascade on
+        # Playlist.tracks only runs for session.delete(obj); the bulk
+        # query.delete() below goes straight to SQL and skips the ORM, so
+        # these rows used to survive their playlist.
+        PlaylistTrack.query.filter(PlaylistTrack.playlist_id.in_(pl_ids)).delete(
+            synchronize_session=False
+        )
+    # 2. Delete the playlists themselves
     Playlist.query.filter_by(user_email=email).delete(synchronize_session=False)
     # 2b. Remove user from collaborative playlists they are a member of
     PlaylistMember.query.filter_by(user_email=email).delete(synchronize_session=False)

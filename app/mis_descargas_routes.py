@@ -105,21 +105,12 @@ def api_delete(job_id: str):
     email = get_current_user_email()
     record = _own_done_track(job_id, email)
 
-    file_path = record.file_path  # may be None or shared
+    from app.downloads_service import delete_downloads
 
-    db.session.delete(record)
-    db.session.flush()  # execute DELETE before we count remaining refs
-
-    # Reference-count: only remove the file if no other Download row uses it
-    if file_path:
-        remaining = Download.query.filter_by(file_path=file_path).count()
-        if remaining == 0:
-            try:
-                os.remove(file_path)
-            except OSError:
-                pass  # already gone — not an error
-
-    db.session.commit()
+    # Shared with the admin route so the two cannot drift apart again: this
+    # also clears playlist_tracks / play_events, which used to be left behind
+    # and then crashed the player.
+    delete_downloads([record.job_id])
     return jsonify({"ok": True})
 
 

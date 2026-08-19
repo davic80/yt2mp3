@@ -58,7 +58,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.3")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.4")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -350,6 +350,30 @@ def create_app():
                 conn.commit()
         except Exception:
             pass
+
+        # v5.3.4 — clear rows left pointing at downloads deleted before the
+        # delete paths went through app.downloads_service. Idempotent.
+        try:
+            from app.downloads_service import purge_orphan_references
+            purge_orphan_references()
+        except Exception as exc:
+            db.session.rollback()
+            logging.getLogger("app").warning("orphan cleanup failed: %s", exc)
+
+    # ── Startup banner ────────────────────────────────────────────────────────
+    # Printed on every boot so `docker logs` answers the two questions that
+    # cost real time when something looks wrong: which build is actually
+    # running, and whether geolocation resolved a database.
+    with app.app_context():
+        from app.geo import _resolve_db_path
+        geoip_status = _resolve_db_path() or "disabled (no database found)"
+    logging.getLogger("app").info(
+        "yt2mp3 %s (%s) starting — downloads=%s geoip=%s",
+        app.config["APP_VERSION"],
+        app.config["GIT_COMMIT"],
+        app.config["DOWNLOAD_DIR"],
+        geoip_status,
+    )
 
     from app.routes import bp
     from app.admin_routes import admin_bp

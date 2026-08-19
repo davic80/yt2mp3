@@ -6,6 +6,38 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.4] - 2026-08-19
+
+### Fixed
+- **Deleting a track could take the whole playlist down with a 500.** SQLite
+  does not enforce foreign keys by default, so a `playlist_tracks` row outlived
+  the `Download` it pointed at and the player then dereferenced
+  `PlaylistTrack.download` on a `None`. Missing tracks are now skipped and the
+  rest of the playlist renders.
+- **Deleting a download left rows pointing at it.** The two delete paths were
+  each incomplete in a different way: `/db/delete` unlinked the audio file
+  without checking whether another row still referenced it (so deleting a
+  deduplicated row took the file away from other users), while
+  `/mis-descargas` reference-counted the file but left `playlist_tracks` and
+  `play_events` behind. Both now share `app/downloads_service.delete_downloads`,
+  which clears the references, reference-counts the file, and closes the gaps
+  left in playlist positions.
+- **Deleting a user orphaned their playlists' tracks.** The code bulk-deleted
+  the playlists with `query.delete()` and a comment claiming the ORM cascade
+  would take the tracks with them — it does not: a bulk delete goes straight to
+  SQL and skips the `delete-orphan` cascade entirely.
+- Existing orphans are cleared once at startup by `purge_orphan_references()`,
+  which is idempotent.
+
+### Added
+- **Version and build info in the startup log.** `docker logs` now opens with
+  `yt2mp3 <version> (<commit>) starting — downloads=… geoip=…`, so the two
+  questions that cost real time — which build is actually running, and whether
+  geolocation found a database — are answered without exec'ing into the
+  container.
+
+---
+
 ## [5.3.3] - 2026-08-19
 
 ### Security
