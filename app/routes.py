@@ -1,10 +1,8 @@
 import json
 import os
-import re
 import uuid
 import zipfile
 from io import BytesIO
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from flask import (
     Blueprint,
     Response,
@@ -27,76 +25,17 @@ from app.hardware_parser import detect_hardware, compute_identity_hash
 from app.bot_score import compute_bot_score
 from app.geo import geolocate
 from app.auth_utils import user_required
+from app.youtube_url import (
+    canonical_url, extract_video_id, is_bare_playlist, is_youtube_url,
+)
 
 bp = Blueprint("main", __name__)
-
-YOUTUBE_RE = re.compile(
-    r"^(https?://)?(www\.)?"
-    r"(youtube\.com/(watch\?|playlist\?|shorts/|embed/)|youtu\.be/)"
-    r"[\w\-?=&%]+"
-)
 
 
 def _rate_limits():
     per_hour = current_app.config.get("RATE_LIMIT_PER_HOUR", "10")
     per_minute = current_app.config.get("RATE_LIMIT_PER_MINUTE", "3")
     return [f"{per_minute} per minute", f"{per_hour} per hour"]
-
-
-def _strip_playlist_params(url: str):
-    """Remove list/index/start_radio params, keeping only v= and t=.
-
-    If the URL has a v= param, return a clean single-video URL.
-    If it's a bare playlist URL (no v=), return it as-is — yt-dlp with
-    noplaylist=True will download the first track of the list.
-    """
-    try:
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query, keep_blank_values=True)
-        clean = {k: v[0] for k, v in params.items() if k in ("v", "t")}
-        if not clean.get("v"):
-            return url  # bare playlist — let yt-dlp grab the first track
-        return urlunparse(parsed._replace(query=urlencode(clean)))
-    except Exception:
-        return url
-
-
-def _is_bare_playlist(url: str) -> bool:
-    """Return True if the URL is a playlist URL without a video ID (v=)."""
-    try:
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query)
-        return "list" in params and "v" not in params
-    except Exception:
-        return False
-
-
-def _extract_video_id(url: str) -> str | None:
-    """Return the YouTube video ID from a URL, or None if not parseable.
-
-    Handles:
-      https://www.youtube.com/watch?v=XXXXXXXXXXX
-      https://youtu.be/XXXXXXXXXXX
-      https://www.youtube.com/shorts/XXXXXXXXXXX
-      https://www.youtube.com/embed/XXXXXXXXXXX
-    """
-    try:
-        parsed = urlparse(url)
-        # youtu.be/<id>
-        if parsed.netloc in ("youtu.be", "www.youtu.be"):
-            vid = parsed.path.lstrip("/").split("/")[0].split("?")[0]
-            return vid or None
-        # youtube.com/watch?v=<id>
-        params = parse_qs(parsed.query)
-        if "v" in params:
-            return params["v"][0] or None
-        # youtube.com/shorts/<id>  or  /embed/<id>
-        parts = [p for p in parsed.path.split("/") if p]
-        if len(parts) >= 2 and parts[0] in ("shorts", "embed"):
-            return parts[1] or None
-    except Exception:
-        pass
-    return None
 
 
 # ─── Pages ────────────────────────────────────────────────────────────────────
@@ -119,11 +58,11 @@ def download():
     if not youtube_url:
         return jsonify({"error": "URL required"}), 400
 
-    if not YOUTUBE_RE.match(youtube_url):
+    if not is_youtube_url(youtube_url):
         return jsonify({"error": "Invalid YouTube URL"}), 400
 
     # ── v5.0.0: Playlist detection ───────────────────────────────────────────
-    if _is_bare_playlist(youtube_url):
+    if is_bare_playlist(youtube_url):
         # Require login for playlist downloads (auto-created playlist needs an owner)
         user_email = session.get("user_email")
         if not user_email:
@@ -172,9 +111,10 @@ def download():
             "track_count": len(entries),
         }), 200
 
-    # ── Single-video download (unchanged) ────────────────────────────────────
-    # Strip playlist params — if URL has v=, use clean single-video URL
-    clean_url = _strip_playlist_params(youtube_url)
+    # ── Single-video download ────────────────────────────────────────────────
+    # Normalize to https://www.youtube.com/watch?v=<id> — drops playlist params
+    # and the share tracking noise youtu.be links carry (?si=, ?is=, ...).
+    clean_url = canonical_url(youtube_url)
 
     meta = collect(client_fingerprint=data.get("fingerprint"))
     fp_components = meta.get("fingerprint_components")
@@ -192,7 +132,7 @@ def download():
     app_obj = current_app._get_current_object()
     download_dir = current_app.config["DOWNLOAD_DIR"]
 
-    video_id = _extract_video_id(clean_url)
+    video_id = extract_video_id(clean_url)
 
     record = Download(
         job_id="placeholder",

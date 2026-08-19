@@ -82,6 +82,17 @@ docker run -p 5000:5000 \
   yt2mp3:dev
 ```
 
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Covers YouTube URL parsing (`app/youtube_url.py`) and the `POST /download`
+routing. No network access and no real yt-dlp calls — the downloader is
+monkeypatched.
+
 ---
 
 ## Structure
@@ -92,6 +103,7 @@ app/
   models.py        # SQLAlchemy models (downloads table)
   routes.py        # Endpoints: GET /, POST /download, GET /status/<id>, GET /files/<f>
   downloader.py    # yt-dlp wrapper with background jobs (threading)
+  youtube_url.py   # YouTube URL parsing / normalization (stdlib only)
   fingerprint.py   # User metadata collection
   mailer.py        # Email notifications via Gmail SMTP
   admin_routes.py  # Admin panel routes + admin_or_local guard + paginated admin view
@@ -102,6 +114,9 @@ app/
 static/
   style.css
   app.js
+tests/
+  test_youtube_url.py    # URL parsing
+  test_download_route.py # POST /download routing
 Dockerfile
 docker-compose.yml
 .github/workflows/build-push.yml

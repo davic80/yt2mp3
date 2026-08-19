@@ -26,6 +26,23 @@ _BATCH_SEMAPHORE_SIZE = 3
 # Max tracks allowed per playlist
 PLAYLIST_MAX_TRACKS = 100
 
+# YouTube player clients to try, in order.  YouTube regularly starts serving
+# 403s on the formats one client advertises, so a single client is never
+# enough: we retry the whole download with the next one.
+#
+#   web_embedded — currently the only client reliably serving audio-only
+#                  formats (opus 251); fails on embed-disabled videos
+#   None         — yt-dlp's own default client rotation
+#   android / tv_simply / mweb — progressive fallbacks (video+audio, larger
+#                  download, but ffmpeg extracts the audio all the same)
+_PLAYER_CLIENTS: tuple[str | None, ...] = (
+    "web_embedded",
+    None,
+    "android",
+    "tv_simply",
+    "mweb",
+)
+
 
 def get_job(job_id: str) -> dict | None:
     with _jobs_lock:
@@ -63,6 +80,101 @@ def _sha256(path: str) -> str:
         while chunk := f.read(1 << 20):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _ydl_opts(job_id: str, download_dir: str, player_client: str | None) -> dict:
+    """Build yt-dlp options for one download attempt."""
+    opts = {
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(download_dir, f"{job_id}.%(ext)s"),
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        # Allow yt-dlp to download the EJS challenge solver from GitHub
+        # so Deno can solve YouTube's signature/n-challenge (required 2026+)
+        "remote_components": {"ejs:github"},
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "0",  # best VBR quality
+            }
+        ],
+        "progress_hooks": [_progress_hook(job_id)],
+    }
+    if player_client:
+        opts["extractor_args"] = {"youtube": {"player_client": [player_client]}}
+    return opts
+
+
+# Error fragments that mean retrying with another player client is pointless.
+_PERMANENT_ERRORS = (
+    "private video",
+    "video unavailable",
+    "removed by the uploader",
+    "account associated with this video has been terminated",
+    "is not available in your country",
+    "members-only",
+    "sign in to confirm your age",
+)
+
+
+def _is_permanent_error(message: str) -> bool:
+    lowered = (message or "").lower()
+    return any(marker in lowered for marker in _PERMANENT_ERRORS)
+
+
+def _clear_partials(job_id: str, download_dir: str) -> None:
+    """Delete any leftover files from a failed attempt before the next one."""
+    try:
+        for name in os.listdir(download_dir):
+            if name.startswith(f"{job_id}."):
+                try:
+                    os.remove(os.path.join(download_dir, name))
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
+
+def _extract_with_fallback(job_id: str, youtube_url: str, download_dir: str) -> dict:
+    """Download *youtube_url*, retrying across player clients on failure.
+
+    YouTube frequently serves formats that 403 for one client while another
+    works fine, so a failure is only final once every client in
+    ``_PLAYER_CLIENTS`` has been tried.  Raises the last exception if they all
+    fail.
+    """
+    last_exc: Exception | None = None
+
+    for attempt, player_client in enumerate(_PLAYER_CLIENTS):
+        if attempt:
+            # Clean up whatever the previous attempt left behind and rewind
+            # the progress bar so the UI doesn't jump backwards.
+            _clear_partials(job_id, download_dir)
+            with _jobs_lock:
+                if job_id in _jobs:
+                    _jobs[job_id]["progress"] = 0
+
+        try:
+            with yt_dlp.YoutubeDL(_ydl_opts(job_id, download_dir, player_client)) as ydl:
+                info = ydl.extract_info(youtube_url, download=True)
+            if attempt:
+                logger.info(
+                    "job %s: succeeded with player_client=%s after %d failed attempt(s)",
+                    job_id, player_client or "default", attempt,
+                )
+            return info
+        except Exception as exc:
+            last_exc = exc
+            if _is_permanent_error(str(exc)):
+                raise
+            logger.warning(
+                "job %s: player_client=%s failed: %s",
+                job_id, player_client or "default", exc,
+            )
+
+    raise last_exc  # type: ignore[misc]
 
 
 def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
@@ -108,31 +220,9 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
                 return  # ← skip yt-dlp entirely
 
         # ── Normal download path ──────────────────────────────────────────────
-        out_template = os.path.join(download_dir, f"{job_id}.%(ext)s")
-
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "outtmpl": out_template,
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-            # Allow yt-dlp to download the EJS challenge solver from GitHub
-            # so Deno can solve YouTube's signature/n-challenge (required 2026+)
-            "remote_components": {"ejs:github"},
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "0",  # best VBR quality
-                }
-            ],
-            "progress_hooks": [_progress_hook(job_id)],
-        }
-
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(youtube_url, download=True)
-                title = info.get("title", job_id)
+            info = _extract_with_fallback(job_id, youtube_url, download_dir)
+            title = info.get("title", job_id)
 
             mp3_path  = os.path.join(download_dir, f"{job_id}.mp3")
             file_name = f"{title}.mp3"

@@ -6,6 +6,42 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.1] - 2026-08-19
+
+### Fixed
+- **Downloads failing with `HTTP Error 403: Forbidden`.** YouTube started
+  serving formats that 403 on the player client yt-dlp picks by default
+  (`android vr`), which broke downloads for every video, not just short links.
+  `_run_download` now retries the whole download across a ladder of player
+  clients (`web_embedded` → default → `android` → `tv_simply` → `mweb`) and
+  only gives up once all of them fail. `web_embedded` goes first because it is
+  the one still serving audio-only formats (opus 251, ~3 MB) instead of a
+  progressive 360p stream (~13 MB).
+  - Attempts stop early on permanent failures (private / removed / age-gated
+    videos) instead of burning through the whole ladder.
+  - Leftover partial files are cleared and the progress bar rewound between
+    attempts.
+- **`youtu.be/<id>?list=...` was misread as a playlist.** A short link with a
+  `list` param but no `v` param hit the bare-playlist branch and asked the user
+  to confirm a batch download instead of grabbing the single track.
+- **Share tracking params were passed straight to yt-dlp.** `youtu.be` links
+  copied from the mobile share sheet carry `?si=` / `?is=`; these are now
+  stripped along with `list` / `index` / `start_radio`.
+- **`yt-dlp` pin was two years stale** (`2024.5.27`). Production hid this
+  because the Dockerfile force-upgrades on build, but a local
+  `pip install -r requirements.txt` produced an install that cannot download
+  from YouTube at all. Now `>=2026.7.4`.
+
+### Added
+- `app/youtube_url.py` — URL parsing and normalization extracted from
+  `routes.py` as a dependency-free module. All accepted forms (`youtu.be`,
+  `watch`, `shorts`, `embed`, `live`, `m.` and `music.` subdomains) normalize
+  to `https://www.youtube.com/watch?v=<id>`.
+- `tests/` — first test suite in the repo (53 tests, pytest): URL parsing plus
+  integration tests over `POST /download` covering the short-link forms.
+
+---
+
 ## [5.3.0] - 2026-04-27
 
 ### Changed

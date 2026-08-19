@@ -29,7 +29,7 @@ EXPOSE 5000
 
 # Build-time arg for commit SHA (passed by GitHub Actions)
 ARG GIT_COMMIT=dev
-ARG APP_VERSION=5.1.0
+ARG APP_VERSION=5.3.1
 
 ENV FLASK_APP=wsgi.py \
     FLASK_ENV=production \
