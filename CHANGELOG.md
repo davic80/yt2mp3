@@ -6,6 +6,37 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.7] - 2026-08-19
+
+### Security
+- **Security headers on every response.** `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY` (no clickjacking), `Referrer-Policy:
+  strict-origin-when-cross-origin`, and a Content-Security-Policy.
+  - The policy is built from an audit of what the front end actually loads,
+    not from a template: Chart.js on jsdelivr for `/db/analytics`, Google
+    Fonts, cover art from whatever host iTunes/Deezer/Genius/YouTube returns,
+    audio from this origin only, and no cross-origin fetches at all.
+  - It is **not** full XSS protection yet, and should not be mistaken for it:
+    93 inline event handlers and 10 inline `<script>` blocks remain, so
+    `script-src` still needs `'unsafe-inline'`, and CSP blocks inline handlers
+    unless they are allowed — a nonce cannot rescue them. What the policy does
+    stop today is loading script from an attacker's host, framing the site,
+    and posting forms off-origin. Removing those handlers is the prerequisite
+    for a strict policy.
+  - `CSP_MODE` env var — `enforce` (default), `report-only` or `off` — so the
+    policy can be downgraded without a code change if it ever blocks something
+    in production. The other three headers have no failure mode and always
+    apply.
+
+### Fixed
+- **The offline audio cache never worked.** `cache-manager.js` registers
+  `/static/sw.js` with `scope: '/'`, but a worker served from `/static/` may
+  only claim `/static/` unless the response carries `Service-Worker-Allowed`.
+  Registration had therefore always been rejected — verified against
+  production, where the header was absent. Now sent for that one path.
+
+---
+
 ## [5.3.6] - 2026-08-19
 
 ### Security

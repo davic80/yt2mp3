@@ -5,7 +5,7 @@ import threading
 from datetime import timedelta
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
-from flask import Flask
+from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -64,7 +64,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.6")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.7")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 
@@ -400,6 +400,59 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(mis_bp)
     app.register_blueprint(settings_bp)
+
+    # ── Security headers ──────────────────────────────────────────────────────
+    # Built from what the front end actually loads, audited rather than guessed:
+    #   scripts  — same origin, plus Chart.js on jsdelivr for /db/analytics
+    #   styles   — same origin, plus Google Fonts stylesheets
+    #   fonts    — Google Fonts
+    #   images   — any https host: cover art comes from iTunes, Deezer, Genius
+    #              and YouTube, and the set is not knowable in advance
+    #   audio    — same origin only (/player/stream/<job_id>)
+    #   connect  — same origin only; nothing fetches cross-origin
+    #
+    # 'unsafe-inline' is still required for scripts: 93 inline event handlers
+    # and 10 inline <script> blocks remain, and CSP blocks every inline handler
+    # unless it is allowed — a nonce cannot rescue them. So this does not stop
+    # injected inline script yet. What it does stop is loading script from an
+    # attacker's host, framing the site, and posting forms off-origin. Removing
+    # those handlers is the prerequisite for a strict policy.
+    _CSP = "; ".join([
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: https:",
+        "media-src 'self' blob:",
+        "connect-src 'self'",
+        "worker-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ])
+
+    # CSP_MODE: enforce (default) | report-only | off. An escape hatch that
+    # does not need a code change if the policy turns out to block something.
+    csp_mode = os.environ.get("CSP_MODE", "enforce").lower()
+
+    @app.after_request
+    def _security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+
+        # cache-manager.js registers /static/sw.js with scope '/', but a worker
+        # served from /static/ may only claim /static/ unless the response says
+        # otherwise — so registration has always been rejected and the offline
+        # audio cache never worked.
+        if request.path == "/static/sw.js":
+            response.headers.setdefault("Service-Worker-Allowed", "/")
+        if csp_mode == "enforce":
+            response.headers.setdefault("Content-Security-Policy", _CSP)
+        elif csp_mode == "report-only":
+            response.headers.setdefault("Content-Security-Policy-Report-Only", _CSP)
+        return response
 
     @app.context_processor
     def inject_build_info():

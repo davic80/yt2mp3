@@ -20,7 +20,7 @@ services:
       - DOWNLOAD_DIR=/app/downloads
       - SITE_URL=${SITE_URL:-https://yt2mp3.f1madrid.win}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
-      - APP_VERSION=${APP_VERSION:-5.3.6}
+      - APP_VERSION=${APP_VERSION:-5.3.7}
       - ADMIN_REFRESH_INTERVAL=${ADMIN_REFRESH_INTERVAL:-300}
       - GEOIP_PATH=${GEOIP_PATH:-/app/geoip/GeoLite2-City.mmdb}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
@@ -32,6 +32,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-https://yt2mp3.f1madrid.win/auth/callback}
+      - CSP_MODE=${CSP_MODE:-enforce}
     ports:
       # Reached by the shared host-network cloudflared container.
       - "5000:5000"
