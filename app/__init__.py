@@ -418,6 +418,17 @@ def create_app():
             except Exception:
                 pass
 
+        # v5.3.9 — add the two foreign keys that ALTER TABLE could never
+        # attach. Rebuilds those tables, so it backs up first and rolls back
+        # rather than committing anything diminished. Idempotent.
+        try:
+            from app.schema_migrations import ensure_user_foreign_keys
+            ensure_user_foreign_keys(db)
+        except Exception as exc:
+            logging.getLogger("app").error(
+                "schema migration failed, database left unchanged: %s", exc
+            )
+
         # v5.3.4 — clear rows left pointing at downloads deleted before the
         # delete paths went through app.downloads_service. Idempotent.
         try:
