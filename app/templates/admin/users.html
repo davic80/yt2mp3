@@ -248,11 +248,13 @@
     ];
 
     if (!rows.length) {
+      _bindUserTable();
       document.getElementById('table-container').innerHTML =
         '<div class="empty-msg">Sin resultados.</div>';
       return;
     }
 
+    _bindUserTable();
     document.getElementById('table-container').innerHTML = `
       <table>
         <thead>
@@ -280,38 +282,60 @@
               <td class="td-feat">
                 <label class="toggle" title="Habilitado ${u.is_enabled ? 'sí' : 'no'}">
                   <input type="checkbox" ${u.is_enabled ? 'checked' : ''}
-                         onchange="toggleFeature('${esc(u.email)}', 'is_enabled', this)" />
+                         data-email="${esc(u.email)}" data-feature="is_enabled" />
                   <span class="slider"></span>
                 </label>
               </td>
               <td class="td-feat">
                 <label class="toggle" title="Admin ${u.is_admin ? 'sí' : 'no'}">
                   <input type="checkbox" ${u.is_admin ? 'checked' : ''}
-                         onchange="toggleFeature('${esc(u.email)}', 'is_admin', this)" />
+                         data-email="${esc(u.email)}" data-feature="is_admin" />
                   <span class="slider"></span>
                 </label>
               </td>
               <td class="td-feat">
                 <label class="toggle" title="Lyrics ${u.lyrics_enabled ? 'activadas' : 'desactivadas'}">
                   <input type="checkbox" ${u.lyrics_enabled ? 'checked' : ''}
-                         onchange="toggleFeature('${esc(u.email)}', 'lyrics_enabled', this)" />
+                         data-email="${esc(u.email)}" data-feature="lyrics_enabled" />
                   <span class="slider"></span>
                 </label>
               </td>
               <td class="td-feat">
                 <label class="toggle" title="Compartir ${u.share_enabled ? 'activado' : 'desactivado'}">
                   <input type="checkbox" ${u.share_enabled ? 'checked' : ''}
-                         onchange="toggleFeature('${esc(u.email)}', 'share_enabled', this)" />
+                         data-email="${esc(u.email)}" data-feature="share_enabled" />
                   <span class="slider"></span>
                 </label>
               </td>
               <td>
-                <button class="btn-delete-user" onclick="deleteUser('${esc(u.email)}')" title="Eliminar usuario">✕</button>
+                <button class="btn-delete-user" data-email="${esc(u.email)}" title="Eliminar usuario">✕</button>
               </td>
             </tr>
           `).join('')}
         </tbody>
       </table>`;
+  }
+
+  // Emails reach the handlers through data-* attributes rather than inline
+  // onclick/onchange. An inline handler is compiled as JavaScript *after* the
+  // HTML parser decodes entities, so HTML-escaping cannot contain a quote
+  // there; a data-* value is only ever read back as a string.
+  function _bindUserTable() {
+    const el = document.getElementById('table-container');
+    if (!el || el._usersBound) return;
+    el._usersBound = true;
+
+    el.addEventListener('change', (ev) => {
+      const box = ev.target.closest('input[type="checkbox"][data-feature]');
+      if (!box) return;
+      toggleFeature(box.dataset.email, box.dataset.feature, box);
+    });
+
+    el.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.btn-delete-user[data-email]');
+      if (!btn) return;
+      window.deleteUser(btn.dataset.email);
+    });
   }
 
   async function toggleFeature(email, feature, checkbox) {

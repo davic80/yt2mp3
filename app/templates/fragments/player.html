@@ -507,8 +507,31 @@
   }
 
   // ── Sidebar ─────────────────────────────────────────────────────────────────
+  // The playlist name is user-controlled — and third-party controlled, since a
+  // batch download names the playlist after the YouTube playlist title. It
+  // therefore never goes into an inline handler: those are compiled as
+  // JavaScript *after* the HTML parser has decoded entities, so HTML-escaping
+  // does not contain it there. It travels in a data-* attribute instead and is
+  // read back as a plain string by the delegated listener below.
+  function _bindSidebar(el) {
+    if (el._plBound) return;
+    el._plBound = true;
+    el.addEventListener('click', (ev) => {
+      const share = ev.target.closest('.sidebar-pl-share');
+      if (share) {
+        ev.stopPropagation();
+        sharePlaylist(Number(share.dataset.plId), share.dataset.plName || '');
+        return;
+      }
+      const item = ev.target.closest('.sidebar-item');
+      if (item && item.dataset.plid) setView(Number(item.dataset.plid));
+    });
+  }
+
   function renderSidebar() {
     const el = document.getElementById('playlist-list');
+    if (!el) return;
+    _bindSidebar(el);
     if (!state.playlists.length) { el.innerHTML = ''; return; }
     el.innerHTML = state.playlists.map(pl => {
       const isCollab = pl.is_collaborative;
@@ -516,7 +539,7 @@
       const showShare = state.shareEnabled && isOwner;
       return `
       <div class="sidebar-item ${state.view == pl.id ? 'active' : ''}"
-           onclick="setView(${pl.id})" data-plid="${pl.id}"
+           data-plid="${pl.id}"
            draggable="${isOwner}"
            ${isOwner ? `ondragstart="_plDragStart(event,${pl.id})" ondragend="_plDragEnd(event)"` : ''}
            ondragover="_sidebarOver(event)" ondragleave="_sidebarLeave(event)"
@@ -524,7 +547,8 @@
         <span class="pl-name">${esc(pl.name)}</span>
         ${isCollab ? `<span class="pl-collab-badge">${window.I18n.t('player.collaborative')}</span>` : ''}
         <span class="pl-count">${pl.track_count}</span>
-        ${showShare ? `<button class="sidebar-pl-share" onclick="event.stopPropagation();sharePlaylist(${pl.id},'${esc(pl.name)}')"
+        ${showShare ? `<button class="sidebar-pl-share"
+                data-pl-id="${pl.id}" data-pl-name="${esc(pl.name)}"
                 title="${window.I18n.t('player.share')}">⇗</button>` : ''}
       </div>`;
     }).join('');

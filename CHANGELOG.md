@@ -8,6 +8,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [5.3.3] - 2026-08-19
 
+### Security
+- **Stored XSS through values interpolated into inline event handlers.**
+  `esc()` escapes `& < > "` but not the single quote, and six handlers dropped
+  escaped values straight into a single-quoted JavaScript string literal. The
+  reachable one was the playlist name in the player sidebar: a batch download
+  names the playlist after the *YouTube* playlist title, so a third party
+  controls it. The other five were the admin user table (four feature toggles
+  and the delete button, carrying the user's email).
+  - Note the intuitive fix — making `esc()` also escape `'` as `&#39;` — does
+    **not** work, and was verified not to in a real browser: an inline handler
+    is compiled as JavaScript *after* the HTML parser decodes character
+    references, so the entity turns back into a quote and still breaks out of
+    the literal.
+  - All six now pass the value in a `data-*` attribute, read back as a plain
+    string by a delegated listener, where it is never compiled as JavaScript.
+  - `tests/test_no_js_literal_injection.py` scans the templates so the pattern
+    cannot return: any `esc()` output inside a single-quoted JS literal fails,
+    as does any interpolation there that is not a known server-generated id.
+
 ### Fixed
 - **Geolocation was silently disabled in production.** `country_code` and
   `city` had been NULL on every new download because no MMDB database was ever
