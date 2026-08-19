@@ -176,13 +176,18 @@ def _clear_partials(job_id: str, download_dir: str) -> None:
         pass
 
 
-def _extract_with_fallback(job_id: str, youtube_url: str, download_dir: str) -> dict:
+def _extract_with_fallback(job_id: str, youtube_url: str, download_dir: str,
+                           attempts: list | None = None) -> tuple[dict, str]:
     """Download *youtube_url*, retrying across player clients on failure.
 
     YouTube frequently serves formats that 403 for one client while another
     works fine, so a failure is only final once every client in
     ``_PLAYER_CLIENTS`` has been tried.  Raises the last exception if they all
     fail.
+
+    Returns ``(info, client_that_worked)``.  If *attempts* is given, each
+    failure is appended to it as ``(client, error)`` so the caller can report
+    what was tried — which is the useful part of a failure notification.
     """
     last_exc: Exception | None = None
 
@@ -203,9 +208,11 @@ def _extract_with_fallback(job_id: str, youtube_url: str, download_dir: str) -> 
                     "job %s: succeeded with player_client=%s after %d failed attempt(s)",
                     job_id, player_client or "default", attempt,
                 )
-            return info
+            return info, (player_client or "default")
         except Exception as exc:
             last_exc = exc
+            if attempts is not None:
+                attempts.append((player_client or "default", str(exc)))
             if _is_permanent_error(str(exc)):
                 raise
             logger.warning(
@@ -260,8 +267,12 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
                 return  # ← skip yt-dlp entirely
 
         # ── Normal download path ──────────────────────────────────────────────
+        attempts: list[tuple[str, str]] = []
+        started_at = time.monotonic()
         try:
-            info = _extract_with_fallback(job_id, youtube_url, download_dir)
+            info, client_used = _extract_with_fallback(
+                job_id, youtube_url, download_dir, attempts=attempts,
+            )
             title = info.get("title", job_id)
 
             mp3_path  = os.path.join(download_dir, f"{job_id}.mp3")
@@ -309,16 +320,29 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
 
                 db.session.commit()
 
+                logger.info(
+                    "download done: %r %.1f MB via %s in %.1fs%s",
+                    title[:60], file_size / 1048576, client_used,
+                    time.monotonic() - started_at,
+                    f" (after {len(attempts)} failed client(s))" if attempts else "",
+                )
+
                 if not suppress_email:
                     from app.mailer import send_download_notification
                     send_download_notification(mail_data)
 
         except Exception as exc:
             err = str(exc)
+            elapsed = time.monotonic() - started_at
             with _jobs_lock:
                 _jobs[job_id]["status"] = "error"
                 _jobs[job_id]["error"]  = err
                 _mark_settled(_jobs, job_id)
+
+            logger.error(
+                "download failed: %s after %d client(s) in %.1fs: %s",
+                youtube_url, len(attempts) or 1, elapsed, err,
+            )
 
             try:
                 record = Download.query.filter_by(job_id=job_id).first()
@@ -328,6 +352,19 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
                     db.session.commit()
             except Exception:
                 pass
+
+            # Batch tracks are reported in the batch summary instead, so a
+            # failing playlist does not send one email per track.
+            if not suppress_email:
+                from app.mailer import send_failure_notification
+                send_failure_notification({
+                    "job_id":      job_id,
+                    "youtube_url": youtube_url,
+                    "video_id":    video_id,
+                    "error":       err,
+                    "attempts":    attempts,
+                    "elapsed":     elapsed,
+                })
 
 
 def new_job_id() -> str:

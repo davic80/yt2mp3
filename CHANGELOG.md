@@ -6,6 +6,34 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.4.1] - 2026-08-19
+
+### Added
+- **A successful download now says so.** The log messages had all been on the
+  fallback paths, so when the first player client worked — the normal case —
+  the whole run was silent, and `docker logs` showed nothing but the startup
+  banner. It now records the outcome:
+
+  ```
+  INFO app: download done: 'El Canto del Loco - La Suerte De Mi Vida' 6.3 MB via web_embedded in 4.0s
+  ```
+
+  Naming the client that worked is the useful part: if `web_embedded` starts
+  failing and a later client picks up the slack, that shows in the log while
+  everything still works, rather than the day it stops working entirely.
+- **Failed downloads email the admin**, with the error, the elapsed time, and
+  every player client that was tried and how each one failed — which is what
+  distinguishes "YouTube broke one client" from "YouTube broke all of them".
+  - **Throttled to 3 per hour.** When YouTube changes something the failure is
+    never isolated: every download fails at once, and one email per attempt
+    would bury the message that matters. Suppressed failures are counted and
+    reported in the next message, so the volume itself becomes the signal.
+  - Batch tracks stay behind the existing `suppress_email` guard, so a failing
+    100-track playlist does not send 100 emails.
+  - Failures are logged at ERROR level regardless of whether mail is sent.
+
+---
+
 ## [5.4.0] - 2026-08-19
 
 ### Security
