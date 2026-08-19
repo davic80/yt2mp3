@@ -22,20 +22,26 @@ cp .env.example .env
 
 Edit `.env` and fill in:
 - `SECRET_KEY` — generate one with `python3 -c "import secrets; print(secrets.token_hex(32))"`
-- `CLOUDFLARE_TUNNEL_TOKEN` — see Cloudflare Tunnel section below
 - `ADMIN_EMAIL` — email address where download notifications will be sent
 - `SMTP_USER` / `SMTP_PASSWORD` — Gmail address and App Password
 - `SMTP_FROM` — sender address shown in the notification email
 
 ### 3. Configure Cloudflare Tunnel
 
+The tunnel is **not** part of `docker-compose.yml`. A single host-network
+`cloudflared` container serves every app on the Pi and reaches this one over the
+published port `5000`, so that port mapping must stay.
+
 1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Zero Trust** → **Networks** → **Tunnels**
-2. Create a new tunnel (Cloudflared type)
-3. Copy the connector token and set it in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`
-4. Under **Public Hostnames** for the tunnel, add:
+2. Use the existing shared tunnel (or create one, Cloudflared type)
+3. Under **Public Hostnames** for the tunnel, add:
    - **Subdomain:** `<subdomain>`
    - **Domain:** `<domain>`
-   - **Service:** `http://app:5000`
+   - **Service:** `http://localhost:5000`
+
+Cloudflare sets `CF-Connecting-IP` on tunnelled requests, which is what the app
+uses to tell real visitors apart from local-network (unauthenticated admin)
+access — see `app/auth_utils.py`.
 
 ### 4. Start
 

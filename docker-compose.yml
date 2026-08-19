@@ -1,3 +1,9 @@
+# The Cloudflare Tunnel is NOT run from this file.  A single host-network
+# `cloudflared` container serves every app on the Pi and reaches this one over
+# the published port below (http://localhost:5000), so the port mapping is
+# load-bearing — removing it takes the site offline.
+# See README → "Cloudflare Tunnel" for the public-hostname setup.
+
 services:
 
   app:
@@ -27,6 +33,7 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-https://yt2mp3.f1madrid.win/auth/callback}
     ports:
+      # Reached by the shared host-network cloudflared container.
       - "5000:5000"
     restart: unless-stopped
     networks:
@@ -37,19 +44,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: yt2mp3-tunnel
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-    restart: unless-stopped
-    networks:
-      - internal
-    depends_on:
-      app:
-        condition: service_healthy
 
 networks:
   internal:
