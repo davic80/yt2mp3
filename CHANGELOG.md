@@ -6,6 +6,36 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.5] - 2026-08-19
+
+### Changed
+- **ZIP downloads no longer assemble the archive in memory.** All three ZIP
+  endpoints built the file in a `BytesIO`, and the playlist one then called
+  `getvalue()` on top — a second full copy. Measured over 50 tracks of 6 MB:
+  peak allocation dropped from **313.7 MB to 0.3 MB**. The archive is written
+  to a temporary file which is unlinked as soon as it is open, so the bytes
+  live exactly as long as the descriptor and nothing is left behind if the
+  worker dies mid-transfer.
+  - The three endpoints now share `app/zip_service`, including the duplicate
+    filename handling that had been copy-pasted three times with three
+    slightly different implementations.
+- **A full playlist can now actually be zipped.** `PLAYLIST_ZIP_MAX_TRACKS`
+  defaulted to 50 against a `PLAYLIST_MAX_TRACKS` of 100, so a 100-track
+  playlist could be downloaded but never zipped — it returned 413 with no way
+  out. The cap only existed because of the memory ceiling above; it now
+  derives from `PLAYLIST_MAX_TRACKS` so the two cannot drift apart.
+
+### Added
+- **`deploy.sh`** — waits until the published image's
+  `org.opencontainers.image.revision` matches the checked-out commit before
+  restarting. `docker compose pull` does not fail when the new image has not
+  been published yet; it quietly fetches the previous one, which silently
+  redeployed the old build three times during the 5.3.x work. The script also
+  verifies what the container actually came up as, and prints the startup
+  banner.
+
+---
+
 ## [5.3.4] - 2026-08-19
 
 ### Fixed

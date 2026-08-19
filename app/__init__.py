@@ -43,7 +43,13 @@ def create_app():
     app.config["DOWNLOAD_DIR"] = os.environ.get("DOWNLOAD_DIR", "/app/downloads")
     app.config["RATE_LIMIT_PER_HOUR"] = os.environ.get("RATE_LIMIT_PER_HOUR", "10")
     app.config["RATE_LIMIT_PER_MINUTE"] = os.environ.get("RATE_LIMIT_PER_MINUTE", "3")
-    app.config["PLAYLIST_ZIP_MAX_TRACKS"] = int(os.environ.get("PLAYLIST_ZIP_MAX_TRACKS", 50))
+    # Derived from the playlist cap so the two cannot drift apart: with the
+    # old hardcoded 50 against a 100-track cap, a full playlist could be
+    # downloaded but never zipped — it just returned 413 with no way out.
+    from app.downloader import PLAYLIST_MAX_TRACKS
+    app.config["PLAYLIST_ZIP_MAX_TRACKS"] = int(
+        os.environ.get("PLAYLIST_ZIP_MAX_TRACKS", PLAYLIST_MAX_TRACKS)
+    )
 
     # Session config (server-side cookie, 8h admin session)
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
@@ -58,7 +64,7 @@ def create_app():
     app.config["SITE_URL"] = os.environ.get("SITE_URL", "https://yt2mp3.f1madrid.win")
 
     # Version / build info (injected at Docker build time)
-    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.4")
+    app.config["APP_VERSION"] = os.environ.get("APP_VERSION", "5.3.5")
     app.config["GIT_COMMIT"]  = os.environ.get("GIT_COMMIT", "dev")
     app.config["REPO_URL"]    = "https://github.com/davic80/yt2mp3"
 

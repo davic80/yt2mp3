@@ -9,9 +9,7 @@ Endpoints:
   GET  /mis-descargas/api/tracks/zip → download all (or ?job_ids=a,b,c) as ZIP
 """
 import os
-import io
 import re
-import zipfile
 
 from flask import (
     Blueprint,
@@ -20,7 +18,6 @@ from flask import (
     redirect,
     render_template,
     request,
-    send_file,
     url_for,
 )
 
@@ -141,28 +138,15 @@ def api_zip():
     if not rows:
         return jsonify({"error": "no tracks found"}), 404
 
-    buf = io.BytesIO()
-    seen_names: dict[str, int] = {}
+    from app.zip_service import send_zip, unique_arcname
 
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for r in rows:
-            if not r.file_path or not os.path.isfile(r.file_path):
-                continue
-            base_name = r.file_name or f"{r.job_id}.mp3"
-            # Deduplicate filenames inside the ZIP
-            if base_name in seen_names:
-                seen_names[base_name] += 1
-                stem, ext = os.path.splitext(base_name)
-                arc_name = f"{stem} ({seen_names[base_name]}){ext}"
-            else:
-                seen_names[base_name] = 0
-                arc_name = base_name
-            zf.write(r.file_path, arc_name)
+    seen: dict[str, int] = {}
+    entries = [
+        (r.file_path, unique_arcname(r.file_name or f"{r.job_id}.mp3", seen))
+        for r in rows
+    ]
 
-    buf.seek(0)
-    return send_file(
-        buf,
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name="mis-descargas.zip",
-    )
+    response = send_zip(entries, "mis-descargas.zip")
+    if response is None:
+        return jsonify({"error": "no tracks found"}), 404
+    return response

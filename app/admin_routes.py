@@ -1,7 +1,5 @@
-import io
 import json
 import re
-import zipfile
 from datetime import datetime, timezone
 
 from flask import (
@@ -10,7 +8,6 @@ from flask import (
     jsonify,
     render_template,
     request,
-    send_file,
 )
 
 from app import db
@@ -171,32 +168,19 @@ def download_zip():
     if not records:
         return jsonify({"error": "no downloadable files in selection"}), 400
 
-    buf = io.BytesIO()
-    seen_names: dict[str, int] = {}
+    from app.zip_service import send_zip, unique_arcname
 
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for r in records:
-            base_name = (r.file_name or r.job_id) if not (r.file_name or "").endswith(".mp3") \
-                        else (r.file_name or r.job_id)[:-4]
-            candidate = f"{base_name}.mp3"
-            if candidate in seen_names:
-                seen_names[candidate] += 1
-                candidate = f"{base_name} ({seen_names[candidate]}).mp3"
-            else:
-                seen_names[candidate] = 1
-            try:
-                zf.write(r.file_path, arcname=candidate)
-            except Exception:
-                pass  # skip files that can't be read (shouldn't happen)
+    seen: dict[str, int] = {}
+    entries = [
+        (r.file_path, unique_arcname(r.file_name or f"{r.job_id}.mp3", seen))
+        for r in records
+    ]
 
-    buf.seek(0)
     date_str = datetime.now().strftime("%Y-%m-%d")
-    return send_file(
-        buf,
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name=f"yt2mp3-{date_str}.zip",
-    )
+    response = send_zip(entries, f"yt2mp3-{date_str}.zip")
+    if response is None:
+        return jsonify({"error": "no downloadable files in selection"}), 400
+    return response
 
 
 # ── Rename title ───────────────────────────────────────────────────────────────

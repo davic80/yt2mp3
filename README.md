@@ -59,6 +59,19 @@ docker compose logs -f
 ### 5. Update to a new version
 
 ```bash
+./deploy.sh
+```
+
+`deploy.sh` waits until the image published to GHCR was actually built from
+the commit you have checked out, then restarts and verifies what came up.
+This matters because `docker compose pull` does **not** fail when the new
+image is not published yet — the multi-arch build takes several minutes
+(arm64 is emulated), and a plain pull in that window silently redeploys the
+previous build.
+
+The manual equivalent, if you would rather do it by hand:
+
+```bash
 docker compose pull && docker compose up -d
 ```
 

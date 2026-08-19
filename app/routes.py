@@ -1,11 +1,8 @@
 import json
 import os
 import uuid
-import zipfile
-from io import BytesIO
 from flask import (
     Blueprint,
-    Response,
     current_app,
     jsonify,
     render_template,
@@ -320,8 +317,10 @@ def playlist_zip(batch_id: str):
     if not downloads:
         return jsonify({"error": "No completed tracks"}), 404
 
-    # Keep RAM usage bounded on Raspberry Pi (ZIP is built in memory).
-    max_zip_tracks = current_app.config.get("PLAYLIST_ZIP_MAX_TRACKS", 50)
+    # The archive streams from disk now, so this is no longer a memory limit —
+    # it only exists so a playlist cannot be downloaded in a form larger than
+    # the playlist itself is allowed to be.
+    max_zip_tracks = current_app.config.get("PLAYLIST_ZIP_MAX_TRACKS", PLAYLIST_MAX_TRACKS)
     if len(downloads) > max_zip_tracks:
         return jsonify({
             "error": f"Playlist ZIP is limited to {max_zip_tracks} tracks",
@@ -329,47 +328,25 @@ def playlist_zip(batch_id: str):
             "max_tracks": max_zip_tracks,
         }), 413
 
-    def _safe_zip_entry(name: str) -> str:
-        # Avoid zip-slip/path traversal entries and normalize separators.
-        name = (name or "track.mp3").replace("\\", "/")
-        name = os.path.basename(name).strip()
-        if not name:
-            name = "track.mp3"
-        if not name.lower().endswith(".mp3"):
-            name += ".mp3"
-        return name
+    from app.zip_service import send_zip, unique_arcname
 
-    # Build ZIP in memory
-    buf = BytesIO()
-    seen_names: dict[str, int] = {}
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
-        for dl in downloads:
-            mp3_path = os.path.join(download_dir, f"{dl.job_id}.mp3")
-            # If the file was deduped, use file_path from the record
-            if not os.path.isfile(mp3_path) and dl.file_path and os.path.isfile(dl.file_path):
-                mp3_path = dl.file_path
-            if not os.path.isfile(mp3_path):
-                continue
+    seen: dict[str, int] = {}
+    entries = []
+    for dl in downloads:
+        mp3_path = os.path.join(download_dir, f"{dl.job_id}.mp3")
+        # Deduplicated rows share the original job's file.
+        if not os.path.isfile(mp3_path) and dl.file_path and os.path.isfile(dl.file_path):
+            mp3_path = dl.file_path
+        entries.append((
+            mp3_path,
+            unique_arcname(dl.file_name or f"{dl.title or dl.job_id}.mp3", seen),
+        ))
 
-            name = _safe_zip_entry(dl.file_name or f"{dl.title or dl.job_id}.mp3")
-            # Deduplicate filenames within the ZIP
-            if name in seen_names:
-                seen_names[name] += 1
-                base, ext = os.path.splitext(name)
-                name = f"{base} ({seen_names[name]}){ext}"
-            else:
-                seen_names[name] = 0
-
-            zf.write(mp3_path, name)
-
-    buf.seek(0)
-    zip_name = os.path.basename(f"{batch_rec.playlist_title or 'playlist'}.zip").strip() or "playlist.zip"
-
-    return Response(
-        buf.getvalue(),
-        mimetype="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
-    )
+    zip_name = os.path.basename(f"{batch_rec.playlist_title or 'playlist'}.zip").strip()
+    response = send_zip(entries, zip_name or "playlist.zip")
+    if response is None:
+        return jsonify({"error": "No completed tracks"}), 404
+    return response
 
 
 # ─── Error handlers ───────────────────────────────────────────────────────────
