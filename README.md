@@ -141,6 +141,27 @@ Remote users must be logged in with `is_admin=True` on their User record.
 
 ---
 
+## Geolocation
+
+Country and city are resolved from the visitor IP against an MMDB database.
+Two are consulted, in order:
+
+1. **`GEOIP_PATH`** (default `/app/geoip/GeoLite2-City.mmdb`) — drop a MaxMind
+   GeoLite2-City file into the mounted `./geoip` directory to use it. MaxMind
+   needs a free account and a license key, and its licence forbids
+   redistributing the file, so it cannot ship in the image.
+2. **Bundled DB-IP City Lite** — baked into the image at build time from
+   [db-ip.com](https://db-ip.com/db/download/ip-to-city-lite) (CC BY 4.0, no
+   account required) and refreshed on every image build. Nothing to set up.
+
+The bundled copy lives at `/app/geoip-bundled/`, deliberately **not** under
+`/app/geoip` — docker-compose mounts `./geoip` over that path, and an empty
+host directory would hide it.
+
+If neither database is present the app runs normally with geolocation disabled.
+
+---
+
 ## CI/CD
 
 Every push to `main` triggers a GitHub Action that:

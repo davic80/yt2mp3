@@ -6,6 +6,28 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.3] - 2026-08-19
+
+### Fixed
+- **Geolocation was silently disabled in production.** `country_code` and
+  `city` had been NULL on every new download because no MMDB database was ever
+  present: `docker-compose` mounts an empty `./geoip` directory over
+  `/app/geoip`, and MaxMind GeoLite2 needs a free account plus a license key to
+  download, so nothing ever landed there.
+  - The image now bundles **DB-IP City Lite** (CC BY 4.0, no account needed),
+    fetched at build time and therefore refreshed with every image build.
+    MaxMind's licence forbids redistributing GeoLite2 inside an image; DB-IP's
+    does not, and both are MMDB so `app/geo.py` reads either.
+  - The bundled copy lives at `/app/geoip-bundled/`, **outside** `/app/geoip`,
+    because the bind mount would otherwise hide it — the original cause.
+  - A MaxMind file dropped into `./geoip` still takes precedence.
+  - The download runs in a `--platform=$BUILDPLATFORM` stage so the 59 MB fetch
+    and gunzip are not emulated under QEMU during the arm64 build.
+  - On first boot the existing `_migrate_geo` background task backfills
+    country/city for all historical rows.
+
+---
+
 ## [5.3.2] - 2026-08-19
 
 ### Fixed
