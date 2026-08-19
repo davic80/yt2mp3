@@ -6,6 +6,50 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.9] - 2026-08-19
+
+### Fixed
+- **Malformed `Range` headers returned 500, and ranges past the end of the file
+  produced a negative `Content-Length`.**
+
+  ```
+  bytes=abc          ValueError -> HTTP 500
+  bytes=5000-6000    (5000,999) Content-Length=-4000
+  bytes=500-100      (500,100)  Content-Length=-399
+  ```
+
+  Unsatisfiable ranges now answer `416` with a `Content-Range`, per RFC 9110.
+  The suffix form (`bytes=-500`) is handled properly, and multi-range is
+  refused rather than silently serving only its first part.
+- **The in-memory job and batch stores grew for the life of the process.** They
+  exist so `/status` can answer without touching the database mid-download;
+  once a job settles, the `downloads` row is the record of truth and `/status`
+  already falls back to it. Settled entries are stamped and evicted after six
+  hours, swept when a new job is created so no extra thread is needed. Running
+  jobs are never evicted.
+- **`downloads.user_email` and `playlists.user_email` are now real foreign
+  keys.** Both columns arrived through `ALTER TABLE ADD COLUMN`, which cannot
+  attach a constraint, so the tables had to be rebuilt.
+  - A dry run against a copy of the production database caught two mistakes
+    before they shipped. Index DDL must be captured *before* the old table is
+    dropped, or the rebuilt table comes back with no indexes at all. And that
+    is not just a performance matter: `downloads.job_id` has no UNIQUE
+    constraint — its uniqueness *is* `ix_downloads_job_id` — and both
+    `playlist_tracks.job_id` and `play_events.job_id` reference it, so losing
+    the index made SQLite reject those two foreign keys outright.
+  - The migration writes a backup with `VACUUM INTO` first, verifies row count,
+    columns and indexes inside the transaction, and rolls back rather than
+    committing anything diminished. The `CREATE` statement is extended from the
+    table's own DDL, never generated from the models.
+
+### Added
+- **`--workers 1` is documented as the requirement it is**, in the Dockerfile
+  and the README: download progress lives in a per-process dict, so a second
+  worker would leave half the `/status` polls talking to a process that has
+  never heard of the job.
+
+---
+
 ## [5.3.8] - 2026-08-19
 
 ### Removed
