@@ -186,6 +186,22 @@ Every `v*` tag additionally creates a GitHub Release with the relevant CHANGELOG
 
 ---
 
+## Why a single gunicorn worker
+
+`--workers 1` in the Dockerfile is a requirement, not a tuning choice.
+
+Download progress lives in a per-process dictionary in `app/downloader.py`, and
+`GET /status/<job_id>` reads it. With a second worker, roughly half the polls
+would land on a process that has never heard of that job, and the progress bar
+would stall at random — the download itself would still finish, because the
+result goes to the database.
+
+Concurrency comes from `--threads 4` and from the daemon thread each download
+runs in. Raising the worker count means moving that state out of the process
+first (Redis, or the database).
+
+---
+
 ## Database
 
 SQLite at `/app/database/yt2mp3.db` (mounted as a volume).

@@ -78,4 +78,10 @@ ENV FLASK_APP=wsgi.py \
     GIT_COMMIT=${GIT_COMMIT} \
     APP_VERSION=${APP_VERSION}
 
+# --workers 1 is a requirement, not a tuning choice. Download progress lives in
+# a per-process dict in app/downloader.py, and /status reads it: with a second
+# worker, half the polls would hit a process that has never heard of the job
+# and the progress bar would stall at random. Concurrency comes from --threads
+# and from the daemon thread each download runs in. Raising the worker count
+# means moving that state out of the process first.
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "300", "wsgi:app"]

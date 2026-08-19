@@ -76,13 +76,44 @@ def index():
 # ── Streaming ──────────────────────────────────────────────────────────────────
 
 def _parse_range(range_header: str, size: int):
-    """Parse 'bytes=START-END' → (start, end) clamped to file size."""
-    _, _, range_spec = range_header.partition("=")
-    start_str, _, end_str = range_spec.partition("-")
-    start = int(start_str) if start_str else 0
-    end   = int(end_str)   if end_str   else size - 1
-    end   = min(end, size - 1)
-    return start, end
+    """Parse 'bytes=START-END' → (start, end), or None if unsatisfiable.
+
+    Anything malformed returns None so the caller can answer 416 rather than
+    raising: previously a header like ``bytes=abc`` reached ``int()`` and came
+    back as a 500, and ``bytes=999999-`` produced a negative Content-Length.
+    """
+    units, _, range_spec = range_header.partition("=")
+    if units.strip().lower() != "bytes":
+        return None
+
+    # Multi-range ("bytes=0-99,200-299") is legal but not supported here;
+    # serving only the first part would corrupt the response.
+    if "," in range_spec:
+        return None
+
+    start_str, sep, end_str = range_spec.partition("-")
+    if not sep:
+        return None
+
+    try:
+        if not start_str:
+            # Suffix form: "bytes=-500" means the final 500 bytes.
+            if not end_str:
+                return None
+            suffix = int(end_str)
+            if suffix <= 0:
+                return None
+            return max(0, size - suffix), size - 1
+
+        start = int(start_str)
+        end = int(end_str) if end_str else size - 1
+    except ValueError:
+        return None
+
+    if start < 0 or end < start or start >= size:
+        return None
+
+    return start, min(end, size - 1)
 
 
 def _stream_mp3(record: Download) -> Response:
@@ -97,7 +128,13 @@ def _stream_mp3(record: Download) -> Response:
     }
 
     if range_header:
-        start, end = _parse_range(range_header, size)
+        parsed = _parse_range(range_header, size)
+        if parsed is None:
+            return Response(
+                status=416,
+                headers={"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"},
+            )
+        start, end = parsed
         length = end - start + 1
 
         def _generator():

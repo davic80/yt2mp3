@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import time
 import uuid
 import threading
 import yt_dlp
@@ -19,6 +20,13 @@ _jobs_lock = threading.Lock()
 #               "app_playlist_id": None} }
 _batches: dict[str, dict] = {}
 _batches_lock = threading.Lock()
+
+# How long a finished job stays in the in-memory store. The stores exist only
+# so /status can answer without touching the database while a download runs;
+# once it is done the row in `downloads` is the record of truth, and /status
+# already falls back to it. Without this they grew for the lifetime of the
+# process — slowly, but without bound.
+_JOB_TTL_SECONDS = 6 * 3600
 
 # Max concurrent downloads within a playlist batch
 _BATCH_SEMAPHORE_SIZE = 3
@@ -42,6 +50,37 @@ _PLAYER_CLIENTS: tuple[str | None, ...] = (
     "tv_simply",
     "mweb",
 )
+
+
+def _expire_finished(store: dict, now: float) -> int:
+    """Drop settled entries older than the TTL. Caller holds the lock."""
+    stale = [
+        key for key, entry in store.items()
+        if entry.get("status") in ("done", "error")
+        and now - entry.get("finished_at", now) > _JOB_TTL_SECONDS
+    ]
+    for key in stale:
+        del store[key]
+    return len(stale)
+
+
+def sweep_stores() -> dict:
+    """Evict settled jobs and batches. Cheap, so it runs on each new job."""
+    now = time.time()
+    with _jobs_lock:
+        jobs = _expire_finished(_jobs, now)
+    with _batches_lock:
+        batches = _expire_finished(_batches, now)
+    if jobs or batches:
+        logger.info("store sweep: evicted %d jobs, %d batches", jobs, batches)
+    return {"jobs": jobs, "batches": batches}
+
+
+def _mark_settled(store: dict, key: str) -> None:
+    """Stamp when an entry reached a final state, for the TTL above."""
+    entry = store.get(key)
+    if entry is not None and "finished_at" not in entry:
+        entry["finished_at"] = time.time()
 
 
 def get_job(job_id: str) -> dict | None:
@@ -206,6 +245,7 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
                     _jobs[job_id]["file_name"] = existing.file_name
                     _jobs[job_id]["title"]     = existing.title
                     _jobs[job_id]["file_size"] = existing.file_size
+                    _mark_settled(_jobs, job_id)
 
                 record = Download.query.filter_by(job_id=job_id).first()
                 if record:
@@ -236,6 +276,7 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
                 _jobs[job_id]["file_name"] = file_name
                 _jobs[job_id]["title"]     = title
                 _jobs[job_id]["file_size"] = file_size
+                _mark_settled(_jobs, job_id)
 
             # Update DB — snapshot before commit to avoid post-expiry reloads
             record = Download.query.filter_by(job_id=job_id).first()
@@ -277,6 +318,7 @@ def _run_download(app, job_id: str, youtube_url: str, download_dir: str,
             with _jobs_lock:
                 _jobs[job_id]["status"] = "error"
                 _jobs[job_id]["error"]  = err
+                _mark_settled(_jobs, job_id)
 
             try:
                 record = Download.query.filter_by(job_id=job_id).first()
@@ -297,6 +339,7 @@ def new_job_id() -> str:
     it used to lose the race against the request handler's commit, leaving
     the row stuck at "pending" forever.
     """
+    sweep_stores()
     job_id = str(uuid.uuid4())
     with _jobs_lock:
         _jobs[job_id] = {"status": "pending", "progress": 0}
@@ -562,6 +605,7 @@ def _run_batch_download(app, batch_id: str, entries: list[dict],
             batch = _batches[batch_id]
             batch["status"] = final_status
             batch["app_playlist_id"] = app_playlist_id
+            _mark_settled(_batches, batch_id)
             batch["completed"] = len(done_jobs)
             batch["failed"] = total_failed
             batch["skipped"] = total_skipped
