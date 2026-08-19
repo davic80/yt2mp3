@@ -238,6 +238,23 @@
     #lyrics-modal-save:hover { background: #4fff25; }
     #lyrics-modal-cancel { background: var(--surface); border: 1px solid var(--border2); color: var(--muted2); }
     #lyrics-modal-cancel:hover { color: var(--text); border-color: var(--muted); }
+
+    /* Replaces four pairs of onmouseover/onmouseout that set these same
+       values inline. Hover is a presentation concern; it belongs here, and
+       inline handlers are what force script-src 'unsafe-inline'. */
+    .topbar-nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: .82rem;
+      padding: .25rem .6rem;
+      border-radius: var(--radius);
+      transition: color .15s, background .15s;
+    }
+    .topbar-nav-link:hover,
+    .topbar-nav-link:focus-visible {
+      color: var(--text);
+      background: var(--surface2);
+    }
   </style>
 </head>
 <body>
@@ -248,22 +265,10 @@
     <span class="admin-label">admin</span>
   </div>
   <div class="topbar-right">
-    <a href="/db/analytics" style="color:var(--muted);text-decoration:none;font-size:.82rem;
-       padding:.25rem .6rem;border-radius:var(--radius);transition:color .15s,background .15s;"
-       onmouseover="this.style.color='var(--text)';this.style.background='var(--surface2)'"
-       onmouseout="this.style.color='var(--muted)';this.style.background='transparent'">Analytics</a>
-    <a href="/db/batches" style="color:var(--muted);text-decoration:none;font-size:.82rem;
-       padding:.25rem .6rem;border-radius:var(--radius);transition:color .15s,background .15s;"
-       onmouseover="this.style.color='var(--text)';this.style.background='var(--surface2)'"
-       onmouseout="this.style.color='var(--muted)';this.style.background='transparent'">Batches</a>
-    <a href="/db/users" style="color:var(--muted);text-decoration:none;font-size:.82rem;
-       padding:.25rem .6rem;border-radius:var(--radius);transition:color .15s,background .15s;"
-       onmouseover="this.style.color='var(--text)';this.style.background='var(--surface2)'"
-       onmouseout="this.style.color='var(--muted)';this.style.background='transparent'">Usuarios</a>
-    <a href="/player/" style="color:var(--muted);text-decoration:none;font-size:.82rem;
-       padding:.25rem .6rem;border-radius:var(--radius);transition:color .15s,background .15s;"
-       onmouseover="this.style.color='var(--text)';this.style.background='var(--surface2)'"
-       onmouseout="this.style.color='var(--muted)';this.style.background='transparent'">→ Player</a>
+    <a href="/db/analytics" class="topbar-nav-link">Analytics</a>
+    <a href="/db/batches" class="topbar-nav-link">Batches</a>
+    <a href="/db/users" class="topbar-nav-link">Usuarios</a>
+    <a href="/player/" class="topbar-nav-link">→ Player</a>
     <div class="stat-pill">total <span>{{ pagination.total }}</span></div>
     <div class="stat-pill">página <span id="page-indicator">{{ pagination.page }}/{{ pagination.pages or 1 }}</span></div>
 
@@ -276,16 +281,16 @@
       title="Filtrar por email de usuario"
     />
 
-    <select class="per-page-select" id="per-page-select" onchange="changePerPage(this.value)" title="Filas por página">
+    <select class="per-page-select" id="per-page-select" data-act-change="changePerPage" title="Filas por página">
       {% for n in [10, 25, 50, 100] %}
       <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }} / pág</option>
       {% endfor %}
     </select>
 
-    <button class="btn-zip hidden" id="btn-zip" onclick="downloadZip()">↓ ZIP (0)</button>
+    <button class="btn-zip hidden" id="btn-zip" data-act="downloadZip">↓ ZIP (0)</button>
     <button class="btn-delete hidden" id="btn-delete">Eliminar seleccionados (0)</button>
 
-    <button class="btn-refresh" id="btn-refresh" onclick="doRefresh()" title="Refrescar tabla">
+    <button class="btn-refresh" id="btn-refresh" data-act="doRefresh" title="Refrescar tabla">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round">
         <polyline points="23 4 23 10 17 10"></polyline>
@@ -656,6 +661,57 @@ initCheckboxes();
       window.location.href = url.toString();
     }, 600);
   });
+})();
+
+// ── Event delegation ─────────────────────────────────────────────────────────
+// The table is re-rendered by AJAX, so listeners are delegated from document
+// and survive the swap. Actions travel as data-act with parameters in data-*.
+//
+// This also closes an XSS. The rename link used to build an onclick that
+// interpolated the row's title straight into a single-quoted JS string, and
+// the title comes from YouTube. Jinja's escape turns an apostrophe into a
+// character reference, but the HTML parser decodes it back before the JS is
+// compiled, so a crafted video title broke out of the literal and ran in the
+// admin's session. As a data-* attribute the value is only read as a string.
+//
+// (Written without Jinja delimiters on purpose: this file is a template, and
+// they would be evaluated even inside a JavaScript comment.)
+(function () {
+  const CLICK_ACTIONS = {
+    downloadZip:      () => downloadZip(),
+    doRefresh:        () => doRefresh(),
+    toggleDetail:     (el) => toggleDetail(Number(el.dataset.row)),
+    renameTitle:      (el, ev) => { ev.preventDefault(); renameTitle(el.dataset.job, el.dataset.title || ''); },
+    setCustomArtwork: (el) => setCustomArtwork(el.dataset.job),
+    deleteArtwork:    (el) => deleteArtwork(el.dataset.job),
+    setCustomLyrics:  (el) => setCustomLyrics(el.dataset.job),
+    deleteLyrics:     (el) => deleteLyrics(el.dataset.job),
+  };
+
+  const CHANGE_ACTIONS = {
+    changePerPage: (el) => changePerPage(el.value),
+  };
+
+  function dispatch(table, attr) {
+    return (ev) => {
+      const el = ev.target.closest(`[${attr}]`);
+      if (!el) return;
+      const fn = table[el.getAttribute(attr)];
+      if (fn) fn(el, ev);
+    };
+  }
+
+  document.addEventListener('click',  dispatch(CLICK_ACTIONS,  'data-act'));
+  document.addEventListener('change', dispatch(CHANGE_ACTIONS, 'data-act-change'));
+
+  // Replaces the inline error handler that hid broken artwork thumbnails.
+  // The error event does not bubble, so this listens in the capture phase.
+  document.addEventListener('error', (ev) => {
+    const img = ev.target;
+    if (img && img.tagName === 'IMG' && img.hasAttribute('data-hide-on-error')) {
+      img.style.display = 'none';
+    }
+  }, true);
 })();
 </script>
 

@@ -153,7 +153,7 @@
     <div class="token-form">
       <input class="token-input" type="text" id="token-name-input"
              placeholder="Nombre del token (ej. mi-script)" maxlength="128" />
-      <button class="btn-token-create" id="btn-token-create" onclick="_createToken()">Crear token</button>
+      <button class="btn-token-create" id="btn-token-create" data-act="createToken">Crear token</button>
     </div>
     <div class="token-reveal" id="token-reveal">
       <div id="token-reveal-value"></div>
@@ -177,6 +177,27 @@
     for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
     return ((h % 360) + 360) % 360;
   }
+  // Delegated so this fragment carries no inline handlers — see player.html.
+  const CLICK_ACTIONS = {
+    createToken: () => _createToken(),
+    revokeToken: (el) => _revokeToken(Number(el.dataset.tokenId)),
+  };
+
+  function _bindDelegation() {
+    const root = document;
+    if (root._settingsDelegation) {
+      root.removeEventListener('click', root._settingsDelegation);
+    }
+    const handler = (ev) => {
+      const el = ev.target.closest('[data-act]');
+      if (!el) return;
+      const fn = CLICK_ACTIONS[el.getAttribute('data-act')];
+      if (fn) fn(el, ev);
+    };
+    root.addEventListener('click', handler);
+    root._settingsDelegation = handler;
+  }
+
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function fmtDate(iso) {
     if (!iso) return '—';
@@ -266,7 +287,7 @@
           <span class="token-prefix">${esc(t.token_prefix)}...</span>
           <span class="token-name" title="${esc(t.name)}">${esc(t.name)}</span>
           <span class="token-meta">${fmtDate(t.created_at)}${t.last_used_at ? ' · usado ' + fmtDate(t.last_used_at) : ''}</span>
-          <button class="btn-token-revoke" onclick="_revokeToken(${t.id})" title="Revocar">revocar</button>
+          <button class="btn-token-revoke" data-act="revokeToken" data-token-id="${t.id}" title="Revocar">revocar</button>
         </li>
       `).join('');
     } catch (_) {}
@@ -318,6 +339,7 @@
   };
 
   // ── Init ──────────────────────────────────────────────────────────────────
+  _bindDelegation();
   loadProfile();
   loadFeatures();
   loadTokens();

@@ -122,12 +122,12 @@
 <div class="page">
   <div class="toolbar">
     <input class="search-input" type="search" id="search-input"
-           oninput="render()" />
-    <button class="btn btn-ghost" id="btn-select-all" onclick="toggleSelectAll()"></button>
-    <button class="btn btn-neon" id="btn-zip" onclick="downloadZip()" disabled>
+           data-act-input="render" />
+    <button class="btn btn-ghost" id="btn-select-all" data-act="toggleSelectAll"></button>
+    <button class="btn btn-neon" id="btn-zip" data-act="downloadZip" disabled>
       ↓ ZIP
     </button>
-    <button class="btn btn-danger" id="btn-delete-sel" onclick="deleteSelected()" disabled></button>
+    <button class="btn btn-danger" id="btn-delete-sel" data-act="deleteSelected" disabled></button>
     <span class="select-count" id="select-count"></span>
   </div>
   <div class="table-wrap">
@@ -139,9 +139,9 @@
     <div class="lyrics-header">
       <span class="lyrics-title" id="lyrics-panel-title"></span>
       <div class="lyrics-header-actions">
-        <button class="lyrics-size-btn" onclick="window.Lyrics?.shrink()" title="Texto más pequeño">A−</button>
-        <button class="lyrics-size-btn" onclick="window.Lyrics?.grow()"   title="Texto más grande">A+</button>
-        <button class="lyrics-close"    onclick="window.Lyrics?.close()">✕</button>
+        <button class="lyrics-size-btn" data-act="lyricsShrink" title="Texto más pequeño">A−</button>
+        <button class="lyrics-size-btn" data-act="lyricsGrow"   title="Texto más grande">A+</button>
+        <button class="lyrics-close"    data-act="lyricsClose">✕</button>
       </div>
     </div>
     <div class="lyrics-body" id="lyrics-body"></div>
@@ -172,6 +172,7 @@
 
   // ── Boot ────────────────────────────────────────────────────────────────────
   async function load() {
+    _bindDelegation();
     applyStaticStrings();
     const [tracksRes, featRes] = await Promise.all([
       fetch('/mis-descargas/api/tracks'),
@@ -209,7 +210,7 @@
         <thead>
           <tr>
             <th class="col-check">
-              <input type="checkbox" id="chk-all" onchange="selectAll(this.checked)" />
+              <input type="checkbox" id="chk-all" data-act-change="selectAll" />
             </th>
             <th>${I.t('md.col_title')}</th>
             <th class="col-size">${I.t('md.col_size')}</th>
@@ -238,7 +239,7 @@
       <tr data-job="${t.job_id}" class="${sel}">
         <td class="col-check">
           <input type="checkbox" ${chk}
-                 onchange="toggleSelect('${t.job_id}', this.checked)" />
+                 data-act-change="toggleSelect" data-job="${t.job_id}" />
         </td>
         <td>
           <div class="title-cell">
@@ -246,17 +247,17 @@
             <div class="title-edit-wrap" id="title-edit-${t.job_id}">
               <input class="title-edit-input" id="title-input-${t.job_id}"
                      value="${title}"
-                     onkeydown="onEditKey(event,'${t.job_id}')" />
-              <button class="title-save-btn"   onclick="saveRename('${t.job_id}')">✓</button>
-              <button class="title-cancel-btn" onclick="cancelRename('${t.job_id}')">✕</button>
+                     data-act-keydown="onEditKey" data-job="${t.job_id}" />
+              <button class="title-save-btn"   data-act="saveRename" data-job="${t.job_id}">✓</button>
+              <button class="title-cancel-btn" data-act="cancelRename" data-job="${t.job_id}">✕</button>
             </div>
           </div>
         </td>
         <td class="col-size">${size}</td>
         <td class="col-date">${date}</td>
         ${lyricsEnabled ? `
-        <td class="col-lyrics" onclick="event.stopPropagation()">
-          <button class="lyrics-btn" onclick="window.Lyrics?.open('${t.job_id}')"
+        <td class="col-lyrics" data-act="none">
+          <button class="lyrics-btn" data-act="openLyrics" data-job="${t.job_id}"
                   id="lyrbtn-${t.job_id}" title="${I.t('player.lyrics')}">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0v-4A2.5 2.5 0 0 1 8 1zm0 1A1.5 1.5 0 0 0 6.5 3.5v4a1.5 1.5 0 0 0 3 0v-4A1.5 1.5 0 0 0 8 2zm-4.5 5a.5.5 0 0 1 .5.5A4.5 4.5 0 0 0 12.5 7.5a.5.5 0 0 1 1 0A5.5 5.5 0 0 1 8.5 12.95V15h1a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h1v-2.05A5.5 5.5 0 0 1 3 7.5a.5.5 0 0 1 .5-.5z"/>
@@ -264,10 +265,10 @@
           </button>
         </td>` : ''}
         <td class="col-actions">
-          <button class="row-btn play" onclick="window.Player && window.Player.playTrack('${t.job_id}')" title="${I.t('md.play')}">▶</button>
-          <button class="row-btn edit" onclick="startRename('${t.job_id}')" title="${I.t('md.rename')}">✎ <span class="edit-label">${I.t('md.rename').replace(/^✎\s*/, '')}</span></button>
+          <button class="row-btn play" data-act="playTrack" data-job="${t.job_id}" title="${I.t('md.play')}">▶</button>
+          <button class="row-btn edit" data-act="startRename" data-job="${t.job_id}" title="${I.t('md.rename')}">✎ <span class="edit-label">${I.t('md.rename').replace(/^✎\s*/, '')}</span></button>
           <a class="row-btn dl" href="/files/${t.job_id}.mp3" download title="${I.t('md.download')}">↓</a>
-          <button class="row-btn del" onclick="deleteSingle('${t.job_id}')" title="${I.t('md.delete')}">✕</button>
+          <button class="row-btn del" data-act="deleteSingle" data-job="${t.job_id}" title="${I.t('md.delete')}">✕</button>
         </td>
       </tr>
     `;
@@ -424,6 +425,67 @@
     if (!iso) return '';
     return new Date(iso).toLocaleDateString('es', { year:'numeric', month:'2-digit', day:'2-digit' });
   }
+  // ── Event delegation ────────────────────────────────────────────────────────
+  // See player.html for the rationale: inline handlers are what force
+  // script-src 'unsafe-inline'. Actions travel as data-act, parameters as
+  // data-*, and closest() picks the innermost so nested controls win without
+  // stopPropagation (data-act="none" swallows a click outright).
+  const CLICK_ACTIONS = {
+    none:            () => {},
+    toggleSelectAll: () => toggleSelectAll(),
+    downloadZip:     () => downloadZip(),
+    deleteSelected:  () => deleteSelected(),
+    lyricsShrink:    () => window.Lyrics?.shrink(),
+    lyricsGrow:      () => window.Lyrics?.grow(),
+    lyricsClose:     () => window.Lyrics?.close(),
+    openLyrics:      (el) => window.Lyrics?.open(el.dataset.job),
+    playTrack:       (el) => window.Player && window.Player.playTrack(el.dataset.job),
+    startRename:     (el) => startRename(el.dataset.job),
+    saveRename:      (el) => saveRename(el.dataset.job),
+    cancelRename:    (el) => cancelRename(el.dataset.job),
+    deleteSingle:    (el) => deleteSingle(el.dataset.job),
+  };
+
+  const CHANGE_ACTIONS = {
+    selectAll:    (el) => selectAll(el.checked),
+    toggleSelect: (el) => toggleSelect(el.dataset.job, el.checked),
+  };
+
+  const INPUT_ACTIONS   = { render: () => render() };
+  const KEYDOWN_ACTIONS = { onEditKey: (el, ev) => onEditKey(ev, el.dataset.job) };
+
+  function _asTarget(ev, el) {
+    try {
+      Object.defineProperty(ev, 'currentTarget', { value: el, configurable: true });
+    } catch (_) { /* ignored */ }
+    return ev;
+  }
+
+  function _dispatch(table, attr) {
+    return (ev) => {
+      const el = ev.target.closest(`[${attr}]`);
+      if (!el) return;
+      const fn = table[el.getAttribute(attr)];
+      if (fn) fn(el, _asTarget(ev, el));
+    };
+  }
+
+  // Rebound on every SPA visit; the previous listeners would otherwise keep
+  // dispatching into the previous fragment's closures.
+  function _bindDelegation() {
+    const root = document;
+    if (root._misDelegation) {
+      root._misDelegation.forEach(([type, fn]) => root.removeEventListener(type, fn));
+    }
+    const bound = [];
+    const add = (type, fn) => { root.addEventListener(type, fn); bound.push([type, fn]); };
+    add('click',   _dispatch(CLICK_ACTIONS,   'data-act'));
+    add('change',  _dispatch(CHANGE_ACTIONS,  'data-act-change'));
+    add('input',   _dispatch(INPUT_ACTIONS,   'data-act-input'));
+    add('keydown', _dispatch(KEYDOWN_ACTIONS, 'data-act-keydown'));
+    root._misDelegation = bound;
+  }
+
   function esc(s) {
     return String(s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')

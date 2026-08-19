@@ -164,7 +164,7 @@
 <div class="toolbar">
   <input class="search-input" type="search" id="search-input"
          placeholder="Buscar por email o nombre..."
-         oninput="filterTable()" />
+         data-act-input="filterTable" />
   <div class="stat-pill" id="user-count">
     <span id="stat-users">—</span> usuarios
   </div>
@@ -263,7 +263,7 @@
               ? `<th style="cursor:default;width:2rem"></th>`
               : c.key
                 ? `<th class="${_sortCol === c.key ? 'sorted' + (_sortAsc ? ' asc' : '') : ''}"
-                       onclick="sortBy('${c.key}')">${c.label}</th>`
+                       data-act="sortBy" data-key="${c.key}">${c.label}</th>`
                 : `<th style="cursor:default"></th>`
             ).join('')}
           </tr>
@@ -320,7 +320,15 @@
   // onclick/onchange. An inline handler is compiled as JavaScript *after* the
   // HTML parser decodes entities, so HTML-escaping cannot contain a quote
   // there; a data-* value is only ever read back as a string.
+  function _bindSearch() {
+    const input = document.querySelector('[data-act-input="filterTable"]');
+    if (!input || input._bound) return;
+    input._bound = true;
+    input.addEventListener('input', () => filterTable());
+  }
+
   function _bindUserTable() {
+    _bindSearch();
     const el = document.getElementById('table-container');
     if (!el || el._usersBound) return;
     el._usersBound = true;
@@ -333,8 +341,9 @@
 
     el.addEventListener('click', (ev) => {
       const btn = ev.target.closest('.btn-delete-user[data-email]');
-      if (!btn) return;
-      window.deleteUser(btn.dataset.email);
+      if (btn) { window.deleteUser(btn.dataset.email); return; }
+      const sort = ev.target.closest('[data-act="sortBy"]');
+      if (sort) sortBy(sort.dataset.key);
     });
   }
 

@@ -35,7 +35,7 @@
           <input type="checkbox" class="row-check" value="{{ row.job_id }}" title="Select">
         </td>
         <td>
-          <button class="btn-expand" onclick="toggleDetail({{ row.id }})" title="expand">+</button>
+          <button class="btn-expand" data-act="toggleDetail" data-row="{{ row.id }}" title="expand">+</button>
         </td>
         <td class="mono">{{ row.id }}</td>
         <td class="mono">{{ row.ip_address or '—' }}</td>
@@ -49,7 +49,7 @@
         <td class="title-cell" title="{{ row.title }}">
           {% if row.title and row.status == 'done' %}
           <a href="/files/{{ row.job_id }}" style="color: var(--neon); text-decoration: none;"
-             onclick="event.preventDefault(); renameTitle('{{ row.job_id }}', '{{ row.title | e }}')">
+             data-act="renameTitle" data-job="{{ row.job_id }}" data-title="{{ row.title | e }}">
             {{ row.title | truncate(45, True) }}
           </a>
           {% else %}
@@ -62,22 +62,22 @@
             <div style="display:flex;align-items:center;gap:.3rem;">
               <img src="{{ row.artwork_url }}" alt="" loading="lazy"
                    style="width:36px;height:36px;border-radius:5px;object-fit:cover;display:block;flex-shrink:0;"
-                   onerror="this.style.display='none'">
-              <button onclick="setCustomArtwork('{{ row.job_id }}')" title="Cambiar artwork"
+                   data-hide-on-error="1">
+              <button data-act="setCustomArtwork" data-job="{{ row.job_id }}" title="Cambiar artwork"
                       style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
-              <button onclick="deleteArtwork('{{ row.job_id }}')" title="Borrar artwork (blacklist)"
+              <button data-act="deleteArtwork" data-job="{{ row.job_id }}" title="Borrar artwork (blacklist)"
                       style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✕</button>
             </div>
           {% elif row.artwork_blacklisted %}
             <div style="display:flex;align-items:center;gap:.3rem;">
               <span style="color:var(--muted);font-size:.72rem;" title="Blacklisted">✕BL</span>
-              <button onclick="setCustomArtwork('{{ row.job_id }}')" title="Poner artwork custom"
+              <button data-act="setCustomArtwork" data-job="{{ row.job_id }}" title="Poner artwork custom"
                       style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
             </div>
           {% else %}
             <div style="display:flex;align-items:center;gap:.3rem;">
               <span style="color:var(--muted)">—</span>
-              <button onclick="setCustomArtwork('{{ row.job_id }}')" title="Poner artwork custom"
+              <button data-act="setCustomArtwork" data-job="{{ row.job_id }}" title="Poner artwork custom"
                       style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
             </div>
           {% endif %}
@@ -88,9 +88,9 @@
             <div style="display:flex;align-items:center;gap:.3rem;">
               <a href="/player/api/lyrics/{{ row.job_id }}" target="_blank" rel="noopener"
                  style="color:var(--neon);text-decoration:none;font-size:.78rem;" title="Ver letra">♪</a>
-              <button onclick="setCustomLyrics('{{ row.job_id }}')" title="Poner letra custom"
+              <button data-act="setCustomLyrics" data-job="{{ row.job_id }}" title="Poner letra custom"
                       style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✎</button>
-              <button onclick="deleteLyrics('{{ row.job_id }}')" title="Borrar letra (blacklist)"
+              <button data-act="deleteLyrics" data-job="{{ row.job_id }}" title="Borrar letra (blacklist)"
                       style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1;">✕</button>
             </div>
           {% else %}
