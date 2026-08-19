@@ -79,4 +79,7 @@ fi
 
 echo "✓ running ${want:0:7}"
 echo
-docker logs "$CONTAINER" 2>&1 | grep -E "starting —|orphan cleanup" | tail -3 || true
+# Everything the app itself logged on this boot: the banner plus whatever
+# migrations ran. The previous filter only matched two known phrases and hid
+# the rest, which is exactly when you want to see them.
+docker logs "$CONTAINER" 2>&1 | grep -E "INFO app(\.|:)" | tail -15 || true
