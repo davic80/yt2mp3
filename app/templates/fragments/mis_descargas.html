@@ -520,6 +520,17 @@
     render();
   });
 
-  load();
+  // On a direct page load (bookmark, refresh, typed URL) this fragment is
+  // inlined by shell.html *above* the shared <script src> tags, so it runs
+  // before /static/i18n.js has been evaluated: window.I18n is undefined and
+  // the first I.t() in applyStaticStrings() throws, leaving the table empty.
+  // shell.html fires 'i18n:change' once I18n.init() completes, so wait for it.
+  // Reached through an SPA navigation, I18n is already there and we go now.
+  // player.html carries the same guard; this fragment was missing it.
+  if (window.I18n) {
+    load();
+  } else {
+    document.addEventListener('i18n:change', () => load(), { once: true });
+  }
 })();
 </script>
