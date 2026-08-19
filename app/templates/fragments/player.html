@@ -297,15 +297,15 @@
 <div class="layout">
 
   <!-- Drawer overlay (mobile) -->
-  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeDrawer()"></div>
+  <div class="sidebar-overlay" id="sidebar-overlay" data-act="closeDrawer"></div>
 
   <!-- Sidebar -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-section">
-      <div class="sidebar-item active" id="view-all" onclick="setView('all')">
+      <div class="sidebar-item active" id="view-all" data-act="viewAll">
         <span class="pl-name" id="sidebar-all-label"></span>
       </div>
-      <div class="sidebar-item" id="view-favorites" onclick="setView('favorites')">
+      <div class="sidebar-item" id="view-favorites" data-act="viewFavorites">
         <span class="pl-name" id="sidebar-fav-label"></span>
       </div>
       <a href="/mis-descargas" class="sidebar-item sidebar-link" id="view-mis-descargas">
@@ -315,12 +315,12 @@
     <div class="sidebar-div"></div>
     <div class="sidebar-section">
       <div class="sidebar-label" id="sidebar-pl-label"></div>
-      <button class="btn-new-pl" onclick="createPlaylist()">
+      <button class="btn-new-pl" data-act="createPlaylist">
         <span class="plus">+</span> <span id="sidebar-newpl-label"></span>
       </button>
       <div id="playlist-list"></div>
       <div id="trash-zone" class="trash-zone"
-           ondragover="_trashOver(event)" ondragleave="_trashLeave(event)" ondrop="_trashDrop(event)">
+           data-drag="trash">
         🗑
       </div>
     </div>
@@ -329,9 +329,9 @@
   <!-- Main -->
   <div class="main">
     <div class="search-bar">
-      <button class="btn-sidebar-toggle" onclick="openDrawer()" aria-label="Menu">☰</button>
+      <button class="btn-sidebar-toggle" data-act="openDrawer" aria-label="Menu">☰</button>
       <input class="search-input" type="search" id="search-input"
-             oninput="renderTracks()" />
+             data-act-input="renderTracks" />
     </div>
     <div class="track-list-wrap">
       <div id="track-container"><div class="empty-msg" id="track-loading"></div></div>
@@ -343,9 +343,9 @@
     <div class="lyrics-header">
       <span class="lyrics-title" id="lyrics-panel-title"></span>
       <div class="lyrics-header-actions">
-        <button class="lyrics-size-btn" onclick="window.Lyrics?.shrink()" title="Texto más pequeño">A−</button>
-        <button class="lyrics-size-btn" onclick="window.Lyrics?.grow()"   title="Texto más grande">A+</button>
-        <button class="lyrics-close" onclick="window.Lyrics?.close()">✕</button>
+        <button class="lyrics-size-btn" data-act="lyricsShrink" title="Texto más pequeño">A−</button>
+        <button class="lyrics-size-btn" data-act="lyricsGrow"   title="Texto más grande">A+</button>
+        <button class="lyrics-close" data-act="lyricsClose">✕</button>
       </div>
     </div>
     <div class="lyrics-body" id="lyrics-body"></div>
@@ -357,21 +357,21 @@
 <div class="dropdown" id="dropdown"></div>
 
 <!-- Share modal -->
-<div class="share-modal-overlay" id="share-modal-overlay" onclick="closeShareModal()">
-  <div class="share-modal" onclick="event.stopPropagation()">
+<div class="share-modal-overlay" id="share-modal-overlay" data-act="closeShareModal">
+  <div class="share-modal" data-act="none">
     <div class="share-modal-title" id="share-modal-title"></div>
     <div class="share-mode-row">
       <label class="share-mode-toggle">
-        <input type="checkbox" id="share-mode-check" onchange="toggleShareMode(this.checked)">
+        <input type="checkbox" id="share-mode-check" data-act-change="toggleShareMode">
         <span class="share-mode-slider"></span>
       </label>
       <label class="share-mode-label" for="share-mode-check" id="share-mode-label"></label>
     </div>
     <div class="share-modal-url" id="share-modal-url"></div>
     <div class="share-modal-actions">
-      <button class="primary" onclick="copyShareUrl()" id="share-copy-btn"></button>
-      <button class="danger"  onclick="revokeShare()"  id="share-revoke-btn"></button>
-      <button                 onclick="closeShareModal()" id="share-close-btn"></button>
+      <button class="primary" data-act="copyShareUrl" id="share-copy-btn"></button>
+      <button class="danger"  data-act="revokeShare"  id="share-revoke-btn"></button>
+      <button                 data-act="closeShareModal" id="share-close-btn"></button>
     </div>
   </div>
 </div>
@@ -425,6 +425,7 @@
   // ── API ─────────────────────────────────────────────────────────────────────
   async function loadAll() {
     applyStaticStrings();
+    _bindDelegation();
 
     // ── Offline-first: render from metadata cache immediately ─────────────
     const sharedToken = new URLSearchParams(location.search).get('shared');
@@ -507,31 +508,9 @@
   }
 
   // ── Sidebar ─────────────────────────────────────────────────────────────────
-  // The playlist name is user-controlled — and third-party controlled, since a
-  // batch download names the playlist after the YouTube playlist title. It
-  // therefore never goes into an inline handler: those are compiled as
-  // JavaScript *after* the HTML parser has decoded entities, so HTML-escaping
-  // does not contain it there. It travels in a data-* attribute instead and is
-  // read back as a plain string by the delegated listener below.
-  function _bindSidebar(el) {
-    if (el._plBound) return;
-    el._plBound = true;
-    el.addEventListener('click', (ev) => {
-      const share = ev.target.closest('.sidebar-pl-share');
-      if (share) {
-        ev.stopPropagation();
-        sharePlaylist(Number(share.dataset.plId), share.dataset.plName || '');
-        return;
-      }
-      const item = ev.target.closest('.sidebar-item');
-      if (item && item.dataset.plid) setView(Number(item.dataset.plid));
-    });
-  }
-
   function renderSidebar() {
     const el = document.getElementById('playlist-list');
     if (!el) return;
-    _bindSidebar(el);
     if (!state.playlists.length) { el.innerHTML = ''; return; }
     el.innerHTML = state.playlists.map(pl => {
       const isCollab = pl.is_collaborative;
@@ -541,14 +520,13 @@
       <div class="sidebar-item ${state.view == pl.id ? 'active' : ''}"
            data-plid="${pl.id}"
            draggable="${isOwner}"
-           ${isOwner ? `ondragstart="_plDragStart(event,${pl.id})" ondragend="_plDragEnd(event)"` : ''}
-           ondragover="_sidebarOver(event)" ondragleave="_sidebarLeave(event)"
-           ondrop="_sidebarDrop(event,${pl.id})">
+           data-act="setView" data-pl="${pl.id}" data-drag="pl"
+           ${isOwner ? 'data-drag-source="1"' : ''}>
         <span class="pl-name">${esc(pl.name)}</span>
         ${isCollab ? `<span class="pl-collab-badge">${window.I18n.t('player.collaborative')}</span>` : ''}
         <span class="pl-count">${pl.track_count}</span>
-        ${showShare ? `<button class="sidebar-pl-share"
-                data-pl-id="${pl.id}" data-pl-name="${esc(pl.name)}"
+        ${showShare ? `<button class="sidebar-pl-share" data-act="sharePlaylist"
+                data-pl="${pl.id}" data-pl-name="${esc(pl.name)}"
                 title="${window.I18n.t('player.share')}">⇗</button>` : ''}
       </div>`;
     }).join('');
@@ -634,15 +612,11 @@
           ${tracks.map((t, i) => `
             <tr data-job="${t.job_id}" data-idx="${i}"
                 class="${state.currentJob === t.job_id ? 'playing' : ''}"
-                onclick="playTrack('${t.job_id}', ${i})"
-                draggable="true"
-                ondragstart="_rowDragStart(event,'${t.job_id}')"
-                ondragend="_rowDragEnd(event)"
-                ondragover="_rowOver(event)" ondragleave="_rowLeave(event)"
-                ondrop="_rowDrop(event,'${t.job_id}',${i})">
-              <td class="col-fav" onclick="event.stopPropagation()">
+                data-act="playTrack" data-job="${t.job_id}" data-idx="${i}"
+                draggable="true" data-drag="row" data-drag-source="1">
+              <td class="col-fav" data-act="none">
                 <button class="fav-btn ${t.is_favorite ? 'on' : ''}"
-                        onclick="toggleFav('${t.job_id}', this)"
+                        data-act="toggleFav" data-job="${t.job_id}"
                         title="${t.is_favorite ? I.t('player.fav_remove') : I.t('player.fav_add')}">
                   ${t.is_favorite ? '♥' : '♡'}
                 </button>
@@ -654,12 +628,12 @@
               <td class="col-size">${fmtSize(t.file_size)}</td>
               <td class="col-date">${fmtDate(t.created_at)}</td>
               ${state.lyricsEnabled ? `
-               <td class="col-lyrics" onclick="event.stopPropagation()">
-                 <button class="lyrics-btn" onclick="openLyrics('${t.job_id}')"
+               <td class="col-lyrics" data-act="none">
+                 <button class="lyrics-btn" data-act="openLyrics" data-job="${t.job_id}"
                          id="lyrbtn-${t.job_id}" title="${I.t('player.lyrics')}"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M8 1a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0v-4A2.5 2.5 0 0 1 8 1zm0 1A1.5 1.5 0 0 0 6.5 3.5v4a1.5 1.5 0 0 0 3 0v-4A1.5 1.5 0 0 0 8 2zm-4.5 5a.5.5 0 0 1 .5.5A4.5 4.5 0 0 0 12.5 7.5a.5.5 0 0 1 1 0A5.5 5.5 0 0 1 8.5 12.95V15h1a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h1v-2.05A5.5 5.5 0 0 1 3 7.5a.5.5 0 0 1 .5-.5z"/></svg></button>
                </td>` : ''}
-              <td class="col-menu" onclick="event.stopPropagation()">
-                <button class="menu-btn" onclick="openMenu(event,'${t.job_id}')" title="⋯">⋯</button>
+              <td class="col-menu" data-act="none">
+                <button class="menu-btn" data-act="openMenu" data-job="${t.job_id}" title="⋯">⋯</button>
               </td>
             </tr>
           `).join('')}
@@ -716,14 +690,14 @@
     let html = '';
     const I = window.I18n;
     if (typeof state.view === 'number') {
-      html += `<div class="dropdown-item remove" onclick="removeFromPlaylist(${state.view},'${jobId}')">${I.t('player.remove_from_pl')}</div>`;
+      html += `<div class="dropdown-item remove" data-act="removeFromPlaylist" data-job="${jobId}">${I.t('player.remove_from_pl')}</div>`;
       html += '<div class="dropdown-div"></div>';
     }
-    html += `<div class="dropdown-item" onclick="createAndAddPlaylist('${jobId}')">${I.t('player.add_new_pl')}</div>`;
+    html += `<div class="dropdown-item" data-act="createAndAddPlaylist" data-job="${jobId}">${I.t('player.add_new_pl')}</div>`;
     if (state.playlists.length) {
       html += '<div class="dropdown-div"></div>';
       html += state.playlists.map(pl =>
-        `<div class="dropdown-item" onclick="addToPlaylist(${pl.id},'${jobId}')">${esc(pl.name)}</div>`
+        `<div class="dropdown-item" data-act="addToPlaylist" data-pl="${pl.id}" data-job="${jobId}">${esc(pl.name)}</div>`
       ).join('');
     }
     dd.innerHTML = html;
@@ -830,6 +804,129 @@
     if (!iso) return '';
     return new Date(iso).toLocaleDateString('es', { year:'numeric', month:'2-digit', day:'2-digit' });
   }
+  // ── Event delegation ────────────────────────────────────────────────────────
+  // No inline handlers anywhere in this fragment. They would force
+  // script-src 'unsafe-inline', which is what keeps the CSP from stopping an
+  // injected script — and they are also where user data used to be compiled
+  // as code. Actions travel as a data-act name, their parameters as data-*,
+  // and are dispatched here.
+  //
+  // closest() finds the innermost data-act, so a control inside a clickable
+  // row wins on its own; data-act="none" is how an element swallows a click
+  // that would otherwise reach its parent, replacing event.stopPropagation().
+  const CLICK_ACTIONS = {
+    none:                 () => {},
+    closeDrawer:          () => closeDrawer(),
+    openDrawer:           () => openDrawer(),
+    createPlaylist:       () => createPlaylist(),
+    copyShareUrl:         () => copyShareUrl(),
+    revokeShare:          () => revokeShare(),
+    closeShareModal:      () => closeShareModal(),
+    lyricsShrink:         () => window.Lyrics?.shrink(),
+    lyricsGrow:           () => window.Lyrics?.grow(),
+    lyricsClose:          () => window.Lyrics?.close(),
+    viewAll:              () => setView('all'),
+    viewFavorites:        () => setView('favorites'),
+    setView:              (el) => setView(Number(el.dataset.pl)),
+    sharePlaylist:        (el) => sharePlaylist(Number(el.dataset.pl), el.dataset.plName || ''),
+    playTrack:            (el) => playTrack(el.dataset.job, Number(el.dataset.idx)),
+    toggleFav:            (el) => toggleFav(el.dataset.job, el),
+    openLyrics:           (el) => openLyrics(el.dataset.job),
+    openMenu:             (el, ev) => openMenu(ev, el.dataset.job),
+    removeFromPlaylist:   (el) => removeFromPlaylist(state.view, el.dataset.job),
+    createAndAddPlaylist: (el) => createAndAddPlaylist(el.dataset.job),
+    addToPlaylist:        (el) => addToPlaylist(Number(el.dataset.pl), el.dataset.job),
+    joinCollab:           (el) => joinCollabPlaylist(el.dataset.token),
+    addShared:            (el) => addSharedPlaylist(el.dataset.token),
+    claimTrack:           (el) => claimTrack(el.dataset.token, el.dataset.job, el),
+  };
+
+  const CHANGE_ACTIONS = {
+    toggleShareMode: (el) => toggleShareMode(el.checked),
+  };
+
+  const INPUT_ACTIONS = {
+    renderTracks: () => renderTracks(),
+  };
+
+  // Drag groups: one entry per kind of draggable/droppable element. The
+  // sidebar item is both — it can be reordered and is a drop target for
+  // tracks — which is why these are grouped rather than per-event.
+  const DRAG_GROUPS = {
+    row: {
+      dragstart: (el, ev) => _rowDragStart(ev, el.dataset.job),
+      dragend:   (el, ev) => _rowDragEnd(ev),
+      dragover:  (el, ev) => _rowOver(ev),
+      dragleave: (el, ev) => _rowLeave(ev),
+      drop:      (el, ev) => _rowDrop(ev, el.dataset.job, Number(el.dataset.idx)),
+    },
+    pl: {
+      dragstart: (el, ev) => _plDragStart(ev, Number(el.dataset.pl)),
+      dragend:   (el, ev) => _plDragEnd(ev),
+      dragover:  (el, ev) => _sidebarOver(ev),
+      dragleave: (el, ev) => _sidebarLeave(ev),
+      drop:      (el, ev) => _sidebarDrop(ev, Number(el.dataset.pl)),
+    },
+    trash: {
+      dragover:  (el, ev) => _trashOver(ev),
+      dragleave: (el, ev) => _trashLeave(ev),
+      drop:      (el, ev) => _trashDrop(ev),
+    },
+  };
+
+  // These handlers were written against inline attributes, where
+  // event.currentTarget is the element carrying the handler. Under delegation
+  // currentTarget is whatever the listener is attached to — document — so
+  // e.currentTarget.classList would silently act on the wrong node. Restore
+  // the original meaning for the duration of the call rather than rewriting
+  // fifteen call sites.
+  function _asTarget(ev, el) {
+    try {
+      Object.defineProperty(ev, 'currentTarget', { value: el, configurable: true });
+    } catch (_) { /* older engines: handlers using currentTarget degrade */ }
+    return ev;
+  }
+
+  function _dispatch(table, attr) {
+    return (ev) => {
+      const el = ev.target.closest(`[${attr}]`);
+      if (!el) return;
+      const fn = table[el.getAttribute(attr)];
+      if (fn) fn(el, _asTarget(ev, el));
+    };
+  }
+
+  // Bound to document rather than the fragment root, because the share modal
+  // lives outside it. The SPA re-runs this script on every visit, so the
+  // previous listeners are removed first: leaving them attached would keep
+  // dispatching into the *previous* fragment's closures and its stale `state`.
+  function _bindDelegation() {
+    const root = document;
+    if (root._playerDelegation) {
+      root._playerDelegation.forEach(([type, fn]) => root.removeEventListener(type, fn));
+    }
+    const bound = [];
+    const add = (type, fn) => { root.addEventListener(type, fn); bound.push([type, fn]); };
+
+    add('click',  _dispatch(CLICK_ACTIONS,  'data-act'));
+    add('change', _dispatch(CHANGE_ACTIONS, 'data-act-change'));
+    add('input',  _dispatch(INPUT_ACTIONS,  'data-act-input'));
+
+    ['dragstart', 'dragend', 'dragover', 'dragleave', 'drop'].forEach((type) => {
+      add(type, (ev) => {
+        const el = ev.target.closest('[data-drag]');
+        if (!el) return;
+        // dragstart only applies to elements marked as sources.
+        if (type === 'dragstart' && !el.hasAttribute('data-drag-source')) return;
+        const group = DRAG_GROUPS[el.getAttribute('data-drag')];
+        const fn = group && group[type];
+        if (fn) fn(el, _asTarget(ev, el));
+      });
+    });
+
+    root._playerDelegation = bound;
+  }
+
   function esc(s) {
     return String(s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -1028,7 +1125,7 @@
         </div>
         ${data.name ? `
         <button class="btn-shared-join" id="btn-shared-join"
-                onclick="joinCollabPlaylist('${token}')">
+                data-act="joinCollab" data-token="${token}">
           ${I.t('player.join_playlist')}
         </button>` : ''}`;
     } else {
@@ -1040,7 +1137,7 @@
         </div>
         ${data.name && hasSession ? `
         <button class="btn-shared-add" id="btn-shared-add"
-                onclick="addSharedPlaylist('${token}')">
+                data-act="addShared" data-token="${token}">
           ${I.t('player.shared_add_pl')}
         </button>` : ''}`;
     }
@@ -1079,7 +1176,7 @@
             ${tracks.map((t, i) => `
             <tr data-job="${t.job_id}" data-idx="${i}"
                 class="${state.currentJob === t.job_id ? 'playing' : ''}"
-                onclick="playTrack('${t.job_id}', ${i})">
+                data-act="playTrack" data-job="${t.job_id}" data-idx="${i}">
               <td class="col-title">
                 <span class="title-text" title="${esc(t.title || t.job_id)}">${esc(t.title || t.job_id)}</span>
                 ${t.added_by_name ? `<span class="added-by-label">${addedByWithAvatar(t.added_by_name)}${esc(I.t('player.added_by').replace('{name}', t.added_by_name))}</span>` : ''}
@@ -1107,12 +1204,12 @@
               return `
               <tr data-job="${t.job_id}" data-idx="${i}"
                   class="${state.currentJob === t.job_id ? 'playing' : ''}"
-                  onclick="playTrack('${t.job_id}', ${i})">
+                  data-act="playTrack" data-job="${t.job_id}" data-idx="${i}">
                 ${hasSession ? `
-                <td class="col-claim" onclick="event.stopPropagation()">
+                <td class="col-claim" data-act="none">
                   <button class="claim-btn ${owned ? 'claimed' : ''}"
                           id="claim-${t.job_id}"
-                          onclick="${owned ? '' : `claimTrack('${token}','${t.job_id}',this)`}"
+                          ${owned ? '' : `data-act="claimTrack" data-token="${token}" data-job="${t.job_id}"`}
                           ${owned ? 'disabled' : ''}>
                     ${owned ? I.t('player.claimed') : I.t('player.claim')}
                   </button>
